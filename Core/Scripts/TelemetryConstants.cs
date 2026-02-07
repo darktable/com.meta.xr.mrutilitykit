@@ -26,6 +26,7 @@ namespace Meta.XR.MRUtilityKit
         {
             public const int LoadSceneFromDevice = 651892966;
             public const int LoadSceneFromPrefab = 651889651;
+            public const int LoadSceneFromJson = 651895197;
             public const int LoadEffectMesh = 651897605;
             public const int LoadFindSpawnPositions = 651888440;
             public const int LoadRoomGuardian = 651901100;

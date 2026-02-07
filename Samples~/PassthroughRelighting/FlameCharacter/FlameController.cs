@@ -20,6 +20,7 @@
 
 using System;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class FlameController : MonoBehaviour
 {
@@ -30,7 +31,7 @@ public class FlameController : MonoBehaviour
     [SerializeField] private GameObject mid;
     [SerializeField] private GameObject tip;
     [SerializeField] private Transform attractionTarget;
-    [SerializeField] private Light light;
+    [SerializeField] private Light flameLight;
     [SerializeField] private GameObject lookAtTarget;
     [SerializeField] private int attractionForceMultiplier = 2;
     [SerializeField] private float lightIntensityVariance = 0.2f;
@@ -61,7 +62,7 @@ public class FlameController : MonoBehaviour
         _rootRigidbody = root.GetComponent<Rigidbody>();
         _midRigidbody = mid.GetComponent<Rigidbody>();
         _tipRigidbody = tip.GetComponent<Rigidbody>();
-        _startingLightIntensity = light.intensity;
+        _startingLightIntensity = flameLight.intensity;
     }
 
     private void Update()
@@ -94,7 +95,7 @@ public class FlameController : MonoBehaviour
 
     private void AnimateLightIntensity()
     {
-        light.intensity = Remap(0, 100, _startingLightIntensity - lightIntensityVariance,
+        flameLight.intensity = Remap(0, 100, _startingLightIntensity - lightIntensityVariance,
             _startingLightIntensity + lightIntensityVariance, _skinnedMeshRenderer.GetBlendShapeWeight(0));
     }
 

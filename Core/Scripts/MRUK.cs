@@ -21,7 +21,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Linq;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -92,9 +92,22 @@ namespace Meta.XR.MRUtilityKit
         /// the room anchors are where they should be relative to the camera position.This is necessary to
         /// ensure the position of the virtual objects in the world do not get out of sync with the real world.
         /// </summary>
-        public bool EnableWorldLock = true;
+        public bool EnableWorldLock
+        {
+            get { return _enableWorldLock; }
+            set
+            {
+                if (!value && _enableWorldLock)
+                {
+                    _cameraRig.trackingSpace.localPosition = Vector3.zero;
+                    _cameraRig.trackingSpace.localRotation = Quaternion.identity;
+                }
+                _enableWorldLock = value;
+            }
+        }
 
         private OVRCameraRig _cameraRig;
+        private bool _enableWorldLock = true;
 
         /// <summary>
         /// This is the final event that tells developer code that Scene API and MR Utility Kit have been initialized, and that the room can be queried.
@@ -133,12 +146,41 @@ namespace Meta.XR.MRUtilityKit
         public List<MRUKRoom> GetRooms() => _sceneRooms;
 
         /// <summary>
-        /// Returns the current room the user is in. <br/>
-        /// For now grabs the first.
+        /// Returns the current room the headset is in. If the headset is not in any given room
+        /// then it will return the room the headset was last in when this function was called.
+        /// If the headset hasn't been in a valid room yet then return the first room in the list.
+        /// If no rooms have been loaded yet then return null.
         /// </summary>
         public MRUKRoom GetCurrentRoom()
         {
-            return _sceneRooms.Count > 0 ? _sceneRooms[0] : null;
+            // This is a rather expensive operation, we should only do it at most once per frame.
+            if (_cachedCurrentRoomFrame != Time.frameCount)
+            {
+                if (_cameraRig?.centerEyeAnchor.position is Vector3 eyePos)
+                {
+                    foreach (var room in _sceneRooms)
+                    {
+                        if (room.IsPositionInRoom(eyePos, false))
+                        {
+                            _cachedCurrentRoom = room;
+                            _cachedCurrentRoomFrame = Time.frameCount;
+                            return room;
+                        }
+                    }
+                }
+            }
+
+            if (_cachedCurrentRoom != null)
+            {
+                return _cachedCurrentRoom;
+            }
+
+            if (_sceneRooms.Count > 0)
+            {
+                return _sceneRooms[0];
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -190,6 +232,8 @@ namespace Meta.XR.MRUtilityKit
         public MRUKSettings SceneSettings;
 
         List<MRUKRoom> _sceneRooms = new List<MRUKRoom>();
+        MRUKRoom _cachedCurrentRoom = null;
+        int _cachedCurrentRoomFrame = 0;
 
         public static MRUK Instance { get; private set; }
 
@@ -232,7 +276,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void Update()
         {
-            if (EnableWorldLock && _cameraRig)
+            if (_enableWorldLock && _cameraRig)
             {
                 var room = GetCurrentRoom();
                 if (room)
@@ -293,6 +337,10 @@ namespace Meta.XR.MRUtilityKit
         internal void OnRoomDestroyed(MRUKRoom room)
         {
             _sceneRooms.Remove(room);
+            if (_cachedCurrentRoom == room)
+            {
+                _cachedCurrentRoom = null;
+            }
         }
 
         public void ClearScene()
@@ -347,11 +395,24 @@ namespace Meta.XR.MRUtilityKit
                 roomInfo.Anchor = roomAnchor;
                 roomInfos.Add(roomInfo);
 
+                // Enable locatable on all the child anchors
+                var tasks = new List<OVRTask<bool>>();
                 foreach (var child in childAnchors)
                 {
                     if (!child.TryGetComponent<OVRLocatable>(out var locatable))
                         continue;
-                    await locatable.SetEnabledAsync(true);
+                    tasks.Add(locatable.SetEnabledSafeAsync(true));
+                }
+                foreach (var task in tasks)
+                {
+                    await task;
+                }
+
+                // Once they are all enabled, get their position in a batch
+                foreach (var child in childAnchors)
+                {
+                    if (!child.TryGetComponent<OVRLocatable>(out var locatable))
+                        continue;
 
                     var label = "none";
                     var splitLabels = new List<string>();
@@ -417,9 +478,8 @@ namespace Meta.XR.MRUtilityKit
             // walls ordered sequentially, CW when viewed top-down
             List<MRUKAnchor> orderedWalls = new List<MRUKAnchor>();
 
-            // walls ordered by width, shortest to longest
-            List<MRUKAnchor> sortedWalls = new List<MRUKAnchor>();
-            List<Vector3> tempCorners = new List<Vector3>();
+            List<MRUKAnchor> unorderedWalls = new List<MRUKAnchor>();
+            List<Vector3> floorCorners = new List<Vector3>();
 
             FindObjects(MRUKAnchor.SceneLabels.WALL_FACE.ToString(), roomPrefab.transform, ref walls);
             FindObjects(MRUKAnchor.SceneLabels.OTHER.ToString(), roomPrefab.transform, ref volumes);
@@ -448,41 +508,49 @@ namespace Meta.XR.MRUtilityKit
                 objData.transform.parent = sceneRoom.transform;
                 objData.transform.Rotate(0, 180, 0);
 
-                sortedWalls.Add(objData);
+                unorderedWalls.Add(objData);
             }
 
-            // there may be imprecision between the fake walls (misaligned edges)
+            // There may be imprecision between the prefab walls (misaligned edges)
             // so, we shift them so the edges perfectly match up:
             // bottom left corner of wall is fixed, right corner matches left corner of wall to the right
-            // (outside of MR Utility Kit, cracks exist anyway because OVRSceneAnchors shift by design as they self-correct)
             int seedId = 0;
-            for (int i = 0; i < sortedWalls.Count; i++)
+            for (int i = 0; i < unorderedWalls.Count; i++)
             {
-                MRUKAnchor rightWall = GetRightWall(ref seedId, sortedWalls);
-                orderedWalls.Add(rightWall);
+                MRUKAnchor wall = GetAdjacentWall(ref seedId, unorderedWalls);
+                orderedWalls.Add(wall);
 
-                Vector3 leftCorner = rightWall.transform.position;
-                leftCorner -= rightWall.transform.up * rightWall.PlaneRect.Value.size.y * 0.5f;
-                leftCorner += rightWall.transform.right * rightWall.PlaneRect.Value.size.x * 0.5f;
-                tempCorners.Add(leftCorner);
+                Rect wallRect = wall.PlaneRect.Value;
+                Vector3 leftCorner = wall.transform.TransformPoint(new Vector3(wallRect.max.x, wallRect.min.y, 0.0f));
+                floorCorners.Add(leftCorner);
             }
             for (int i = 0; i < orderedWalls.Count; i++)
             {
-                Vector2 planeScale = orderedWalls[i].PlaneRect.Value.size;
-                Vector3 corner1 = tempCorners[i];
+                Rect planeRect = orderedWalls[i].PlaneRect.Value;
+                Vector3 corner1 = floorCorners[i];
                 int nextID = (i == orderedWalls.Count - 1) ? 0 : i + 1;
-                Vector3 corner2 = tempCorners[nextID];
+                Vector3 corner2 = floorCorners[nextID];
 
                 Vector3 wallRight = (corner1 - corner2);
+                wallRight.y = 0.0f;
+                float wallWidth = wallRight.magnitude;
+                wallRight /= wallWidth;
                 Vector3 wallUp = Vector3.up;
-                Vector3 wallFwd = Vector3.Cross(wallRight.normalized, wallUp);
-                Vector3.OrthoNormalize(ref wallFwd, ref wallUp);
-                Vector3 newPosition = (corner1 + corner2) * 0.5f + Vector3.up * planeScale.y * 0.5f;
+                Vector3 wallFwd = Vector3.Cross(wallRight, wallUp);
+                Vector3 newPosition = (corner1 + corner2) * 0.5f + Vector3.up * (planeRect.height * 0.5f);
                 Quaternion newRotation = Quaternion.LookRotation(wallFwd, wallUp);
+                Rect newRect = new Rect(-0.5f * wallWidth, planeRect.y, wallWidth, planeRect.height);
 
                 orderedWalls[i].transform.position = newPosition;
                 orderedWalls[i].transform.rotation = newRotation;
-                orderedWalls[i].PlaneRect = new Rect(-0.5f * wallRight.magnitude, -0.5f * planeScale.y, wallRight.magnitude, planeScale.y);
+                orderedWalls[i].PlaneRect = newRect;
+                orderedWalls[i].PlaneBoundary2D = new List<Vector2>
+                {
+                    new Vector2(newRect.xMin, newRect.yMin),
+                    new Vector2(newRect.xMax, newRect.yMin),
+                    new Vector2(newRect.xMax, newRect.yMax),
+                    new Vector2(newRect.xMin, newRect.yMax),
+                };
             }
 
             for (int i = 0; i < volumes.Count; i++)
@@ -514,17 +582,26 @@ namespace Meta.XR.MRUtilityKit
             }
 
             // mimic OVRSceneManager: floor/ceiling anchor aligns with longest wall, scaled to room size
-            sortedWalls = sortedWalls.OrderBy(w => w.PlaneRect.Value.size.x).ToList();
-            MRUKAnchor longestWall = sortedWalls[sortedWalls.Count - 1];
+            MRUKAnchor longestWall = null;
+            float longestWidth = 0.0f;
+            foreach (var wall in orderedWalls)
+            {
+                float wallWidth = wall.PlaneRect.Value.size.x;
+                if (wallWidth > longestWidth)
+                {
+                    longestWidth = wallWidth;
+                    longestWall = wall;
+                }
+            }
 
             // calculate the room bounds, relative to the longest wall
             float zMin = 0.0f;
             float zMax = 0.0f;
             float xMin = 0.0f;
             float xMax = 0.0f;
-            for (int i = 0; i < tempCorners.Count; i++)
+            for (int i = 0; i < floorCorners.Count; i++)
             {
-                Vector3 localPos = longestWall.transform.InverseTransformPoint(tempCorners[i]);
+                Vector3 localPos = longestWall.transform.InverseTransformPoint(floorCorners[i]);
 
                 zMin = i == 0 ? localPos.z : Mathf.Min(zMin, localPos.z);
                 zMax = i == 0 ? localPos.z : Mathf.Max(zMax, localPos.z);
@@ -546,8 +623,8 @@ namespace Meta.XR.MRUtilityKit
                 MRUKAnchor objData = CreateAnchor(anchorName, position, rotation, floorScale, AnchorRepresentation.PLANE);
                 objData.transform.parent = sceneRoom.transform;
 
-                objData.PlaneBoundary2D = new(tempCorners.Count);
-                foreach (var corner in tempCorners)
+                objData.PlaneBoundary2D = new(floorCorners.Count);
+                foreach (var corner in floorCorners)
                 {
                     var localCorner = objData.transform.InverseTransformPoint(corner);
                     objData.PlaneBoundary2D.Add(new Vector2(localCorner.x, localCorner.y));
@@ -566,9 +643,40 @@ namespace Meta.XR.MRUtilityKit
             InitializeScene();
         }
 
+        /// <summary>
+        /// Serializes the current scene into a JSON string using the specified coordinate system for serialization.
+        /// </summary>
+        /// <param name="coordinateSystem">The coordinate system to be used for serialization (Unity/Unreal).</param>
+        /// <returns>A JSON string representing the serialized scene data.</returns>
         public string SaveSceneToJsonString(SerializationHelpers.CoordinateSystem coordinateSystem)
         {
             return SerializationHelpers.Serialize(coordinateSystem);
+        }
+
+        /// <summary>
+        /// Loads the scene from a JSON string representing the scene data.
+        /// </summary>
+        /// <param name="jsonString">The JSON string containing the serialized scene data.</param>
+        /// <param name="clearSceneFirst">If set to true, the current scene will be cleared before loading the new data. Defaults to true.</param>
+        public void LoadSceneFromJsonString(string jsonString, bool clearSceneFirst = true)
+        {
+            if (clearSceneFirst)
+            {
+                ClearScene();
+            }
+
+            _sceneRooms =  SerializationHelpers.Deserialize(jsonString);
+            foreach (var room in _sceneRooms)
+            {
+                // after everything, we need to let the room computation run
+                room.ComputeRoomInfo();
+            }
+#if UNITY_EDITOR
+            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromJson)
+                .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, _sceneRooms.Count.ToString())
+                .Send();
+#endif
+            InitializeScene();
         }
 
         MRUKAnchor CreateAnchorFromRoomObject(Transform refObject, Vector3 objScale, AnchorRepresentation representation)
@@ -617,7 +725,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        MRUKAnchor GetRightWall(ref int thisID, List<MRUKAnchor> randomWalls)
+        MRUKAnchor GetAdjacentWall(ref int thisID, List<MRUKAnchor> randomWalls)
         {
             Vector2 thisWallScale = randomWalls[thisID].PlaneRect.Value.size;
 
@@ -643,7 +751,7 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
             thisID = rightWallID;
-            return randomWalls[thisID].GetComponent<MRUKAnchor>();
+            return randomWalls[thisID];
         }
     }
 }

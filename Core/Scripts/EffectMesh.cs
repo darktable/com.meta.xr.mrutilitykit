@@ -29,16 +29,16 @@ namespace Meta.XR.MRUtilityKit
     public class EffectMesh : MonoBehaviour
     {
         [Tooltip("The material applied to the generated mesh.")]
-        public Material _MeshMaterial;
+        [FormerlySerializedAs("_MeshMaterial")]
+        public Material MeshMaterial;
 
         [Tooltip("The inset vertex spacing on each polygon.")]
-        public float _borderSize = 0.1f;
-
-        [Tooltip("How far windows & doors should hover from the wall. Ignored if wall/door labels aren't included.")]
-        public float framesOffset = 0.02f;
+        [FormerlySerializedAs("_borderSize")]
+        public float BorderSize = 0.0f;
 
         [Tooltip("Generate a BoxCollider for each mesh component.")]
-        public bool addColliders = false;
+        [FormerlySerializedAs("addColliders")]
+        public bool Colliders = false;
 
         [Tooltip("Whether the effect mesh objects will cast a shadow.")]
         [SerializeField]
@@ -133,63 +133,61 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// Given a clockwise set of points (outer then inner), set up triangle indices accordingly
         /// </summary>
-        void CreateBorderedPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, int pointsInLoop, List<Vector2> points = null)
+        void CreateBorderPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, int pointsInLoop)
         {
-            try
+            for (int j = 0; j < pointsInLoop; j++)
             {
-                for (int j = 0; j < pointsInLoop; j++)
-                {
-                    int id1 = ((j + 1) % pointsInLoop);
-                    int id2 = pointsInLoop + j;
+                int id1 = ((j + 1) % pointsInLoop);
+                int id2 = pointsInLoop + j;
 
-                    indexArray[indexCounter++] = baseCount + j;
-                    indexArray[indexCounter++] = baseCount + id1;
-                    indexArray[indexCounter++] = baseCount + id2;
+                indexArray[indexCounter++] = baseCount + j;
+                indexArray[indexCounter++] = baseCount + id1;
+                indexArray[indexCounter++] = baseCount + id2;
 
-                    indexArray[indexCounter++] = baseCount + pointsInLoop + ((j + 1) % pointsInLoop);
-                    indexArray[indexCounter++] = baseCount + id2;
-                    indexArray[indexCounter++] = baseCount + id1;
-                }
-
-                if (points != null)
-                {
-                    List<int> indices = Triangulator.TriangulatePoints(points);
-                    int capTriCount = indices.Count / 3;
-                    for (int j = 0; j < capTriCount; j++)
-                    {
-                        int id0 = pointsInLoop + indices[j * 3];
-                        int id1 = pointsInLoop + indices[j * 3 + 1];
-                        int id2 = pointsInLoop + indices[j * 3 + 2];
-
-                        indexArray[indexCounter++] = baseCount + id0;
-                        indexArray[indexCounter++] = baseCount + id1;
-                        indexArray[indexCounter++] = baseCount + id2;
-                    }
-                }
-                else
-                {
-                    //use simple triangle fan
-                    int capTriCount = pointsInLoop - 2;
-                    for (int j = 0; j < capTriCount; j++)
-                    {
-                        int id1 = pointsInLoop + j + 1;
-                        int id2 = pointsInLoop + j + 2;
-                        indexArray[indexCounter++] = baseCount + pointsInLoop;
-                        indexArray[indexCounter++] = baseCount + id1;
-                        indexArray[indexCounter++] = baseCount + id2;
-                    }
-                }
+                indexArray[indexCounter++] = baseCount + pointsInLoop + ((j + 1) % pointsInLoop);
+                indexArray[indexCounter++] = baseCount + id2;
+                indexArray[indexCounter++] = baseCount + id1;
             }
-            catch (IndexOutOfRangeException exception)
+        }
+
+        /// <summary>
+        /// Given a clockwise set of points, triangulate the interior
+        /// </summary>
+        void CreateInteriorPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, List<Vector2> points)
+        {
+            List<int> indices = Triangulator.TriangulatePoints(points);
+            int capTriCount = indices.Count / 3;
+            for (int j = 0; j < capTriCount; j++)
             {
-                Debug.LogError("Error parsing walls, are the walls intersecting? " + exception.Message);
+                int id0 = indices[j * 3];
+                int id1 = indices[j * 3 + 1];
+                int id2 = indices[j * 3 + 2];
+
+                indexArray[indexCounter++] = baseCount + id0;
+                indexArray[indexCounter++] = baseCount + id1;
+                indexArray[indexCounter++] = baseCount + id2;
+            }
+        }
+
+        /// <summary>
+        /// Create a triangle fan given the number of points to triangulate
+        /// </summary>
+        void CreateInteriorTriangleFan(ref int[] indexArray, ref int indexCounter, int baseCount, int pointsInLoop)
+        {
+            int capTriCount = pointsInLoop - 2;
+            for (int j = 0; j < capTriCount; j++)
+            {
+                int id1 = j + 1;
+                int id2 = j + 2;
+                indexArray[indexCounter++] = baseCount;
+                indexArray[indexCounter++] = baseCount + id1;
+                indexArray[indexCounter++] = baseCount + id2;
             }
         }
 
         public void CreateMesh()
         {
-            var room = MRUK.Instance?.GetCurrentRoom();
-            if (room)
+            foreach (var room in MRUK.Instance.GetRooms())
             {
                 CreateMesh(room);
             }
@@ -346,7 +344,7 @@ namespace Meta.XR.MRUtilityKit
                     }
                     else
                     {
-                        CreateEffectMesh(sceneAnchors[i], _borderSize);
+                        CreateEffectMesh(sceneAnchors[i], BorderSize);
                     }
                 }
             }
@@ -354,7 +352,7 @@ namespace Meta.XR.MRUtilityKit
             float totalWallLength = 0.0f;
             List<MRUKAnchor> sortedWalls = GetOrderedWalls(walls, ref totalWallLength);
             float uSpacing = 0.0f;
-            float polyBorderSize = Mathf.Min(shortestWallDimension * 0.5f, _borderSize);
+            float polyBorderSize = Mathf.Min(shortestWallDimension * 0.5f, BorderSize);
             for (int i = 0; i < sortedWalls.Count; i++)
             {
                 CreateEffectMeshWall(sortedWalls[i], totalWallLength, ref uSpacing, polyBorderSize);
@@ -438,15 +436,26 @@ namespace Meta.XR.MRUtilityKit
             EffectMeshObject effectMeshObject = new EffectMeshObject();
             int totalVertices;
             int totalIndices;
+            bool createBorder = border > 0.0f;
             if (anchorInfo.HasVolume)
             {
-                totalVertices = 48;
-                totalIndices = 180;
+                totalVertices = 24;
+                totalIndices = 36;
+                if (createBorder)
+                {
+                    totalVertices += 24;
+                    totalIndices += 144;
+                }
             }
             else if (anchorInfo.HasPlane)
             {
-                totalVertices = anchorInfo.PlaneBoundary2D.Count * 2;
-                totalIndices = anchorInfo.PlaneBoundary2D.Count * 6 + (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
+                totalVertices = anchorInfo.PlaneBoundary2D.Count;
+                totalIndices = (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
+                if (createBorder)
+                {
+                    totalVertices += anchorInfo.PlaneBoundary2D.Count;
+                    totalIndices += anchorInfo.PlaneBoundary2D.Count * 6;
+                }
             }
             else
             {
@@ -456,9 +465,7 @@ namespace Meta.XR.MRUtilityKit
             effectMeshObject.anchorInfo = anchorInfo;
 
             GameObject newGameObject = new GameObject(anchorInfo.name + "_EffectMesh");
-            newGameObject.transform.parent = this.transform;
-            newGameObject.transform.position = anchorInfo.transform.position;
-            newGameObject.transform.rotation = anchorInfo.transform.rotation;
+            newGameObject.transform.SetParent(anchorInfo.transform, false);
 
             effectMeshObject.effectMeshGO = newGameObject;
             Mesh newMesh = new Mesh();
@@ -466,20 +473,13 @@ namespace Meta.XR.MRUtilityKit
             meshFilter.mesh = newMesh;
 
             // only attach MeshRenderer if a material has been assigned
-            if (_MeshMaterial != null)
+            if (MeshMaterial != null)
             {
                 MeshRenderer newRenderer = newGameObject.AddComponent<MeshRenderer>();
-                newRenderer.material = _MeshMaterial;
+                newRenderer.material = MeshMaterial;
                 newRenderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
                 newRenderer.enabled = !hideMesh;
             }
-
-            Vector3 dim = anchorInfo.GetAnchorSize();
-            // if the object is thin, the border size needs to adjust
-            float maxBorder = Mathf.Min(border,
-                                        dim.x * 0.5f,
-                                        dim.y * 0.5f,
-                                        dim.z * 0.5f);
 
             Vector3[] MeshVertices = new Vector3[totalVertices];
             Vector2[] MeshUVs = new Vector2[totalVertices];
@@ -491,9 +491,14 @@ namespace Meta.XR.MRUtilityKit
 
             int vertCounter = 0;
             int triCounter = 0;
+            int baseVert = 0;
 
             if (anchorInfo.HasVolume)
             {
+                Vector3 dim = anchorInfo.VolumeBounds.Value.size;
+                // if the object is thin, the border size needs to adjust
+                border = Mathf.Min(border, dim.x * 0.5f, dim.y * 0.5f, dim.z * 0.5f);
+
                 // each cube face gets an 8-vertex mesh
                 for (int j = 0; j < 6; j++)
                 {
@@ -558,62 +563,86 @@ namespace Meta.XR.MRUtilityKit
 
                         Vector3 basePoint = fwd * rotatedDim.z * 0.5f + right * rotatedDim.x * 0.5f - up * rotatedDim.y * 0.5f;
                         basePoint += up * rotatedDim.y * UVy - right * rotatedDim.x * UVx;
-                        Vector3 offset = up * -yDir * maxBorder + right * xDir * maxBorder;
-                        Vector2 UVoffset = new Vector2(-xDir * maxBorder / UVxDim, -yDir * maxBorder / UVyDim);
+                        Vector2 quadUV = new Vector2(UVx, UVy);
 
                         MeshVertices[vertCounter] = basePoint - Vector3.forward * dim.z * 0.5f;
-                        MeshVertices[vertCounter + 4] = MeshVertices[vertCounter] + offset;
-
-                        Vector2 quadUV = new Vector2(UVx, UVy);
                         MeshUVs[vertCounter] = Vector2.Scale(quadUV, new Vector2(UVxDim, UVyDim));
-                        MeshUVs[vertCounter + 4] = Vector2.Scale(quadUV + UVoffset, new Vector2(UVxDim, UVyDim));
-
-                        MeshColors[vertCounter] = Color.black;
-                        MeshColors[vertCounter + 4] = Color.white;
+                        MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
                         MeshNormals[vertCounter] = fwd;
-                        MeshNormals[vertCounter + 4] = fwd;
                         MeshTangents[vertCounter] = new Vector4(-right.x, -right.y, -right.z, -1);
-                        MeshTangents[vertCounter + 4] = new Vector4(-right.x, -right.y, -right.z, -1);
+
+                        if (createBorder)
+                        {
+                            Vector3 offset = up * -yDir * border + right * xDir * border;
+                            Vector2 UVoffset = new Vector2(-xDir * border / UVxDim, -yDir * border / UVyDim);
+
+                            MeshVertices[vertCounter + 4] = MeshVertices[vertCounter] + offset;
+                            MeshUVs[vertCounter + 4] = Vector2.Scale(quadUV + UVoffset, new Vector2(UVxDim, UVyDim));
+                            MeshColors[vertCounter + 4] = Color.white;
+                            MeshNormals[vertCounter + 4] = fwd;
+                            MeshTangents[vertCounter + 4] = new Vector4(-right.x, -right.y, -right.z, -1);
+                        }
                         vertCounter++;
                     }
-                    vertCounter += 4;
 
-                    int baseVert = (j * 8);
-                    CreateBorderedPolygon(ref MeshTriangles, ref triCounter, baseVert, 4);
+                    if (createBorder)
+                    {
+                        vertCounter += 4;
+                        CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, 4);
+                        baseVert += 4;
+                    }
+                    CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, baseVert, 4);
+                    baseVert += 4;
                 }
             }
             else
             {
+                Vector2 size = anchorInfo.PlaneRect.Value.size;
+                // if the object is thin, the border size needs to adjust
+                border = Mathf.Min(border, size.x * 0.5f, size.y * 0.5f);
                 List<Vector2> localPoints = anchorInfo.PlaneBoundary2D;
-                List<Vector2> localInnerPoints = new List<Vector2>(localPoints.Count);
                 for (int i = 0; i < localPoints.Count; i++)
                 {
                     Vector2 thisCorner = localPoints[i];
-                    Vector2 nextCorner = (i == localPoints.Count - 1) ? localPoints[0] : localPoints[i + 1];
-                    Vector2 lastCorner = (i == 0) ? localPoints[localPoints.Count - 1] : localPoints[i - 1];
-                    Vector2 insetPosOffset = GetInsetPositionOffset(lastCorner, thisCorner, nextCorner, border);
 
                     MeshVertices[vertCounter] = new Vector3(thisCorner.x, thisCorner.y, 0);
                     MeshUVs[vertCounter] = new Vector2(-thisCorner.x, thisCorner.y);
-                    MeshColors[vertCounter] = Color.black;
+                    MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
                     MeshNormals[vertCounter] = Vector3.forward;
                     MeshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
-
-                    // inner points
-                    int newID = vertCounter + localPoints.Count;
-
-                    Vector2 innerVertex = thisCorner + insetPosOffset;
-                    localInnerPoints.Add(innerVertex);
-                    MeshVertices[newID] = new Vector3(innerVertex.x, innerVertex.y, 0);
-                    MeshUVs[newID] = new Vector2(-innerVertex.x, innerVertex.y);
-                    MeshColors[newID] = Color.white;
-                    MeshNormals[newID] = Vector3.forward;
-                    MeshTangents[newID] = new Vector4(1, 0, 0, 1);
 
                     vertCounter++;
                 }
 
-                CreateBorderedPolygon(ref MeshTriangles, ref triCounter, 0, localPoints.Count, localInnerPoints);
+                if (createBorder)
+                {
+                    List<Vector2> localInnerPoints = new List<Vector2>(localPoints.Count);
+
+                    for (int i = 0; i < localPoints.Count; i++)
+                    {
+                        Vector2 thisCorner = localPoints[i];
+                        Vector2 nextCorner = (i == localPoints.Count - 1) ? localPoints[0] : localPoints[i + 1];
+                        Vector2 lastCorner = (i == 0) ? localPoints[localPoints.Count - 1] : localPoints[i - 1];
+                        Vector2 insetPosOffset = GetInsetPositionOffset(lastCorner, thisCorner, nextCorner, border);
+
+                        Vector2 innerVertex = thisCorner + insetPosOffset;
+                        localInnerPoints.Add(innerVertex);
+                        MeshVertices[vertCounter] = new Vector3(innerVertex.x, innerVertex.y, 0);
+                        MeshUVs[vertCounter] = new Vector2(-innerVertex.x, innerVertex.y);
+                        MeshColors[vertCounter] = Color.white;
+                        MeshNormals[vertCounter] = Vector3.forward;
+                        MeshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
+
+                        vertCounter++;
+                    }
+
+                    localPoints = localInnerPoints;
+
+                    CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, localPoints.Count);
+                    baseVert += localPoints.Count;
+                }
+
+                CreateInteriorPolygon(ref MeshTriangles, ref triCounter, baseVert, localPoints);
             }
 
             newMesh.Clear();
@@ -627,7 +656,7 @@ namespace Meta.XR.MRUtilityKit
 
             effectMeshObject.mesh = newMesh;
 
-            if (addColliders)
+            if (Colliders)
             {
                 effectMeshObject.collider = AddCollider(effectMeshObject);
             }
@@ -666,9 +695,7 @@ namespace Meta.XR.MRUtilityKit
             effectMeshObject.anchorInfo = anchorInfo;
 
             GameObject newGameObject = new GameObject(anchorInfo.name + "_EffectMesh");
-            newGameObject.transform.parent = this.transform;
-            newGameObject.transform.position = anchorInfo.transform.position;
-            newGameObject.transform.rotation = anchorInfo.transform.rotation;
+            newGameObject.transform.SetParent(anchorInfo.transform, false);
 
             effectMeshObject.effectMeshGO = newGameObject;
 
@@ -677,10 +704,10 @@ namespace Meta.XR.MRUtilityKit
             meshFilter.mesh = newMesh;
 
             // only attach MeshRenderer if a material has been assigned
-            if (_MeshMaterial != null)
+            if (MeshMaterial != null)
             {
                 MeshRenderer newRenderer = newGameObject.AddComponent<MeshRenderer>();
-                newRenderer.material = _MeshMaterial;
+                newRenderer.material = MeshMaterial;
                 newRenderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
                 newRenderer.enabled = !hideMesh;
             }
@@ -688,8 +715,15 @@ namespace Meta.XR.MRUtilityKit
             Vector2 wallScale = anchorInfo.PlaneRect.Value.size;
             float ceilingHeight = wallScale.y;
 
-            int totalVertices = 8;
-            int totalIndices = 30;
+            bool createBorder = border > 0.0f;
+
+            int totalVertices = 4;
+            int totalIndices = 6;
+            if (createBorder)
+            {
+                totalVertices += 4;
+                totalIndices += 24;
+            }
             int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
 
             Vector3[] MeshVertices = new Vector3[totalVertices];
@@ -768,24 +802,36 @@ namespace Meta.XR.MRUtilityKit
                     }
 
                     MeshUVs[x][vertCounter] = new Vector2((uSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
-                    MeshUVs[x][vertCounter + 4] = new Vector2((uSpacing + thisSegmentLength - innerU) / denominatorX, innerV / denominatorY);
+                    if (createBorder)
+                    {
+                        MeshUVs[x][vertCounter + 4] = new Vector2((uSpacing + thisSegmentLength - innerU) / denominatorX, innerV / denominatorY);
+                    }
                 }
 
                 MeshVertices[vertCounter] = new Vector3(u - thisSegmentLength / 2, v - ceilingHeight / 2, 0);
-                MeshVertices[vertCounter + 4] = new Vector3(innerU - thisSegmentLength / 2, innerV - ceilingHeight / 2, 0);
-
-                MeshColors[vertCounter] = Color.black;
-                MeshColors[vertCounter + 4] = Color.white;
+                MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
                 MeshNormals[vertCounter] = wallNorm;
-                MeshNormals[vertCounter + 4] = wallNorm;
                 MeshTangents[vertCounter] = wallTan;
-                MeshTangents[vertCounter + 4] = wallTan;
+
+                if (createBorder)
+                {
+                    MeshVertices[vertCounter + 4] = new Vector3(innerU - thisSegmentLength / 2, innerV - ceilingHeight / 2, 0);
+                    MeshColors[vertCounter + 4] = Color.white;
+                    MeshNormals[vertCounter + 4] = wallNorm;
+                    MeshTangents[vertCounter + 4] = wallTan;
+                }
                 vertCounter++;
             }
 
             uSpacing += thisSegmentLength;
 
-            CreateBorderedPolygon(ref MeshTriangles, ref triCounter, 0, 4);
+            int baseVert = 0;
+            if (createBorder)
+            {
+                CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, 4);
+                baseVert += 4;
+            }
+            CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, baseVert, 4);
 
             newMesh.Clear();
             newMesh.name = anchorInfo.name;
@@ -827,7 +873,7 @@ namespace Meta.XR.MRUtilityKit
 
             effectMeshObject.mesh = newMesh;
 
-            if (addColliders)
+            if (Colliders)
             {
                 effectMeshObject.collider = AddCollider(effectMeshObject);
             }
@@ -845,26 +891,31 @@ namespace Meta.XR.MRUtilityKit
             var effectMeshObject = new EffectMeshObject();
             effectMeshObject.anchorInfo = globalMeshAnchor;
 
-            globalMeshAnchor.transform.SetParent(transform, false);
-
             var globalMeshGO = new GameObject(globalMeshAnchor.name + "_EffectMesh", typeof(MeshFilter), typeof(MeshRenderer));
+            globalMeshGO.transform.SetParent(globalMeshAnchor.transform, false);
             effectMeshObject.effectMeshGO = globalMeshGO;
 
-            globalMeshAnchor.Anchor.TryGetComponent(out OVRLocatable locatable);
-            await locatable.SetEnabledAsync(true);
+            if (globalMeshAnchor.GlobalMesh == null)
+            {
+                globalMeshAnchor.Anchor.TryGetComponent(out OVRLocatable locatable);
+                await locatable.SetEnabledSafeAsync(true);
 
-            if (!locatable.TryGetSceneAnchorPose(out var pose))
-                return;
+                if (!locatable.TryGetSceneAnchorPose(out var pose))
+                    return;
 
-            var pos = pose.ComputeWorldPosition(Camera.main);
-            var rot = pose.ComputeWorldRotation(Camera.main);
+                var pos = pose.ComputeWorldPosition(Camera.main);
+                var rot = pose.ComputeWorldRotation(Camera.main);
 
-            globalMeshGO.transform.SetPositionAndRotation(pos.Value, rot.Value);
+                globalMeshGO.transform.SetPositionAndRotation(pos.Value, rot.Value);
+                globalMeshAnchor.GlobalMesh = globalMeshAnchor.LoadGlobalMeshTriangles();
+            }
 
-            var trimesh = globalMeshAnchor.LoadGlobalMeshTriangles();
+            globalMeshAnchor.GlobalMesh.RecalculateNormals();
+            var trimesh = globalMeshAnchor.GlobalMesh;
+
             globalMeshGO.GetComponent<MeshFilter>().sharedMesh = trimesh;
 
-            if (addColliders)
+            if (Colliders)
             {
                 var meshCollider = globalMeshGO.AddComponent<MeshCollider>();
                 meshCollider.sharedMesh = trimesh;
@@ -872,9 +923,9 @@ namespace Meta.XR.MRUtilityKit
             }
 
             var renderer = globalMeshGO.GetComponent<MeshRenderer>();
-            if (_MeshMaterial != null)
+            if (MeshMaterial != null)
             {
-                renderer.material = _MeshMaterial;
+                renderer.material = MeshMaterial;
                 renderer.enabled = !hideMesh;
             }
             renderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;

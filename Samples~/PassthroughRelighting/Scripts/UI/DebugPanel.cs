@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class DebugPanel : MonoBehaviour
@@ -31,8 +32,9 @@ public class DebugPanel : MonoBehaviour
     [SerializeField] private Toggle highlightsToggle;
     [SerializeField] private Toggle globalMeshToggle;
     [SerializeField] private Button respawnButton;
-    [SerializeField] private Slider lightOpaquenessSlider;
+    [SerializeField] private Slider lightAttenuationSlider;
     [SerializeField] private Slider passthroughBrightnessSlider;
+    [SerializeField] private Slider lightOpaquenessSlider;
 
     [SerializeField] private Renderer oppyRenderer;
     [SerializeField] private GameObject blobShadowProjector;
@@ -43,6 +45,7 @@ public class DebugPanel : MonoBehaviour
 
     private EffectMesh[] effectMeshes;
     private const string HighLightAttenuationShaderPropertyName = "_HighLightAttenuation";
+    private const string HighLightOpaquenessShaderPropertyName = "_HighlightOpacity";
 
     private void Awake()
     {
@@ -50,8 +53,11 @@ public class DebugPanel : MonoBehaviour
         highlightsToggle.onValueChanged.AddListener(HighlightSettingsToggled);
         globalMeshToggle.onValueChanged.AddListener(GlobalMeshSettingsToggled);
         respawnButton.onClick.AddListener(oppyController.Respawn);
-        lightOpaquenessSlider.onValueChanged.AddListener(
+        lightAttenuationSlider.onValueChanged.AddListener(
             (val) => { sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val); }
+        );
+        lightOpaquenessSlider.onValueChanged.AddListener(
+            (val) => { sceneMaterial.SetFloat(HighLightOpaquenessShaderPropertyName, val); }
         );
         passthroughBrightnessSlider.onValueChanged.AddListener(
             (brightness) =>

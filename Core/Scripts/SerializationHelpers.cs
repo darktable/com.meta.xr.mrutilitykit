@@ -66,12 +66,20 @@ namespace Meta.XR.MRUtilityKit
             public PlaneBoundsData? PlaneBounds;
             public VolumeBoundsData? VolumeBounds;
             public List<Vector2> PlaneBoundary2D;
+            public GlobalMeshData? GlobalMesh;
+        }
+
+        private struct GlobalMeshData
+        {
+            public Vector3[] Positions;
+            public int[] Indices;
         }
 
         private struct RoomLayoutData
         {
             public string FloorUuid;
             public string CeilingUuid;
+            public string GlobalMeshUuid;
             public List<string> WallsUUid;
         }
 
@@ -146,9 +154,99 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        private class IntArrayConverter : JsonConverter<int[]>
+        {
+            public override void WriteJson(JsonWriter writer, int[] value, JsonSerializer serializer)
+            {
+                int[] array = value;
+                writer.WriteStartArray();
+                var prevFormatting = writer.Formatting;
+                writer.Formatting = Formatting.None;
+                foreach (var item in array)
+                {
+                    writer.WriteValue(item);
+                }
+                writer.WriteEndArray();
+                writer.Formatting = prevFormatting;
+            }
+
+            public override int[] ReadJson(JsonReader reader, Type objectType, int[] existingValue, bool hasExistingValue, JsonSerializer serial)
+            {
+                if (reader.TokenType == JsonToken.StartArray)
+                {
+                    var list = new System.Collections.Generic.List<int>();
+                    while (reader.Read())
+                    {
+                        if (reader.TokenType == JsonToken.EndArray)
+                        {
+                            return list.ToArray();
+                        }
+                        list.Add((int)(long)reader.Value);
+                    }
+                }
+                throw new JsonReaderException("Expected start of array.");
+            }
+        }
+
+        private class Vector3ArrayConverter : JsonConverter<Vector3[]>
+        {
+            public override void WriteJson(JsonWriter writer, Vector3[] value, JsonSerializer serializer)
+            {
+                Vector3[] array = value;
+                writer.WriteStartArray();
+                var prevFormatting = writer.Formatting;
+                writer.Formatting = Formatting.None;
+                foreach (var item in array)
+                {
+                    writer.WriteStartArray();
+                    writer.WriteValue(item.x);
+                    writer.WriteValue(item.y);
+                    writer.WriteValue(item.z);
+                    writer.WriteEndArray();
+                }
+                writer.WriteEndArray();
+                writer.Formatting = prevFormatting;
+            }
+
+            public override Vector3[] ReadJson(JsonReader reader, Type objectType, Vector3[] existingValue, bool hasExistingValue, JsonSerializer serial)
+            {
+                if (reader.TokenType == JsonToken.StartArray)
+                {
+                    var list = new System.Collections.Generic.List<Vector3>();
+                    while (reader.Read())
+                    {
+                        if (reader.TokenType == JsonToken.EndArray)
+                        {
+                            return list.ToArray();
+                        }
+                        Vector3 result = new()
+                        {
+                            x = (float)reader.ReadAsDouble(),
+                            y = (float)reader.ReadAsDouble(),
+                            z = (float)reader.ReadAsDouble()
+                        };
+                        reader.Read();
+                        if (reader.TokenType != JsonToken.EndArray)
+                        {
+                            throw new Exception("Expected end of array");
+                        }
+                        list.Add(result);
+                    }
+                }
+                throw new JsonReaderException("Expected start of array.");
+            }
+        }
+
         const float UnrealWorldToMeters = 100f;
 
-        public static string Serialize(CoordinateSystem coordinateSystem)
+        /// <summary>
+        /// Serializes the scene data into a JSON string. The scene data includes rooms, anchors, and their associated properties.
+        /// The method allows for the specification of the coordinate system (Unity or Unreal) and whether to include the global mesh data.
+        /// </summary>
+        /// <param name="coordinateSystem">The coordinate system to use for the serialization (Unity or Unreal).</param>
+        /// <param name="includeGlobalMesh">A boolean indicating whether to include the global mesh data in the serialization. Default is true.</param>
+        /// <returns>A JSON string representing the serialized scene data.</returns>
+        public static string Serialize(CoordinateSystem coordinateSystem, bool includeGlobalMesh = true)
         {
             SceneData sceneData = new();
             sceneData.CoordinateSystem = coordinateSystem;
@@ -186,6 +284,10 @@ namespace Meta.XR.MRUtilityKit
                     if (anchor == room.GetFloorAnchor())
                     {
                         roomData.RoomLayout.FloorUuid = anchorData.UUID;
+                    }
+                    if (anchor == room.GetGlobalMeshAnchor())
+                    {
+                        roomData.RoomLayout.GlobalMeshUuid = anchorData.UUID;
                     }
                     if (room.GetWallAnchors().Contains(anchor))
                     {
@@ -262,6 +364,31 @@ namespace Meta.XR.MRUtilityKit
                             };
                         }
                     }
+                    Mesh globalMesh = anchor.GlobalMesh;
+                    if (includeGlobalMesh && globalMesh)
+                    {
+                        Vector3[] vertices = globalMesh.vertices;
+                        int[] triangles = globalMesh.triangles;
+                        if (coordinateSystem == CoordinateSystem.Unreal)
+                        {
+                            for (int i = 0; i < vertices.Length; i++)
+                            {
+                                var vert = vertices[i];
+                                vertices[i] = new Vector3(-vert.z, -vert.x, vert.y);
+                            }
+                            Array.Reverse(triangles);
+                        }
+                        else
+                        {
+                            vertices = globalMesh.vertices;
+                            triangles = globalMesh.triangles;
+                        }
+                        anchorData.GlobalMesh = new GlobalMeshData()
+                        {
+                            Positions = vertices,
+                            Indices = triangles
+                        };
+                    }
                     roomData.Anchors.Add(anchorData);
                 }
                 sceneData.Rooms.Add(roomData);
@@ -274,13 +401,158 @@ namespace Meta.XR.MRUtilityKit
             {
                 new Vector2Converter(),
                 new Vector3Converter(),
+                new IntArrayConverter(),
+                new Vector3ArrayConverter()
             };
             string json = JsonConvert.SerializeObject(sceneData, settings);
 
             return json;
         }
 
-        // var foo = JsonConvert.DeserializeObject<SceneData>(json, settings);
+        /// <summary>
+        /// Deserializes a JSON string into a list of MRUKRoom objects.
+        /// </summary>
+        /// <param name="json">The JSON string representing the serialized scene data.</param>
+        /// <returns>A list of MRUKRoom objects representing the deserialized scene data.</returns>
+        public static List<MRUKRoom> Deserialize(string json)
+        {
+            JsonSerializerSettings settings = new JsonSerializerSettings();
+            settings.NullValueHandling = NullValueHandling.Ignore;
+            settings.Converters = new List<JsonConverter>()
+            {
+                new Vector2Converter(),
+                new Vector3Converter(),
+                new IntArrayConverter(),
+                new Vector3ArrayConverter()
+            };
+            var sceneData = JsonConvert.DeserializeObject<SceneData>(json, settings);
+            var rooms = CreateSceneFromSceneData(sceneData);
+            return rooms;
+        }
 
+        static List<MRUKRoom> CreateSceneFromSceneData(SceneData sceneData)
+        {
+            List<MRUKRoom> rooms = new List<MRUKRoom>();
+            foreach (RoomData roomData in sceneData.Rooms)
+            {
+                GameObject sceneRoom = new GameObject($"Room - {roomData.UUID}");
+                MRUKRoom roomInfo = sceneRoom.AddComponent<MRUKRoom>();
+                foreach (AnchorData anchorData in roomData.Anchors)
+                {
+                    string anchorName = anchorData.SemanticClassifications.Count != 0 ? anchorData.SemanticClassifications[0] : "UNDEFINED_ANCHOR";
+                    var anchorGO = new GameObject(anchorName);
+                    anchorGO.transform.SetParent(roomInfo.transform);
+                    if (sceneData.CoordinateSystem == CoordinateSystem.Unreal)
+                    {
+                        anchorGO.transform.position = new Vector3(
+                            anchorData.Transform.Translation.y / UnrealWorldToMeters,
+                            anchorData.Transform.Translation.z / UnrealWorldToMeters,
+                            anchorData.Transform.Translation.x / UnrealWorldToMeters);
+                        anchorGO.transform.localRotation = Quaternion.Euler(anchorData.Transform.Rotation.x, 180 + anchorData.Transform.Rotation.y, anchorData.Transform.Rotation.z);
+                    }
+                    else
+                    {
+                        anchorGO.transform.position = anchorData.Transform.Translation;
+                        anchorGO.transform.rotation = Quaternion.Euler(anchorData.Transform.Rotation);
+                        anchorGO.transform.localScale = anchorData.Transform.Scale;
+                    }
+
+                    CreateAnchorFromAnchorData(anchorData, anchorGO, sceneData.CoordinateSystem);
+                }
+                rooms.Add(roomInfo);
+
+            }
+            return rooms;
+        }
+
+        static MRUKAnchor CreateAnchorFromAnchorData(AnchorData anchorData, GameObject anchorGO, CoordinateSystem coordinateSystem)
+        {
+            MRUKAnchor anchor = anchorGO.AddComponent<MRUKAnchor>();
+            anchor.AnchorLabels = anchorData.SemanticClassifications;
+            if (anchorData.PlaneBoundary2D != null)
+            {
+                if (coordinateSystem == CoordinateSystem.Unreal)
+                {
+                    anchor.PlaneBoundary2D = new List<Vector2>();
+                    foreach (var p in anchorData.PlaneBoundary2D)
+                    {
+                        anchor.PlaneBoundary2D.Add(new Vector2(-p.x / UnrealWorldToMeters, p.y / UnrealWorldToMeters));
+                    }
+                    anchor.PlaneBoundary2D.Reverse();
+                }
+                else
+                {
+                    anchor.PlaneBoundary2D = anchorData.PlaneBoundary2D;
+                }
+            }
+            if (anchorData.PlaneBounds.HasValue)
+            {
+                Vector2 planeBoundsMin;
+                Vector2 planeBoundsMax;
+                if (coordinateSystem == CoordinateSystem.Unreal)
+                {
+                    planeBoundsMin = new Vector2(-anchorData.PlaneBounds.Value.Max.x / UnrealWorldToMeters,
+                        anchorData.PlaneBounds.Value.Min.y / UnrealWorldToMeters);
+                    planeBoundsMax = new Vector2(-anchorData.PlaneBounds.Value.Min.x / UnrealWorldToMeters,
+                        anchorData.PlaneBounds.Value.Max.y / UnrealWorldToMeters);
+                }
+                else
+                {
+                    planeBoundsMin = anchorData.PlaneBounds.Value.Min;
+                    planeBoundsMax = anchorData.PlaneBounds.Value.Max;
+                }
+                anchor.PlaneRect = new Rect(planeBoundsMin, planeBoundsMax - planeBoundsMin);
+            }
+            if (anchorData.VolumeBounds.HasValue)
+            {
+                Vector3 volumeBoundsMin;
+                Vector3 volumeBoundsMax;
+                if (coordinateSystem == CoordinateSystem.Unreal)
+                {
+
+                    volumeBoundsMin = new Vector3(
+                        anchorData.VolumeBounds.Value.Min.y / UnrealWorldToMeters,
+                        anchorData.VolumeBounds.Value.Min.z / UnrealWorldToMeters,
+                        -anchorData.VolumeBounds.Value.Max.x / UnrealWorldToMeters);
+                    volumeBoundsMax = new Vector3(
+                        anchorData.VolumeBounds.Value.Max.y / UnrealWorldToMeters,
+                        anchorData.VolumeBounds.Value.Max.z / UnrealWorldToMeters,
+                        -anchorData.VolumeBounds.Value.Min.x / UnrealWorldToMeters);
+                }
+                else
+                {
+                    volumeBoundsMin = anchorData.VolumeBounds.Value.Min;
+                    volumeBoundsMax = anchorData.VolumeBounds.Value.Max;
+                }
+                Vector3 volumeBoundsCenterOffset = (volumeBoundsMin + volumeBoundsMax) * 0.5f;
+                anchor.VolumeBounds = new Bounds(volumeBoundsCenterOffset, volumeBoundsMax - volumeBoundsMin);
+            }
+            if (anchorData.GlobalMesh.HasValue)
+            {
+                Vector3[] vertices = new Vector3[anchorData.GlobalMesh.Value.Positions.Length];
+                int[] triangles = anchorData.GlobalMesh.Value.Indices;
+                if (coordinateSystem == CoordinateSystem.Unreal)
+                {
+                    for (int i = 0; i < vertices.Length; i++)
+                    {
+                        var vert = anchorData.GlobalMesh.Value.Positions[i];
+                        vertices[i] = new Vector3(-vert.y, vert.z, -vert.x);
+                    }
+                    Array.Reverse(triangles);
+                }
+                else
+                {
+                    vertices = anchorData.GlobalMesh.Value.Positions;
+                    triangles = anchorData.GlobalMesh.Value.Indices;
+                }
+                var mesh = new Mesh()
+                {
+                    vertices = vertices,
+                    triangles = triangles
+                };
+                anchor.GlobalMesh = mesh;
+            }
+            return anchor;
+        }
     }
 }

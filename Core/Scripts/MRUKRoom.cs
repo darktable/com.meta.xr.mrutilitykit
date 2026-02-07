@@ -100,7 +100,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     _ceilingAnchor = _anchors[i];
                 }
-                else if(_anchors[i].HasLabel(OVRSceneManager.Classification.GlobalMesh))
+                else if (_anchors[i].HasLabel(OVRSceneManager.Classification.GlobalMesh))
                 {
                     _globalMeshAnchor = _anchors[i];
                 }

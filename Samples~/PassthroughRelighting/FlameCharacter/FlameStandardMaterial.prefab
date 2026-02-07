@@ -45,7 +45,7 @@ Light:
   m_Shape: 0
   m_Color: {r: 1, g: 0.82525796, b: 0.40251565, a: 1}
   m_Intensity: 1
-  m_Range: 0.8
+  m_Range: 1
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
@@ -115,15 +115,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f39ced16eeb382a40a3050451f7c5564, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.175
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f39ced16eeb382a40a3050451f7c5564, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.576
+      value: 0.541
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f39ced16eeb382a40a3050451f7c5564, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.9987
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: f39ced16eeb382a40a3050451f7c5564, type: 3}
       propertyPath: m_LocalRotation.w
@@ -196,7 +196,7 @@ MonoBehaviour:
   mid: {fileID: 4044315625440517238}
   tip: {fileID: 9143000373427674939}
   attractionTarget: {fileID: 0}
-  light: {fileID: 1212729708072756790}
+  flameLight: {fileID: 1212729708072756790}
   lookAtTarget: {fileID: 0}
   attractionForceMultiplier: 2
   lightIntensityVariance: 0.2

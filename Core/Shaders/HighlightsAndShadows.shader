@@ -22,6 +22,7 @@ Shader "Scene/HighlightsAndShadows"
     {
         _ShadowIntensity ("Shadow Intensity", Range (0, 1)) = 0.8
         _HighLightAttenuation ("Highlight Attenuation", Range (0, 1)) = 0.8
+        _HighlightOpacity("Highlight Opacity", Range (0, 1)) = 0.2
     }
 
     SubShader
@@ -45,7 +46,7 @@ Shader "Scene/HighlightsAndShadows"
 
             Blend One OneMinusSrcAlpha
             ZTest LEqual
-            ZWrite On
+            ZWrite Off
 
             HLSLPROGRAM
             #pragma vertex ShadowReceiverVertex
@@ -64,6 +65,7 @@ Shader "Scene/HighlightsAndShadows"
 
             float _HighLightAttenuation;
             float _ShadowIntensity;
+            float _HighlightOpacity;
 
             struct Attributes {
                 float4 positionOS : POSITION;
@@ -108,14 +110,14 @@ Shader "Scene/HighlightsAndShadows"
                 half alpha = (1 - mainLightShadowAttenuation) * _ShadowIntensity;
 
                 //Additional lights highlights.
+                float lightAlpha = 0;
                 for (int i = 0; i < GetAdditionalLightsCount(); i++) {
                     Light light = GetAdditionalLight(i, input.positionWS, float4(0, 0, 0, 0));
                     float ndtol = saturate(dot(light.direction, input.normalWS));
-                    float lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
-                    alpha = max(lightAlpha, alpha);
-                    color += light.color * lightAlpha;
+                    lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
+                    color += light.color * lightAlpha * (1-alpha);
                 }
-                return half4(color, alpha);
+                return half4(color, alpha + (lightAlpha * _HighlightOpacity));
             }
             ENDHLSL
         }
@@ -153,48 +155,9 @@ Shader "Scene/HighlightsAndShadows"
 
     SubShader
     {
-        Pass
+        Tags
         {
-            Name "Depth Clear"
-            Tags
-            {
-                "LightMode" = "ForwardBase"
-            }
-            ZWrite On
-            Blend SrcAlpha OneMinusSrcAlpha
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-
-            #include "UnityCG.cginc"
-            struct appdata
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-            };
-
-            struct v2f
-            {
-                float2 uv : TEXCOORD0;
-                float4 vertex : SV_POSITION;
-            };
-
-            sampler2D _MainTex;
-            float4 _MainTex_ST;
-
-            v2f vert (appdata v)
-            {
-                v2f o;
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                return o;
-            }
-
-            fixed4 frag (v2f i) : SV_Target
-            {
-                UNITY_APPLY_FOG(i.fogCoord, col);
-                return fixed4(0,0,0,0);
-            }
-            ENDCG
+            "Queue"="AlphaTest"
         }
 
         //Accumulate point light contribution
@@ -204,7 +167,6 @@ Shader "Scene/HighlightsAndShadows"
             Tags
             {
                 "LightMode" = "ForwardAdd"
-
             }
             ZWrite Off
             ZTest LEqual
@@ -223,16 +185,28 @@ Shader "Scene/HighlightsAndShadows"
 
             uniform float _ShadowIntensity;
             uniform float _HighLightAttenuation;
+            uniform float _HighlightOpacity;
+
+            struct appdata
+            {
+                float4 vertex : POSITION;
+                float3 normal : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
 
             struct v2f {
                 float4 pos : SV_POSITION;
                 float3 normal : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 LIGHTING_COORDS(2, 3)
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
-            v2f vert(appdata_base v) {
+            v2f vert(appdata v) {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.worldPos = mul(unity_ObjectToWorld, v.vertex);
                 o.normal = UnityObjectToWorldNormal(v.normal);
@@ -264,17 +238,16 @@ Shader "Scene/HighlightsAndShadows"
             }
 
             fixed4 frag(v2f i) : COLOR {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 Light light = getLight(i);
                 float ndtol = max(0.0, dot(i.normal, light.direction));
-                float lightAlpha = light.distanceAttenuation * _HighLightAttenuation * ndtol * light.color.w;
-                float4 color = light.color * lightAlpha;
-                return fixed4(color.r, color.g, color.b, lightAlpha);
-
+                float lightContribution = light.distanceAttenuation * _HighLightAttenuation * ndtol * light.color.w;
+                float4 color = light.color * lightContribution;
+                float alpha = lightContribution * _HighlightOpacity;
+                return fixed4(color.r, color.g, color.b, alpha);
             }
             ENDCG
         }
-
-
 
         //Apply shadow attenuation for the main directionalLight
         Pass
@@ -297,24 +270,36 @@ Shader "Scene/HighlightsAndShadows"
 
             uniform float _ShadowIntensity;
             uniform float _DepthCheckBias;
+
+            struct appdata
+            {
+                float4 vertex : POSITION;
+                float3 normal : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
             struct v2f {
                 float4 pos : SV_POSITION;
                 float3 normal : TEXCOORD0;
                 float3 worldPos : TEXCOORD1;
                 LIGHTING_COORDS(2, 3)
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
-            v2f vert(appdata_base v) {
+            v2f vert(appdata v) {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.worldPos = mul(unity_ObjectToWorld, v.vertex);
                 o.normal = UnityObjectToWorldNormal(v.normal);
                 TRANSFER_VERTEX_TO_FRAGMENT(o);
-
                 return o;
             }
 
             fixed4 frag(v2f i) : COLOR {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float attenuation = UNITY_SHADOW_ATTENUATION(i, i.worldPos);
                 float3 lightDirection = _WorldSpaceLightPos0.xyz;
                 float ndtol = dot(i.normal, lightDirection);
@@ -330,7 +315,8 @@ Shader "Scene/HighlightsAndShadows"
             Name "ShadowCaster"
             Tags { "LightMode" = "ShadowCaster" }
 
-            ZWrite On ZTest LEqual
+            ZWrite On
+            ZTest LEqual
 
             CGPROGRAM
             #pragma target 2.0

@@ -35,22 +35,32 @@ Shader "Projector/BlobShadow" {
 			#pragma multi_compile_fog
 			#include "UnityCG.cginc"
 
+			struct appdata
+            {
+                float4 vertex : POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
 			struct vertex_out {
 				float4 uvShadow : TEXCOORD0;
 				float4 uvFalloff : TEXCOORD1;
 				UNITY_FOG_COORDS(2)
 				float4 pos : SV_POSITION;
+				UNITY_VERTEX_OUTPUT_STEREO
 			};
 
 			float4x4 unity_Projector;
 			float4x4 unity_ProjectorClip;
 
-			vertex_out vert (float4 vertex : POSITION)
+			vertex_out vert (appdata v)
 			{
 				vertex_out o;
-				o.pos = UnityObjectToClipPos (vertex);
-				o.uvShadow = mul (unity_Projector, vertex);
-				o.uvFalloff = mul (unity_ProjectorClip, vertex);
+				UNITY_SETUP_INSTANCE_ID(v);
+			    UNITY_INITIALIZE_OUTPUT(vertex_out, o);
+			    UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+				o.pos = UnityObjectToClipPos (v.vertex);
+				o.uvShadow = mul (unity_Projector, v.vertex);
+				o.uvFalloff = mul (unity_ProjectorClip, v.vertex);
 				UNITY_TRANSFER_FOG(o,o.pos);
 				return o;
 			}

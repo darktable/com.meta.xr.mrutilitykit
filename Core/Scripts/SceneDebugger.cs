@@ -50,6 +50,7 @@ namespace Meta.XR.MRUtilityKit
         Ray shootingRay;
 
         EventSystem eventSystem;
+        OVRCameraRig _cameraRig;
 
         // For visual debugging of the room
         GameObject debugCube;
@@ -76,6 +77,10 @@ namespace Meta.XR.MRUtilityKit
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDebugger).Send();
 #endif
             globalMeshEffectMesh = GetGlobalMeshEffectMesh();
+            if (!_cameraRig)
+            {
+                _cameraRig = FindObjectOfType<OVRCameraRig>();
+            }
         }
         private void OnDisable()
         {
@@ -95,9 +100,7 @@ namespace Meta.XR.MRUtilityKit
 
             if (OVRInput.GetDown(OVRInput.RawButton.RIndexTrigger))
             {
-                Vector3 rayOrigin = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-                Vector3 rayDirection = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch) * Vector3.forward;
-                shootingRay = new Ray(rayOrigin, rayDirection);
+                shootingRay = GetRightControllerRay();
                 ShootProjectile();
             }
             if (OVRInput.GetDown(OVRInput.RawButton.Start))
@@ -141,6 +144,47 @@ namespace Meta.XR.MRUtilityKit
         void OnSceneLoaded()
         {
             CreateDebugPrimitives();
+        }
+
+        Ray GetRightControllerRay()
+        {
+            Vector3 rayOrigin = _cameraRig.rightControllerAnchor.position;
+            Vector3 rayDirection = _cameraRig.rightControllerAnchor.forward;
+            return new Ray(rayOrigin, rayDirection);
+        }
+
+        /// <summary>
+        /// Shows information about the rooms loaded.
+        /// </summary>
+        public void ShowRoomDetailsDebugger(bool isOn)
+        {
+            try
+            {
+                if (isOn)
+                {
+                    debugAction = () =>
+                    {
+                        var currentRoomName = MRUK.Instance?.GetCurrentRoom().name ?? "N/A";
+                        var numRooms = MRUK.Instance?.GetRooms().Count ?? 0;
+                        SetLogsText("\n[{0}]\nNumber of rooms: {1}\nCurrent room: {2}",
+                            nameof(ShowRoomDetailsDebugger),
+                            numRooms,
+                            currentRoomName
+                        );
+                    };
+                }
+                else
+                {
+                    debugAction = null;
+                }
+            }
+            catch (Exception e)
+            {
+                SetLogsText("\n[{0}]\n {1}\n{2}",
+                    nameof(ShowRoomDetailsDebugger),
+                    e.Message,
+                    e.StackTrace);
+            }
         }
 
         /// <summary>
@@ -249,9 +293,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         MRUKAnchor seat = null;
                         Pose seatPose = new Pose();
-                        Vector3 rayOrigin = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-                        Vector3 rayDirection = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch) * Vector3.forward;
-                        Ray ray = new Ray(rayOrigin, rayDirection);
+                        Ray ray = GetRightControllerRay();
                         MRUK.Instance?.GetCurrentRoom()?.TryGetClosestSeatPose(ray, out seatPose, out seat);
                         if (seat)
                         {
@@ -266,7 +308,7 @@ namespace Meta.XR.MRUtilityKit
                                 nameof(GetClosestSeatPoseDebugger),
                                 seat.name,
                                 seatPose.position,
-                                Vector3.Distance(seatPose.position, rayOrigin).ToString("0.##")
+                                Vector3.Distance(seatPose.position, ray.origin).ToString("0.##")
                             );
                         }
                         else
@@ -306,7 +348,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     debugAction = () =>
                     {
-                        Vector3 origin = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
+                        Vector3 origin = GetRightControllerRay().origin;
                         Vector3 surfacePosition = Vector3.zero;
                         MRUKAnchor closestAnchor = null;
                         MRUK.Instance?.GetCurrentRoom()?.TryGetClosestSurfacePosition(origin, out surfacePosition, out closestAnchor);
@@ -351,9 +393,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     debugAction = () =>
                     {
-                        Vector3 rayOrigin = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-                        Vector3 rayDirection = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch) * Vector3.forward;
-                        Ray ray = new Ray(rayOrigin, rayDirection);
+                        Ray ray = GetRightControllerRay();
                         MRUKAnchor sceneAnchor = null;
                         MRUK.PositioningMethod positioningMethod = MRUK.PositioningMethod.DEFAULT;
                         if (positioningMethodDropdown)
@@ -404,9 +444,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     debugAction = () =>
                     {
-                        Vector3 rayOrigin = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-                        Vector3 rayDirection = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch) * Vector3.forward;
-                        Ray ray = new Ray(rayOrigin, rayDirection);
+                        Ray ray = GetRightControllerRay();
                         RaycastHit hit = new RaycastHit();
                         MRUKAnchor anchorHit = null;
                         MRUK.Instance?.GetCurrentRoom()?.Raycast(ray, Mathf.Infinity, out hit, out anchorHit);
@@ -453,12 +491,11 @@ namespace Meta.XR.MRUtilityKit
                 {
                     debugAction = () =>
                     {
-                        Vector3 controllerPosition = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-                        Vector3 controllerRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch) * Vector3.forward;
+                        Ray ray = GetRightControllerRay();
                         if (debugSphere != null)
                         {
                             bool? isInRoom = MRUK.Instance?.GetCurrentRoom()?.IsPositionInRoom(debugSphere.transform.position);
-                            debugSphere.transform.position = controllerPosition + controllerRotation * 0.2f; // add some offset
+                            debugSphere.transform.position = ray.GetPoint(0.2f); // add some offset
                             debugSphere.GetComponent<Renderer>().material.color = (isInRoom.HasValue && isInRoom.Value) ? Color.green : Color.red;
                             SetLogsText("\n[{0}]\nPosition: {1}\nIs inside the Room: {2}\n",
                                 nameof(IsPositionInRoomDebugger),
@@ -493,9 +530,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     debugAction = () =>
                     {
-                        Vector3 rayOrigin = OVRInput.GetLocalControllerPosition(OVRInput.Controller.RTouch);
-                        Vector3 rayDirection = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch) * Vector3.forward;
-                        Ray ray = new Ray(rayOrigin, rayDirection);
+                        Ray ray = GetRightControllerRay();
                         RaycastHit hit = new RaycastHit();
                         MRUKAnchor anchorHit = null;
                         MRUK.Instance?.GetCurrentRoom()?.Raycast(ray, Mathf.Infinity, out hit, out anchorHit);
@@ -559,7 +594,7 @@ namespace Meta.XR.MRUtilityKit
                         globalMeshEffectMesh = new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
                         globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
                         if (visualHelperMaterial)
-                            globalMeshEffectMesh._MeshMaterial = visualHelperMaterial;
+                            globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
                         globalMeshEffectMesh.CreateMesh();
                     }
                     else
@@ -571,7 +606,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     if (!globalMeshEffectMesh)
                         return;
-                    globalMeshEffectMesh.ToggleEffectMeshVisibility(false, filter, globalMeshEffectMesh._MeshMaterial);
+                    globalMeshEffectMesh.ToggleEffectMeshVisibility(false, filter, globalMeshEffectMesh.MeshMaterial);
                 }
             }
             catch (Exception e)
@@ -610,7 +645,7 @@ namespace Meta.XR.MRUtilityKit
                         globalMeshEffectMesh = new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
                         globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
                         if (visualHelperMaterial)
-                            globalMeshEffectMesh._MeshMaterial = visualHelperMaterial;
+                            globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
                         globalMeshEffectMesh.HideMesh = true;
                         globalMeshEffectMesh.CreateMesh();
                     }

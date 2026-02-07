@@ -66,6 +66,20 @@ namespace Meta.XR.MRUtilityKit
         public bool HasPlane { get { return PlaneRect != null; } }
         public bool HasVolume { get { return VolumeBounds != null; } }
 
+        public Mesh GlobalMesh
+        {
+            get
+            {
+                if(!_globalMesh)
+                {
+                    _globalMesh = LoadGlobalMeshTriangles();
+                }
+                return _globalMesh;
+            }
+            set { _globalMesh = value; }
+        }
+        Mesh _globalMesh;
+
         /// <summary>
         /// Populate and inject data into this class. This should be considered part
         /// of the initialization process, and is a requirements for running further
