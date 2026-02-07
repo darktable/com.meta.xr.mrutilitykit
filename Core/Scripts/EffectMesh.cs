@@ -385,42 +385,6 @@ namespace Meta.XR.MRUtilityKit
                 SpawnOnStart == MRUK.RoomFilter.AllRooms)
             {
                 CreateMesh(room);
-                RegisterAnchorUpdates(room);
-            }
-        }
-
-        /// <summary>
-        ///     Given a counter-clockwise set of points, triangulate the interior
-        /// </summary>
-        void CreateInteriorPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, List<Vector2> points)
-        {
-            Triangulator.TriangulatePoints(points, null, out var vertices, out var indices);
-            int capTriCount = indices.Length / 3;
-            for (int j = 0; j < capTriCount; j++)
-            {
-                int id0 = indices[j * 3];
-                int id1 = indices[j * 3 + 1];
-                int id2 = indices[j * 3 + 2];
-
-                indexArray[indexCounter++] = baseCount + id0;
-                indexArray[indexCounter++] = baseCount + id1;
-                indexArray[indexCounter++] = baseCount + id2;
-            }
-        }
-
-        /// <summary>
-        ///     Create a triangle fan given the number of points to triangulate
-        /// </summary>
-        void CreateInteriorTriangleFan(ref int[] indexArray, ref int indexCounter, int baseCount, int pointsInLoop)
-        {
-            int capTriCount = pointsInLoop - 2;
-            for (int j = 0; j < capTriCount; j++)
-            {
-                int id1 = j + 1;
-                int id2 = j + 2;
-                indexArray[indexCounter++] = baseCount;
-                indexArray[indexCounter++] = baseCount + id1;
-                indexArray[indexCounter++] = baseCount + id2;
             }
         }
 
@@ -432,7 +396,6 @@ namespace Meta.XR.MRUtilityKit
             foreach (var room in MRUK.Instance.Rooms)
             {
                 CreateMesh(room);
-                RegisterAnchorUpdates(room);
             }
         }
 
@@ -634,37 +597,8 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private static (Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>, float) GenerateData(MRUKRoom room)
+        private static void OrderWalls(List<MRUKAnchor> walls)
         {
-            var totalWallLength = 0.0f;
-
-            List<MRUKAnchor> regularAndInvisibleWalls = new();
-            const MRUKAnchor.SceneLabels regularOrInvisibleWallLabel = MRUKAnchor.SceneLabels.WALL_FACE | MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE;
-            foreach (var anchorInfo in room.Anchors)
-            {
-                if (anchorInfo.HasAnyLabel(regularOrInvisibleWallLabel))
-                {
-                    regularAndInvisibleWalls.Add(anchorInfo);
-                }
-            }
-
-            OrderWalls(regularAndInvisibleWalls, ref totalWallLength);
-
-            var d = new Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>
-            {
-                { regularOrInvisibleWallLabel, regularAndInvisibleWalls },
-            };
-
-            return (d, totalWallLength);
-        }
-
-        private static void OrderWalls(List<MRUKAnchor> walls, ref float wallLength)
-        {
-            foreach (var wall in walls)
-            {
-                wallLength += wall.PlaneRect.Value.size.x;
-            }
-
             int count = walls.Count;
             if (count <= 1)
             {
@@ -722,77 +656,82 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="connectedRooms">An optional list of connected rooms</param>
         private void CreateMesh(MRUKRoom room, List<MRUKRoom> connectedRooms)
         {
-            // To get all the anchors in the space:
-            var sceneAnchors = room.Anchors;
-
-            var (sortedObjects, totalWallLength) = GenerateData(room);
-
-            MRUKAnchor floor = null;
-            MRUKAnchor ceiling = null;
-
-            for (var i = 0; i < sceneAnchors.Count; i++)
+            Span<MRUKAnchor.SceneLabels> wallTypes = stackalloc MRUKAnchor.SceneLabels[]
             {
-                var anchorInfo = sceneAnchors[i];
-                if (anchorInfo && anchorInfo.HasAnyLabel(Labels))
+                MRUKAnchor.SceneLabels.WALL_FACE | MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE, // combine into one value for seamless UV mapping across WALL_FACE and INVISIBLE_WALL_FACE
+            };
+
+            MRUKAnchor.SceneLabels wallTypesMask = 0;
+            foreach (MRUKAnchor.SceneLabels label in wallTypes)
+            {
+                wallTypesMask |= label;
+            }
+
+            // Create non-wall meshes
+            foreach (var anchor in room.Anchors)
+            {
+                if (anchor.HasAnyLabel(Labels) && !anchor.HasAnyLabel(wallTypesMask))
                 {
-                    if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
+                    if (anchor.HasAnyLabel(MRUKAnchor.SceneLabels.GLOBAL_MESH))
                     {
-                        continue;
-                    }
-
-
-                    if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.CEILING))
-                    {
-                        ceiling = anchorInfo;
-                    }
-                    else if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.FLOOR))
-                    {
-                        floor = anchorInfo;
-                    }
-                    else if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.GLOBAL_MESH))
-                    {
-                        CreateGlobalMeshObject(anchorInfo);
+                        CreateGlobalMeshObject(anchor);
                     }
                     else
                     {
-                        CreateEffectMesh(anchorInfo);
+                        CreateEffectMesh(anchor);
                     }
                 }
             }
 
-            var uSpacing = 0.0f;
-            foreach (var (lbl, items) in sortedObjects)
+            // Calculate total wall length
+            float totalWallLength = 0f;
+            foreach (var anchor in room.Anchors)
             {
-                if (IncludesLabel(lbl))
+                if (anchor.HasAnyLabel(wallTypesMask))
                 {
-                    foreach (var wall in items)
+                    totalWallLength += anchor.PlaneRect.Value.size.x;
+                }
+            }
+
+            // Filter different wall types, order to achieve seamless UV mapping, then create meshes
+            using (new OVRObjectPool.ListScope<MRUKAnchor>(out var walls))
+            {
+                var uSpacing = 0.0f;
+                foreach (MRUKAnchor.SceneLabels wallType in wallTypes)
+                {
+                    if (!IncludesLabel(wallType))
                     {
-                        if (IncludesLabel(GetOriginalLabel(wall.Label)))
+                        continue;
+                    }
+
+                    walls.Clear();
+                    foreach (var anchor in room.Anchors)
+                    {
+                        if (anchor.HasAnyLabel(wallType))
                         {
-                            CreateEffectMeshWall(wall, totalWallLength, ref uSpacing, connectedRooms);
+                            walls.Add(anchor);
+                        }
+                    }
+
+                    OrderWalls(walls);
+                    foreach (var orderedWall in walls)
+                    {
+                        var originalLabel = GetOriginalLabel(orderedWall.Label);
+                        if (IncludesLabel(originalLabel))
+                        {
+                            CreateEffectMeshWall(orderedWall, totalWallLength, ref uSpacing, connectedRooms);
                         }
                     }
                 }
             }
 
-            if (ceiling)
-            {
-                CreateEffectMesh(ceiling);
-            }
-
-            if (floor)
-            {
-                CreateEffectMesh(floor);
-            }
-
+            RegisterAnchorUpdates(room);
             if (!TrackUpdates)
             {
-                if (!SceneTrackingSettings.UnTrackedRooms.Contains(room))
-                {
-                    SceneTrackingSettings.UnTrackedRooms.Add(room);
-                }
+                SceneTrackingSettings.UnTrackedRooms.Add(room);
             }
         }
+
         private bool IncludesLabel(MRUKAnchor.SceneLabels label)
         {
             return (Labels & label) != 0;
@@ -887,12 +826,12 @@ namespace Meta.XR.MRUtilityKit
             return totalWallLength / roundedTotalWallLength;
         }
 
-        EffectMeshObject CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, List<MRUKRoom> connectedRooms)
+        void CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, List<MRUKRoom> connectedRooms)
         {
             if (effectMeshObjects.ContainsKey(anchorInfo))
             {
                 //WallAnchor already has an EffectMeshComponent
-                return null;
+                return;
             }
 
             EffectMeshObject effectMeshObject = new();
@@ -1101,7 +1040,6 @@ namespace Meta.XR.MRUtilityKit
             }
 
             effectMeshObjects.Add(anchorInfo, effectMeshObject);
-            return effectMeshObject;
         }
 
         void CreateGlobalMeshObject(MRUKAnchor globalMeshAnchor)

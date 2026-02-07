@@ -18,9 +18,7 @@
  * limitations under the License.
  */
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -59,12 +57,11 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             // batchmode (or better -nographics) will not have a GPU
             // and compute shaders only run on GPU's
-            if (Application.isBatchMode)
+            if (!Application.isBatchMode)
             {
-                yield return true;
-                yield break;
+                CheckRoom(0);
             }
-            yield return CheckRoom(0);
+            yield return null;
         }
 
         [UnityTest]
@@ -73,12 +70,11 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             // batchmode (or better -nographics) will not have a GPU
             // and compute shaders only run on GPU's
-            if (Application.isBatchMode)
+            if (!Application.isBatchMode)
             {
-                yield return true;
-                yield break;
+                CheckRoom(1);
             }
-            yield return CheckRoom(1);
+            yield return null;
         }
 
 
@@ -88,26 +84,29 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             // batchmode (or better -nographics) will not have a GPU
             // and compute shaders only run on GPU's
-            if (Application.isBatchMode)
+            if (!Application.isBatchMode)
             {
-                yield return true;
-                yield break;
+                CheckRoom(0, true);
             }
-            yield return CheckRoom(0, true);
+            yield return null;
         }
 
-        private async IAsyncEnumerable<bool> CheckRoom(int index, bool updateAnchors = false)
+        private void CheckRoom(int index, bool updateAnchors = false)
         {
             MRUK.Instance.SceneSettings.RoomIndex = index;
             MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
             SpaceMapGPU = SetupSpaceMapGPU();
 
-            await SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
+            SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
 
-            if (CompareTextures(SpaceMapGPU.OutputTexture, index == 0 ? SpaceMapGPUTestHelper.Room : SpaceMapGPUTestHelper.RoomLessAnchors))
-            {
-                yield return true;
-            }
+            //  Uncomment this code to regenerate the snapshots
+            /*
+            var bytes = SpaceMapGPU.OutputTexture.EncodeToPNG();
+            var path = System.IO.Path.GetFullPath("Packages/com.meta.xr.mrutilitykit/Tests/Textures/Texture.png");
+            System.IO.File.WriteAllBytes(path, bytes);
+            */
+
+            CompareTextures(index == 0 ? SpaceMapGPUTestHelper.Room : SpaceMapGPUTestHelper.RoomLessAnchors, SpaceMapGPU.OutputTexture);
 
             if (updateAnchors)
             {
@@ -116,14 +115,10 @@ namespace Meta.XR.MRUtilityKit.Tests
                 MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
                 SpaceMapGPU = SetupSpaceMapGPU();
 
-                await SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
+                SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
 
-                if (CompareTextures(SpaceMapGPU.OutputTexture, SpaceMapGPUTestHelper.RoomLessAnchors))
-                {
-                    yield return true;
-                }
+                CompareTextures(SpaceMapGPUTestHelper.RoomLessAnchors, SpaceMapGPU.OutputTexture);
             }
-            yield return false;
         }
 
 
@@ -137,35 +132,25 @@ namespace Meta.XR.MRUtilityKit.Tests
             return spaceMap;
         }
 
-        private bool CompareTextures(Texture2D left, Texture2D right, bool checkAlpha = false)
+        private void CompareTextures(Texture2D expected, Texture2D actual, bool checkAlpha = false)
         {
-            var colorsLeft = left.GetPixels();
-            var colorsRight = right.GetPixels();
+            var colorsExpected = expected.GetPixels();
+            var colorsActual = actual.GetPixels();
 
-            if (colorsLeft.Length != colorsRight.Length)
-            {
-                return false;
-            }
+            Assert.AreEqual(colorsExpected.Length, colorsActual.Length, "Number of pixels");
 
-            for (var i = 0; i < colorsLeft.Length; i++)
+            for (var i = 0; i < colorsActual.Length; i++)
             {
-                for (var j = 0; j < colorsRight.Length; j++)
+                if (Mathf.Abs(colorsExpected[i].r - colorsActual[i].r) > 0.01f ||
+                    Mathf.Abs(colorsExpected[i].g - colorsActual[i].g) > 0.01f ||
+                    Mathf.Abs(colorsExpected[i].b - colorsActual[i].b) > 0.01f ||
+                    (checkAlpha && Mathf.Abs(colorsExpected[i].a - colorsActual[i].a) > 0.01f))
                 {
-                    var b = Mathf.Approximately(colorsLeft[i].r, colorsRight[j].r)
-                            && Mathf.Approximately(colorsLeft[i].g, colorsRight[j].g)
-                            && Mathf.Approximately(colorsLeft[i].b, colorsRight[j].b);
-                    if (checkAlpha)
-                    {
-                        b = b && Mathf.Approximately(colorsLeft[i].a, colorsRight[j].a);
-                    }
-
-                    if (!b)
-                    {
-                        return false;
-                    }
+                    int x = i % expected.width;
+                    int y = i / expected.width;
+                    Assert.Fail($"Pixel at ({x}, {y}) colors don't match. Expected {colorsExpected[i]} but got {colorsActual[i]}");
                 }
             }
-            return true;
         }
     }
 }

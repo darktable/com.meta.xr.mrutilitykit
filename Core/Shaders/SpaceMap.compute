@@ -96,5 +96,5 @@ void FillSpaceMap (uint3 id : SV_DispatchThreadID)
   float dist = distance(info,idnorm)/0.1;
   float dist2 = distance(info2,idnorm)/0.1;
 
-  Result[id.xy] = float4(dist,dist,dist2,dist2);
+  Result[id.xy] = float4(dist,dist,dist2,1.0);
 }

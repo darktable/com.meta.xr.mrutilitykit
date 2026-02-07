@@ -22,10 +22,12 @@ MonoBehaviour:
     - name: MRUK
   thumbnail: {fileID: 2800000, guid: 0ff624bc672ccb747bc6de18bf390568, type: 3}
   order: 5
-  prefab: {fileID: 5456522116536683071, guid: cee191920b8eb41b0960b1082a393a3e, type: 3}
+  prefab: {fileID: 5456522116536683071, guid: 37c47f9928e3fef4bb9a9ffaafab5526, type: 3}
+  selectedGuidedSetupIndex: 0
   externalBlockDependencies: []
   dependencies:
   - d4413f4f-542f-451f-92ee-4801f27d676a
+  guidedSetupName: 
   packageDependencies: []
   isSingleton: 0
   usageInstructions: 

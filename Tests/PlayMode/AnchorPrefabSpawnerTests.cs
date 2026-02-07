@@ -32,11 +32,10 @@ using UnityEngine.TestTools;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
-    public class AnchorPrefabSpawnerTests : MonoBehaviour
+    public class AnchorPrefabSpawnerTests : MRUKTestBase
     {
         private JSONTestHelper Helper;
 
-        private const int DefaultTimeoutMs = 10000;
         private MRUKRoom _currentRoom;
 
         private static readonly int Room1WallCount = 7;
@@ -54,22 +53,14 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(
-                "Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity",
-                new LoadSceneParameters(LoadSceneMode.Single));
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity", false);
             Helper = FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
-            yield return DestroyAnchors();
-            for (int i = SceneManager.sceneCount - 1; i >= 1; i--)
-            {
-                var asyncOperation =
-                    SceneManager.UnloadSceneAsync(SceneManager.GetSceneAt(i).name); // Clear/reset scene
-                yield return new WaitUntil(() => asyncOperation.isDone);
-            }
+            yield return UnloadScene();
         }
 
         private (int, int, int, int, int) CountSpawnedChildrenInRoom(MRUKRoom room)

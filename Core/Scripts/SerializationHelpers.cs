@@ -28,19 +28,35 @@ using UnityEngine;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    ///     This contains helpers to serialize/deserialze Scene data to/from JSON
+    /// This class offers the enums used to configure the scene serialization and contains internal data structures, classes and utility methods
+    /// used for serialization and deserialization.
+    /// <see cref="MRUK.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem, bool, System.Collections.Generic.List{MRUKRoom})"/>
+    /// for more information on how to serialize and export the scene data and <see cref="MRUK.LoadSceneFromJsonString(string)"/>
+    /// for more information on how to import the JSON scene data.
     /// </summary>
     [Feature(Feature.Scene)]
     public static class SerializationHelpers
     {
         /// <summary>
-        /// Defines the coordinate systems that can be used for serialization.
+        /// Defines the coordinate systems that can be used for
+        /// to set the flavor of the scene data that is being imported or exported.
+        /// Possible options are:
+        /// <list type="bullet">
+        /// <item>
+        /// <term><see cref="CoordinateSystem.Unity"/></term>
+        /// <description>Unity coordinate system.</description>
+        /// </item>
+        /// <item>
+        /// <term><see cref="CoordinateSystem.Unreal"/></term>
+        /// <description>Unreal Engine coordinate system.</description>
+        /// </item>
+        /// </list>
         /// </summary>
         [Serializable, JsonConverter(typeof(StringEnumConverter))]
         public enum CoordinateSystem
         {
-            Unity,
-            Unreal,
+            Unity, // Unity coordinate system
+            Unreal, // Unreal Engine coordinate system
         }
 
 
@@ -226,7 +242,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        public const float UnrealWorldToMeters = 100f; // The conversion factor from Unreal Engine units to Unity.
+        private const float UnrealWorldToMeters = 100f; // The conversion factor from Unreal Engine units to Unity.
 
         private static List<JsonConverter> _converters = new()
         {

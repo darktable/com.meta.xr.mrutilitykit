@@ -25,15 +25,26 @@ using UnityEngine;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    /// Draws a visual representation of the scene boundaries similarly to what the guardian does at a system level
+    /// This class uses the current <see cref="MRUKRoom"/> boundaries to draw their visual representation similarly to what the guardian does at a system level
     /// to indicate the limit of the physical space defined by the user.
     /// </summary>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_room_guardian")]
     [Feature(Feature.Scene)]
     public class RoomGuardian : MonoBehaviour
     {
+        /// <summary>
+        /// Material to use for the Guardian effect
+        /// </summary>
         [Tooltip("Material to use for the Guardian effect")]
         public Material GuardianMaterial;
 
+        /// <summary>
+        /// This is how far, in meters, the player must be form a surface for the Guardian to become visible (
+        /// in other words, it blends `_GuardianFade` from 0 to 1). The position of the
+        /// user is calculated as a point 0.2m above the ground. This is to catch tripping hazards
+        /// as well as walls. All <see cref="MRUKAnchor"/>s but the floor and ceiling are considered
+        /// for this calculation.
+        /// </summary>
         [Tooltip("This is how far, in meters, the player must be form a surface for the Guardian to become visible (in other words, it blends `_GuardianFade` from 0 to 1). The position of the user is calculated as a point 0.2m above the ground. This is to catch tripping hazards, as well as walls.")]
         public float GuardianDistance = 1.0f;
 

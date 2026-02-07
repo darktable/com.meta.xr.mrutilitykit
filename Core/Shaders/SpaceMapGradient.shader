@@ -63,7 +63,6 @@ Shader "Meta/MRUK/MixedReality/SpaceMapGradient"
             fixed4 frag (v2f i) : SV_Target
             {
                 float4 clipPos = mul(_SpaceMapProjectionViewMatrix, i.worldPos);
-                clipPos /= clipPos.w;
                 float2 uv = clipPos.xy * 0.5 + 0.5;
                 fixed4 col = tex2D(_MainTex, uv);
                 if (length(col.rgb) < 0.01) { //pretty black, outside

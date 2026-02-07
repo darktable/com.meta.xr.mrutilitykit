@@ -23,8 +23,6 @@ using System.Collections;
 using UnityEngine;
 using NUnit.Framework;
 using UnityEngine.TestTools;
-using UnityEngine.SceneManagement;
-using UnityEditor.SceneManagement;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Linq;
@@ -134,8 +132,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator DeserializationFromUnity()
         {
-            ValidateLoadedScene(_jsonTestHelper.UnityExpectedSerializedScene.text);
-            yield return null;
+            yield return ValidateLoadedScene(_jsonTestHelper.UnityExpectedSerializedScene.text);
         }
 
         /// <summary>
@@ -145,8 +142,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator DeserializationFromUnreal()
         {
-            ValidateLoadedScene(_jsonTestHelper.UnrealExpectedSerializedScene.text);
-            yield return null;
+            yield return ValidateLoadedScene(_jsonTestHelper.UnrealExpectedSerializedScene.text);
         }
 
         /// <summary>
@@ -170,9 +166,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
-        void ValidateLoadedScene(string sceneJson)
+        IEnumerator ValidateLoadedScene(string sceneJson)
         {
-            MRUK.Instance.LoadSceneFromJsonString(sceneJson);
+            yield return LoadSceneFromJsonStringAndWait(sceneJson);
             Assert.NotNull(MRUK.Instance.GetCurrentRoom());
             var loadedRoom = MRUK.Instance.GetCurrentRoom();
             MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0], false);
@@ -216,5 +212,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             }
         }
     }
+
 }
 

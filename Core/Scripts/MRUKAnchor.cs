@@ -29,7 +29,23 @@ namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
     /// Represents an anchor within MR Utility Kit, providing spatial and semantic information.
+    /// This class is used to define and manage anchors in a mixed reality environment, allowing for spatial mapping and interaction.
+    /// An anchor is a world-locked frame of reference that gives a position and orientation to a virtual object in the real world,
+    /// such as walls, floors, and furniture. Every anchor is childed to a <see cref="MRUKRoom"/>, and has <see cref="SceneLabels"/> to indicate its type.
+    /// anchors might have a <see cref="VolumeBounds"/>, a <see cref="PlaneRect"/>, and a <see cref="Mesh"/> associated with them depending on their semantic label.
+    /// It offers convenience methods such as a collisionless raycast and other utility functions to work with the anchors representation in space.
     /// </summary>
+    /// <example>
+    /// <code><![CDATA[
+    /// // Iterate through all the anchors in a room and print the label and the anchors' center
+    /// var room = MRUK.Instance.GetCurrentRoom();
+    /// foreach (var anchor in room.Anchors)
+    /// {
+    ///     Debug.Log($"Anchor {anchor.Label} is centered at {anchor.GetAnchorCenter()}");
+    /// }
+    /// ]]></code>
+    /// </example>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_m_r_u_k_anchor")]
     [Feature(Feature.Scene)]
     public class MRUKAnchor : MonoBehaviour
     {
@@ -69,27 +85,32 @@ namespace Meta.XR.MRUtilityKit
             All = Plane | Volume,
         }
 
-        /// <see cref="OVRSemanticLabels.DeprecationMessage" />
+        // @cond
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public List<string> AnchorLabels => Utilities.SceneLabelsEnumToList(Label);
+        /// @endcond
 
         /// <summary>
         /// The scene label categorizing the anchor.
+        /// This represents the semantic classification of the anchor, such as "WALL_FACE" or "TABLE".
         /// </summary>
         public SceneLabels Label { get; internal set; }
 
         /// <summary>
         /// Optional rectangular bounds on a plane associated with the anchor.
+        /// Examples of anchors with a plane are a wall or a floor.
         /// </summary>
         public Rect? PlaneRect { get; internal set; }
 
         /// <summary>
         /// Optional volumetric bounds associated with the anchor.
+        /// Example of anchors with a volume are a table or a couch.
         /// </summary>
         public Bounds? VolumeBounds { get; internal set; }
 
         /// <summary>
         /// A list of local-space points defining the boundary of the plane associated with the anchor.
+        /// This is useful for any spatial calculations.
         /// </summary>
         public List<Vector2> PlaneBoundary2D { get; internal set; }
 
@@ -101,6 +122,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         /// Reference to the parent room object. This is set during construction.
+        /// Do not set this directly.
         /// </summary>
         public MRUKRoom Room { get; internal set; }
 
@@ -114,6 +136,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public List<MRUKAnchor> ChildAnchors { get; internal set; } = new List<MRUKAnchor>();
 
+        /// @cond
         [Obsolete("Use PlaneRect.HasValue instead.")]
         public bool HasPlane => PlaneRect != null; //!< Use PlaneRect.HasValue instead.
 
@@ -122,6 +145,7 @@ namespace Meta.XR.MRUtilityKit
 
         [Obsolete("Use HasValidHandle instead.")]
         public bool IsLocal => HasValidHandle; //!< Use HasValidHandle instead.
+        /// @endcond
 
         /// <summary>
         /// An anchor will have a valid handle if it was loaded from device and there is a system level anchor backing it.
@@ -136,10 +160,25 @@ namespace Meta.XR.MRUtilityKit
             {
                 return GlobalMesh;
             }
+            set => _mesh = value;
         }
 
         /// <summary>
         /// The triangle mesh which covers the entire space, associated to the global mesh anchor.
+        /// The global mesh is a low-fidelity, high-coverage artifact which describes the boundary between free and occupied space in a room.
+        /// It is generated automatically during the space setup experience.
+        /// Use cases:
+        /// <list type="bullet">
+        /// <item> <term>  <b>Fast Collisions</b> </term>
+        /// <description> When used as a collider, the scene mesh allows virtual content to collide against real objects.
+        /// Bouncing balls, projectiles, and other forms of fast collisions benefit from the high coverage of the room.</description>
+        /// </item>
+        /// <item> <term>  <b> Obstacle Avoidance  </b></term>
+        /// <description>When used for intersection checks or as part of a navmesh configuration, the scene mesh allows
+        /// you to know where obstacles in the room are. This can inform content placement and AI navigation. See
+        /// <see cref="SceneNavigation"/> if interested in this use case.</description>
+        /// </item>
+        /// </list>
         /// </summary>
         public Mesh GlobalMesh
         {

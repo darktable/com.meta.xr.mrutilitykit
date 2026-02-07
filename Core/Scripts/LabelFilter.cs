@@ -24,8 +24,18 @@ using System.Collections.Generic;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    ///     A struct that can filter certain labels. The default is
-    ///     to allow all labels.
+    ///    A struct that can filter certain labels. The default is to allow all labels.
+    ///    This struct is generally used by the <see cref="MRUKAnchor"/> to determine if a certain anchor should be included
+    ///    in the results of a query, by checking if the anchor's labels pass the filter.
+    /// <example> This example shows how to use the LabelFilter to include only anchors with the TABLE label.
+    /// <code><![CDATA[
+    /// public void MyFilter(MRUKAnchor anchor){
+    ///    var tableFilter = new LabelFilter(MRUKAnchor.SceneLabels.TABLE);
+    ///    if (labelFilter.PassesFilter(anchor.Label){
+    ///    // Anchor has the TABLE label, do something with the anchor
+    ///    }
+    /// }
+    /// ]]></code></example>
     /// </summary>
     public struct LabelFilter
     {
@@ -40,7 +50,7 @@ namespace Meta.XR.MRUtilityKit
         public MRUKAnchor.ComponentType? ComponentTypes;
 
         /// <summary>
-        /// Creates a label filter that includes only the specified labels and component types.
+        /// Creates a label filter that includes only the specified <see cref="MRUKAnchor"/> labels and component types.
         /// </summary>
         /// <param name="labelFlags">Enum flags representing labels to include.</param>
         /// <param name="componentTypes">Enum flags representing component types to include.</param>
@@ -107,7 +117,7 @@ namespace Meta.XR.MRUtilityKit
             new() { SceneLabels = ~labelFlags, ComponentTypes = null };
 
         /// <summary>
-        /// Checks if the given enum of labels passes the filter.
+        /// Checks if the given enum of labels associated with an <see cref="MRUKAnchor"/> passes the filter.
         /// </summary>
         /// <param name="labelFlags">Enum flags representing labels to check.</param>
         /// <returns>True if the labels pass the filter, false otherwise.</returns>

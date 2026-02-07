@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using AOT;
 using Meta.XR.Util;
 using Unity.Collections;
 using UnityEditor;
@@ -35,9 +36,17 @@ using Meta.XR.ImmersiveDebugger;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    ///     This class contains convenience functions that allow you to
-    ///     query your scene. It also contains functions to load a scene from prefabs or json to work within the Unity editor.
+    /// The <c>MRUK</c> class provides a comprehensive suite of utility functions designed work with scene data and to
+    /// facilitate the management and querying of scenes within the Unity editor.
     /// </summary>
+    /// <remarks>
+    /// This class is integral for developers working within the MR utility kit framework, offering capabilities such as to load scenes, to register callbacks for scene events,
+    /// to manage room and anchor data, and handle world locking to ensure virtual objects remain synchronized with the real world.
+    /// Use the <see cref="SceneDataSource"/> enum to specify positioning strategies and data source, (such as device data, prefabs or json files).
+    /// Only one instance of this class can exist in a scene. When using world locking by setting <see cref="EnableWorldLock"/> to true,
+    /// make sure to use the <see cref="OVRCameraRig"/> component in your scene, as it is used to determine the camera's position and orientation.
+    /// </remarks>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_m_r_u_k")]
     [Feature(Feature.Scene)]
     public partial class MRUK : MonoBehaviour
     {
@@ -98,7 +107,8 @@ namespace Meta.XR.MRUtilityKit
         };
 
         /// <summary>
-        ///     Return value from the call to LoadSceneFromDevice
+        ///     Return value from the call to LoadSceneFromDevice.
+        ///     This is used to indicate if the scene was loaded successfully or if there was an error.
         /// </summary>
         public enum LoadDeviceResult
         {
@@ -116,6 +126,7 @@ namespace Meta.XR.MRUtilityKit
             ///     No rooms were found (e.g. User did not go through space setup)
             /// </summary>
             NoRoomsFound = 2,
+
 
             /// <summary>
             ///     Invalid data.
@@ -182,6 +193,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///  Defines flags for different types of surfaces that can be identified or used within a scene.
+        ///  This is mainly used when querying for specifin anchors' surfaces, finding random positions, or  ray casting.
         /// </summary>
         [Flags]
         public enum SurfaceType
@@ -199,7 +211,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Gets a value indicating whether the component has been initialized.
+        ///  Gets a value indicating whether the component has been initialized.
+        ///  When subscribing a callback to the <see cref="SceneLoadedEvent"/> event,
+        ///  it will be triggered right away if the component is already initialized.
         /// </summary>
         public bool IsInitialized
         {
@@ -209,6 +223,8 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Event that is triggered when the scene is loaded.
+        ///     When subscribing a callback to this event,
+        ///     it will be triggered right away if the <see cref="MRUK"/> component is already initialized.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(SceneLoadedEvent))]
         public UnityEvent SceneLoadedEvent
@@ -218,7 +234,9 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
         /// <summary>
-        ///     Event that is triggered when a room is created.
+        ///     This event is triggered when a new room is created from scene capture.
+        ///     Useful for apps to intercept the room creation and do some custom logic
+        ///     with the new room.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomCreatedEvent))]
         public UnityEvent<MRUKRoom> RoomCreatedEvent
@@ -228,7 +246,10 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
         /// <summary>
-        ///     Event that is triggered when a room is updated.
+        ///     Event that is triggered when a room is updated,
+        ///     this can happen when the user adds or removes an anchor from the room.
+        ///     Useful for apps to intercept the room update and do some custom logic
+        ///     with the anchors in the room.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomUpdatedEvent))]
         public UnityEvent<MRUKRoom> RoomUpdatedEvent
@@ -239,6 +260,8 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Event that is triggered when a room is removed.
+        ///     Useful for apps to intercept the room removal and do some custom logic
+        ///     with the room just removed.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomRemovedEvent))]
         public UnityEvent<MRUKRoom> RoomRemovedEvent
@@ -251,6 +274,7 @@ namespace Meta.XR.MRUtilityKit
         ///     When world locking is enabled the position and rotation of the OVRCameraRig/TrackingSpace transform will be adjusted each frame to ensure
         ///     the room anchors are where they should be relative to the camera position. This is necessary to
         ///     ensure the position of the virtual objects in the world do not get out of sync with the real world.
+        ///     Make sure that there your scene is making use of the <see cref="OVRCameraRig"/> component.
         /// </summary>
         public bool EnableWorldLock = true;
 
@@ -430,25 +454,48 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Represents the settings for the MRUK instance,
+        /// Represents the settings for the <see cref"MRUK"/> instance,
         /// including data source configurations, startup behaviors, and other scene related settings.
+        /// These settings are serialized and can be modified in the Unity Editor from the <see cref"MRUK"/> component.
         /// </summary>
         [Serializable]
         public partial class MRUKSettings
         {
             [Header("Data Source settings")]
             [SerializeField, Tooltip("Where to load the data from.")]
+            /// <summary>
+            /// Where to load the data from.
+            /// </summary>
             public SceneDataSource DataSource = SceneDataSource.Device;
 
+            /// <summary>
+            /// The index (0-based) into the RoomPrefabs or SceneJsons array
+            /// determining which room to load. -1 is random.
+            /// </summary>
             [SerializeField, Tooltip("The index (0-based) into the RoomPrefabs or SceneJsons array; -1 is random.")]
             public int RoomIndex = -1;
 
+            /// <summary>
+            /// The list of prefab rooms to use.
+            /// when <see cref"SceneDataSource"/> is set to Prefab or DeviceWithPrefabFallback.
+            /// The MR Utilty kit package includes a few sample rooms to use as a starting point for your own scene.
+            /// These rooms can be modified in the Unity editor and then saved as a new prefab.
+            /// </summary>
             [SerializeField, Tooltip("The list of prefab rooms to use.")]
             public GameObject[] RoomPrefabs;
 
+            /// <summary>
+            /// The list of JSON text files with scene data to use when
+            /// <see cref"SceneDataSource"/> is set to JSON or DeviceWithJSONFallback.
+            /// The MR Utilty kit package includes a few serialized sample rooms to use as a starting point for your own scene.
+            /// </summary>
             [SerializeField, Tooltip("The list of JSON text files with scene data to use. Uses RoomIndex")]
             public TextAsset[] SceneJsons;
 
+            /// <summary>
+            /// Trigger a scene load on startup. If set to false, you can call LoadSceneFromDevice(), LoadScene
+            /// or LoadSceneFromJsonString() manually.
+            /// </summary>
             [Space]
             [Header("Startup settings")]
             [SerializeField, Tooltip("Trigger a scene load on startup. If set to false, you can call LoadSceneFromDevice(), LoadSceneFromPrefab() or LoadSceneFromJsonString() manually.")]
@@ -457,6 +504,9 @@ namespace Meta.XR.MRUtilityKit
             [Space]
             [Header("Other settings")]
             [SerializeField, Tooltip("The width of a seat. Used to calculate seat positions with the COUCH label.")]
+            /// <summary>
+            /// The width of a seat. Used to calculate seat positions with the COUCH label. Default is 0.6f.
+            /// </summary>
             public float SeatWidth = 0.6f;
 
 
@@ -466,6 +516,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         [Tooltip("Contains all the information regarding data loading.")]
+        /// <summary>
+        /// Contains all the information regarding data loading.
+        /// </summary>
         public MRUKSettings SceneSettings;
 
         MRUKRoom _cachedCurrentRoom = null;
@@ -505,24 +558,10 @@ namespace Meta.XR.MRUtilityKit
             }
 
             MRUKNative.LoadMRUKSharedLibrary();
+            MRUKNativeFuncs.SetLogPrinter(OnSharedLibLog);
 
-#if UNITY_EDITOR
-            EditorApplication.playModeStateChanged += change =>
-            {
-                if (change == PlayModeStateChange.ExitingPlayMode)
-                {
-                    // Free the shared library when exiting play mode so that it can be recompiled
-                    MRUKNative.FreeMRUKSharedLibrary();
-                }
-            };
-#endif
 
-            if (SceneSettings == null)
-            {
-                return;
-            }
-
-            if (SceneSettings.LoadSceneOnStartup)
+            if (SceneSettings != null && SceneSettings.LoadSceneOnStartup)
             {
                 // We can't await for the LoadScene result because Awake is not async, silence the warning
 #pragma warning disable CS4014
@@ -578,6 +617,8 @@ namespace Meta.XR.MRUtilityKit
         {
             if (Instance == this)
             {
+                // Free the shared library when the MRUK instance is destroyed
+                MRUKNative.FreeMRUKSharedLibrary();
                 Instance = null;
                 RoomCreatedEvent.RemoveAllListeners();
                 RoomRemovedEvent.RemoveAllListeners();
@@ -593,6 +634,28 @@ namespace Meta.XR.MRUtilityKit
                 _cameraRig = FindAnyObjectByType<OVRCameraRig>();
             }
 
+        }
+
+        [MonoPInvokeCallback(typeof(MRUKNativeFuncs.LogPrinter))]
+        private static void OnSharedLibLog(MRUKNativeFuncs.MrukLogLevel logLevel, string message)
+        {
+            LogType type = LogType.Log;
+            switch (logLevel)
+            {
+                case MRUKNativeFuncs.MrukLogLevel.Debug:
+                case MRUKNativeFuncs.MrukLogLevel.Info:
+                    // Unity doesn't have a log level lower than "Log", so use that for both debug and info
+                    type = LogType.Log;
+                    break;
+                case MRUKNativeFuncs.MrukLogLevel.Warn:
+                    type = LogType.Warning;
+                    break;
+                case MRUKNativeFuncs.MrukLogLevel.Error:
+                    type = LogType.Error;
+                    break;
+            }
+
+            Debug.LogFormat(type, LogOption.None, null, "MRUK Shared: {0}", message);
         }
 
         private void Update()
@@ -611,6 +674,7 @@ namespace Meta.XR.MRUtilityKit
                 }
 #endif
             }
+
 
             bool worldLockActive = false;
 
@@ -886,6 +950,7 @@ namespace Meta.XR.MRUtilityKit
             , SharedRoomsData? sharedRoomsData = null
         )
         {
+
             var results = await CreateSceneDataFromDevice(
                 sharedRoomsData
             );

@@ -30,12 +30,14 @@ namespace Meta.XR.MRUtilityKit.Tests
     public class MRUKTestBase : MonoBehaviour
     {
         protected const int DefaultTimeoutMs = 10000;
+        protected const string EmptyScene = "Packages/com.meta.xr.mrutilitykit/Tests/Empty.unity";
+
 
         protected IEnumerator LoadScene(string sceneToLoad, bool awaitMRUKInit = true)
         {
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(sceneToLoad,
                 new LoadSceneParameters(LoadSceneMode.Single));
-            if (awaitMRUKInit)
+            if (awaitMRUKInit && MRUK.Instance != null)
             {
                 yield return new WaitUntil(() => MRUK.Instance.IsInitialized);
             }
@@ -43,12 +45,22 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         protected IEnumerator UnloadScene()
         {
-            for (int i = SceneManager.sceneCount - 1; i >= 1; i--)
+            // Loading an empty scene as single will unload all other scenes
+            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(EmptyScene,
+                new LoadSceneParameters(LoadSceneMode.Single));
+        }
+
+        protected IEnumerator LoadSceneFromJsonStringAndWait(string sceneJson)
+        {
+            // Loading from JSON is an async operation in the shared library so wait
+            // until we get the scene loaded event before continuing
+            bool sceneLoaded = false;
+            MRUK.Instance.SceneLoadedEvent.AddListener(() =>
             {
-                var asyncOperation =
-                    SceneManager.UnloadSceneAsync(SceneManager.GetSceneAt(i).name); // Clear/reset scene
-                yield return new WaitUntil(() => asyncOperation.isDone);
-            }
+                sceneLoaded = true;
+            });
+            MRUK.Instance.LoadSceneFromJsonString(sceneJson);
+            yield return new WaitUntil(() => sceneLoaded);
         }
     }
 }

@@ -32,74 +32,174 @@ namespace Meta.XR.MRUtilityKit
     /// <summary>
     /// Manages the creation and updating of a navigation mesh (NavMesh) for scene navigation.
     /// This class handles dynamic NavMesh generation based on scene data, including rooms and anchors, and responds to changes in the scene.
+    /// It can be also configured to use Unity's built-in scene navigation baking options.
+    /// When using scene data, <see cref="MRUKAnchor"/> objects can be used either as navigable surfaces or obstacles.
+    /// It supports both runtime-created agents and pre-configured ones, adapting to changes in the environment.
     /// </summary>
+    /// <example>
+    /// <code><![CDATA[
+    ///     // Assuming the SceneNavigation component is attached to this GameObject
+    ///     var sceneNavigation = GetComponent<SceneNavigation>();
+    ///
+    ///     // Configure some SceneNavigation settings
+    ///     sceneNavigation.UseSceneData = true; // Use scene data for NavMesh generation
+    ///     sceneNavigation.CustomAgent = false; // Use pre-configured agents
+    ///
+    ///     // Define navigable surfaces, e.g., floor
+    ///     sceneNavigation.NavigableSurfaces = MRUKAnchor.SceneLabels.FLOOR;
+    ///
+    ///     // Find and assign NavMeshAgents in the scene so that they will be automatically assigned to the NavMesh
+    ///     sceneNavigation.Agents = new List<NavMeshAgent>(FindAnyObjectByType<NavMeshAgent>());
+    ///
+    ///     // Optionally, handle the NavMesh initialization event
+    ///     sceneNavigation.OnNavMeshInitialized.AddListener(() =>
+    ///     {
+    ///         Debug.Log("NavMesh has been successfully initialized.");
+    ///     });
+    ///
+    ///     // Build the NavMesh for the current scene
+    ///     sceneNavigation.BuildSceneNavMesh();
+    /// ]]></code>
+    /// </example>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_scene_navigation")]
     [Feature(Feature.Scene)]
     public class SceneNavigation : MonoBehaviour
     {
+        /// <summary>
+        /// When the scene data is loaded, this controls what room(s) will be used when baking the NavMesh.
+        /// </summary>
         [Tooltip("When the scene data is loaded, this controls what room(s) will be used when baking the NavMesh.")]
         public MRUK.RoomFilter BuildOnSceneLoaded = MRUK.RoomFilter.CurrentRoomOnly;
 
+        /// <summary>
+        /// If enabled, updates on scene elements such as rooms and anchors will be handled by this class
+        /// </summary>
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
         internal bool TrackUpdates = true;
 
+        /// <summary>
+        /// Used for specifying the type of geometry to collect when building a NavMesh.
+        /// Default is PhysicsColliders.
+        /// </summary>
         [Tooltip("Used for specifying the type of geometry to collect when building a NavMesh")]
         public NavMeshCollectGeometry CollectGeometry = NavMeshCollectGeometry.PhysicsColliders;
 
+        /// <summary>
+        /// Used for specifying the type of objects to include when building a NavMesh.
+        /// Default is Children.
+        /// </summary>
         [Tooltip("Used for specifying the type of objects to include when building a NavMesh")]
         public CollectObjects CollectObjects = CollectObjects.Children;
 
+        /// <summary>
+        /// The minimum distance to the walls where the navigation mesh can exist.
+        /// Default is 0.2f.
+        /// </summary>
         [Tooltip("The minimum distance to the walls where the navigation mesh can exist.")]
         public float AgentRadius = 0.2f;
 
+        /// <summary>
+        /// How much vertical clearance space must exist.
+        /// Default is 0.5f.
+        /// </summary>
         [Tooltip("How much vertical clearance space must exist.")]
         public float AgentHeight = 0.5f;
 
+        /// <summary>
+        /// The height of discontinuities in the level the agent can climb over (i.e. steps and stairs).
+        /// Default is 0.04f.
+        /// </summary>
         [Tooltip("The height of discontinuities in the level the agent can climb over (i.e. steps and stairs).")]
         public float AgentClimb = 0.04f;
 
+        /// <summary>
+        /// Maximum slope the agent can walk up.
+        /// Default is 5.5f.
+        /// </summary>
         [Tooltip("Maximum slope the agent can walk up.")]
         public float AgentMaxSlope = 5.5f;
 
+        /// <summary>
+        /// The agents that will be assigned to the NavMesh generated with the scene data.
+        /// </summary>
         [Tooltip("The agents that will be assigned to the NavMesh generated with the scene data.")]
         public List<NavMeshAgent> Agents;
 
+        /// <summary>
+        /// The scene objects that will contribute to the creation of the NavMesh.
+        /// These are the surfaces that the agent can walk on.
+        /// </summary>
         [FormerlySerializedAs("SceneObjectsToInclude")]
         [Tooltip("The scene objects that will contribute to the creation of the NavMesh.")]
         public MRUKAnchor.SceneLabels NavigableSurfaces;
 
+        /// <summary>
+        /// The scene objects that will carve a hole in the NavMesh.
+        /// </summary>
         [Tooltip("The scene objects that will carve a hole in the NavMesh.")]
         public MRUKAnchor.SceneLabels SceneObstacles;
 
+        /// <summary>
+        /// A bitmask representing the layers to consider when selecting what that will be used for baking.
+        /// </summary>
         [Tooltip("A bitmask representing the layers to consider when selecting what that will be used for baking.")]
         public LayerMask Layers;
 
+        /// <summary>
+        /// The agent's used that is going to be used to build the NavMesh
+        /// </summary>
         [Tooltip("The agent's used that is going to be used to build the NavMesh")]
         public int AgentIndex;
 
+        /// <summary>
+        /// Determines whether scene data should be used for NavMesh generation.
+        /// When enabled, the NavMesh will be generated using the scene data provided by the <see cref="MRUKAnchor"/> objects.
+        /// </summary>
         [Tooltip(
             "Determines whether scene data should be used for NavMesh generation.")]
         public bool UseSceneData = true;
 
+        /// <summary>
+        /// Determines whether a custom NavMeshAgent configuration should be used. If true, a new agent will be created when
+        /// building the NavMesh.
+        /// </summary>
         [Tooltip(
-            "Determines whether a custom NavMeshAgent configuration should be used. If true, a new agent will be created when building this the NavMesh.")]
+            "Determines whether a custom NavMeshAgent configuration should be used. If true, a new agent will be created when building the NavMesh.")]
         public bool CustomAgent = true;
 
+        /// <summary>
+        /// Allows overriding the default voxel size used in NavMesh generation. Enable this to specify a custom voxel size.
+        /// </summary>
         [Tooltip(
             "Allows overriding the default voxel size used in NavMesh generation. Enable this to specify a custom voxel size.")]
         public bool OverrideVoxelSize;
 
+        /// <summary>
+        /// The NavMesh voxel size in world length units. Should be 4-6 voxels per character diameter.
+        /// </summary>
         [Tooltip("The NavMesh voxel size in world length units. Should be 4-6 voxels per character diameter.")]
         public float VoxelSize;
 
+        /// <summary>
+        /// Allows overriding the default tile size used in NavMesh generation. Enable this to specify a custom tile size.
+        /// </summary>
         [Tooltip(
             "Allows overriding the default tile size used in NavMesh generation. Enable this to specify a custom tile size.")]
         public bool OverrideTileSize;
 
+        /// <summary>
+        /// Specifies the tile size for the NavMesh if OverrideTileSize is enabled. Represents the width and height of the
+        /// square tiles in world units.
+        /// </summary>
         [Tooltip(
             "Specifies the tile size for the NavMesh if OverrideTileSize is enabled. Represents the width and height of the square tiles in world units.")]
         public int TileSize = 256;
 #if UNITY_2022_3_OR_NEWER
-[Tooltip("Enables the generation of off-mesh links in the NavMesh, allowing agents to navigate between disconnected mesh regions, such as jumping or climbing.")]
+        /// <summary>
+        /// Enables the generation of off-mesh links in the NavMesh, allowing agents to navigate between disconnected mesh regions,
+        /// such as jumping or climbing.
+        /// </summary>
+        [Tooltip("Enables the generation of off-mesh links in the NavMesh, allowing agents to navigate between disconnected mesh regions, such as jumping or climbing.")]
         public bool GenerateLinks;
 #endif
         private EffectMesh _effectMesh;

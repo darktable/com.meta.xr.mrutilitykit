@@ -26,6 +26,7 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    //@cond
     /// <summary>
     /// This class is now obsolete. Please register events directly with the MRUK class.
     /// It was previously used to handle scene and room-related events.
@@ -68,4 +69,5 @@ namespace Meta.XR.MRUtilityKit
             MRUK.Instance.RegisterRoomUpdatedCallback(room => roomUpdatedEvent?.Invoke(room));
         }
     }
+    //@endcond
 }

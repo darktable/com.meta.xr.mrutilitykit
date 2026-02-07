@@ -42,7 +42,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/CRUDTests.unity");
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/CRUDTests.unity", false);
             _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
         }
         [UnityTearDown]
@@ -170,7 +170,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                 }
             };
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.HierarchyObjects.text);
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.HierarchyObjects.text);
 
             for (var i = 0; i < d.Keys.Count; i++)
             {
@@ -225,4 +225,5 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
     }
+
 }

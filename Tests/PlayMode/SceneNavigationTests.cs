@@ -131,8 +131,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SceneNavigationTests.unity", false);
-            _sceneNav = FindObjectOfType<SceneNavigation>();
-            _effectMesh = FindObjectOfType<EffectMesh>();
+            _sceneNav = FindFirstObjectByType<SceneNavigation>();
+            _effectMesh = FindFirstObjectByType<EffectMesh>();
         }
 
 

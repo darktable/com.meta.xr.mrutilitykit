@@ -380,43 +380,20 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private int CountVertex()
         {
-            var allObjects = FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var effectMesh = FindAnyObjectByType<EffectMesh>();
             int vertCount = 0;
-            foreach (GameObject obj in allObjects)
+            foreach (var values in effectMesh.EffectMeshObjects.Values)
             {
-                Renderer rend = obj.GetComponentInChildren<Renderer>();
-                if (!rend)
-                {
-                    continue;
-                }
-
-                MeshFilter mf = obj.GetComponent<MeshFilter>();
-                if (!mf)
-                {
-                    continue;
-                }
-
-                vertCount += mf.mesh.vertexCount;
+                vertCount += values.mesh.vertexCount;
             }
             return vertCount;
         }
 
         private int CountVertex(MRUKAnchor anchor)
         {
-            int vertCount = 0;
-            foreach (var rend in anchor.gameObject.GetComponentsInChildren<Renderer>())
-            {
-                MeshFilter mf = rend.gameObject.GetComponent<MeshFilter>();
-                if (!mf)
-                {
-                    continue;
-                }
-
-                vertCount += mf.mesh.vertexCount;
-
-            }
-
-            return vertCount;
+            var effectMesh = FindAnyObjectByType<EffectMesh>();
+            var effectMeshObject = effectMesh.EffectMeshObjects[anchor];
+            return effectMeshObject.mesh.vertexCount;
         }
 
         private EffectMesh SetupEffectMesh()

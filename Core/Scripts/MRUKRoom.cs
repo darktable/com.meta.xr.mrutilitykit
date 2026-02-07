@@ -32,13 +32,31 @@ using UnityEngine.Serialization;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    /// Represents a room within MR Utility Kit, containing various anchors and providing a set of utility functions.
+    /// Represents a room within MR Utility Kit, containing various <see cref="MRUKAnchor"/> objects and providing a set of utility functions.
+    /// Use this class to access on the anchors in a room, perform spatial queries or to share the room with other users.
     /// </summary>
+    /// <example>
+    /// This example demonstrates how to use the <see cref="GenerateRandomPositionOnSurface"/> method to find a random position on a specified surface type within the room.
+    /// <code><![CDATA[
+    /// float minRadius = 0.5f; // Minimum distance from the edge
+    /// // Generate a random position on the specified surface type
+    /// if (room.GenerateRandomPositionOnSurface(surfaceType, minRadius, new LabelFilter(MRUKAnchor.SceneLabels.FLOOR), out Vector3 pos, out Vector3 normal))
+    /// {
+    ///     if (room.IsPositionInRoom(spawnPosition) && !room.IsPositionInSceneVolume(spawnPosition))
+    ///     {
+    ///         // Position is valid and in the room
+    ///     }
+    /// }
+    /// ]]></code>
+    /// </example>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_m_r_u_k_room")]
     [Feature(Feature.Scene)]
     public class MRUKRoom : MonoBehaviour
     {
         /// <summary>
         /// The primary anchor associated with the room.
+        /// You should not need to use this directly, only
+        /// use this if you know what you are doing.
         /// </summary>
         public OVRAnchor Anchor { get; internal set; } = OVRAnchor.Null;
 
@@ -52,6 +70,17 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// Contains all the scene anchors in the room.
         /// </summary>
+        /// <example>
+        /// This example demonstrates how to iterate over all the anchors in
+        /// the current room.
+        /// <code><![CDATA[
+        /// var room = MRUK.Instance.GetCurrentRoom();
+        /// foreach (var anchor in room.Anchors)
+        /// {
+        ///     Debug.Log($"Anchor is a {anchor.Label.ToString()}");
+        /// }
+        /// ]]></code>
+        /// </example>
         public List<MRUKAnchor> Anchors
         {
             get;
@@ -79,19 +108,20 @@ namespace Meta.XR.MRUtilityKit
         { get; internal set; }
 
         /// <summary>
-        /// The global mesh anchor in the room.
+        /// The global mesh anchor in the room. There is only one single instance of this object per room
         /// </summary>
         public MRUKAnchor GlobalMeshAnchor { get; internal set; }
 
         /// <summary>
-        /// A list of seat poses in the room:
-        /// suggested placements for remote avatars, that exist only on COUCH objects
-        /// couchPoses are in couchAnchor space
+        /// Represents a seat poses in the room, that exist only on <see cref="MRUKAnchor"/> labeled as COUCH.
+        /// These are used as suggested placements for remote avatars.
+        /// Use <see cref="CalculateSeatPoses"/> to populate a room's seat poses and access them through the <see cref="SeatPoses"/> list.
+        /// couchPoses are in couchAnchor space.
         /// </summary>
         public struct CouchSeat
         {
             /// <summary>
-            /// The anchor associated with the couch. This anchor provides the spatial context for the seat poses.
+            /// The <see cref="MRUKAnchor"/> associated with the couch. This anchor provides the spatial context for the seat poses.
             /// </summary>
             public MRUKAnchor couchAnchor { get; internal set; }
             /// <summary>
@@ -132,7 +162,8 @@ namespace Meta.XR.MRUtilityKit
         public UnityEvent<MRUKAnchor> AnchorCreatedEvent { get; private set; } = new();
 
         /// <summary>
-        ///     Gets fired after a component of the corresponding anchor has changed
+        ///    Gets fired after a component of the corresponding anchor has changed
+        ///    (e.g. the semantic label of a plane has changed from OTHER to STORAGE)
         /// </summary>
         public UnityEvent<MRUKAnchor> AnchorUpdatedEvent { get; private set; } = new();
 
@@ -141,6 +172,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public UnityEvent<MRUKAnchor> AnchorRemovedEvent { get; private set; } = new();
 
+        ///@cond
         /// <summary>
         ///     Registers a callback function to be called when an anchor is created.
         /// </summary>
@@ -218,6 +250,7 @@ namespace Meta.XR.MRUtilityKit
         {
             AnchorRemovedEvent.RemoveListener(callback);
         }
+        ///@endcond
 
         /// <summary>
         /// Updates the room's label and the GameObject's name based on the provided room data.
@@ -279,7 +312,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private MRUKAnchor FindAnchorByUuid(Guid uuid)
+        internal MRUKAnchor FindAnchorByUuid(Guid uuid)
         {
             foreach (var anchor in Anchors)
             {
@@ -330,12 +363,16 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="anchor">The Anchor to remove and destroy</param>
         public void RemoveAndDestroyAnchor(MRUKAnchor anchor)
         {
-            if (anchor == null)
-            {
-                return;
-            }
-
             Anchors.Remove(anchor);
+            WallAnchors.Remove(anchor);
+            if (CeilingAnchor == anchor)
+            {
+                CeilingAnchor = null;
+            }
+            if (FloorAnchor == anchor)
+            {
+                FloorAnchor = null;
+            }
             Utilities.DestroyGameObjectAndChildren(anchor.gameObject);
         }
 
