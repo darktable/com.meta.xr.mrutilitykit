@@ -18,11 +18,13 @@
  * limitations under the License.
  */
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -43,6 +45,15 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
         /// <summary>
+        /// Event triggered when the space map is created for a specifc room
+        /// </summary>
+        public UnityEvent<MRUKRoom> SpaceMapRoomCreatedEvent
+        {
+            get;
+            private set;
+        } = new();
+
+        /// <summary>
         /// Event triggered when the space map is updated.
         /// </summary>
         [field: SerializeField]
@@ -52,7 +63,7 @@ namespace Meta.XR.MRUtilityKit
             private set;
         } = new();
 
-        [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
+        [Tooltip("When the scene data is loaded, this controls what room(s) the spacemap will run on.")]
         [Header("Scene and Room Settings")]
         public MRUK.RoomFilter CreateOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
@@ -74,12 +85,6 @@ namespace Meta.XR.MRUtilityKit
         private Material gradientMaterial;
 
         [SerializeField] private ComputeShader CSSpaceMap;
-
-        [Tooltip("All objects will be rendered into this Layer. Best practise is to define an own Layer for SpaceMap")]
-        [SerializeField]
-        public LayerMask layerMask;
-
-        private MRUKAnchor.SceneLabels FloorWallLabel = MRUKAnchor.SceneLabels.FLOOR;
 
         [Tooltip("Those Labels will be taken into account when running the SpaceMap")]
         [SerializeField]
@@ -113,13 +118,13 @@ namespace Meta.XR.MRUtilityKit
         private Color colorSceneObjects = Color.green;
         private Color colorVirtualObjects = Color.blue;
 
+        private Material matFloor;
+        private Material matObjects;
+
         private Camera _captureCamera;
         private readonly float _cameraDistance = 10f;
 
         private RenderTexture[] _RTextures;
-
-        private EffectMesh _effectMeshFloor;
-        private EffectMesh _effectMeshObjects;
 
         private const string OculusUnlitShader = "Oculus/Unlit";
 
@@ -129,14 +134,16 @@ namespace Meta.XR.MRUtilityKit
         private int _csFillSpaceMapKernel;
         private int _csPrepareSpaceMapKernel;
 
-        internal bool Dirty => _isDirty;
-        private bool _isDirty = false;
+        internal bool Dirty
+        {
+            get;
+            private set;
+        } = false;
 
         private const string SHADER_GLOBAL_SPACEMAPCAMERAMATRIX = "_SpaceMapProjectionViewMatrix";
 
         [SerializeField]
         private RenderTexture RenderTexture;
-
 
         private static readonly int
             WidthID = Shader.PropertyToID("Width"),
@@ -148,39 +155,87 @@ namespace Meta.XR.MRUtilityKit
             SourceID = Shader.PropertyToID("Source"),
             ResultID = Shader.PropertyToID("Result");
 
+        private CommandBuffer commandBuffer;
+        private RenderTexture rtCB;
+        private Dictionary<MRUKRoom, RenderTexture> roomTextures;
+
+        /// <summary>
+        /// Gets the <see cref="RenderTexture"/> used for the space map for a given room. This property is not available until the space map is created.
+        /// </summary>
+        /// <param name="room">The <see cref="MRUKRoom"/> for which to get the space map texture.</param>
+        /// <returns></returns>
+        public RenderTexture GetSpaceMap(MRUKRoom room = null)
+        {
+            if (room == null)
+            {
+                //returning the default RenderTexture which can be initialized with AllRooms or CurrentRoom
+                return RenderTexture;
+            }
+            if (!roomTextures.TryGetValue(room, out var rt))
+            {
+                //returning specific RenderTexture if it got called for a specific room
+                Debug.Log($"Rendertexture for room {room} not found, returning default texture. Call StartSpaceMap(room) to create a texture for a specific room.");
+                return RenderTexture;
+            }
+            return rt;
+        }
+
+
         /// <summary>
         /// Initiates the space mapping process based on the specified room filter. This method sets up the necessary components
-        /// and configurations to generate the space map, including updating textures, initializing effect meshes, setting up the capture camera,
-        /// and applying materials.
+        /// and configurations to generate the space map, including updating textures and setting up the capture camera.
         /// </summary>
         /// <param name="roomFilter">The <see cref="MRUK.RoomFilter"/> that determines which rooms are included in the space map,
         /// influencing how the space map is generated.</param>
         public async void StartSpaceMap(MRUK.RoomFilter roomFilter)
         {
-            _isDirty = true;
+            Dirty = true;
             await InitUpdateGradientTexture();
-            InitEffectMesh(roomFilter);
             InitializeCaptureCamera(roomFilter);
             ApplyMaterial();
 
+            UpdateBuffer(roomFilter);
+
             SpaceMapCreatedEvent.Invoke();
+            Dirty = false;
+        }
+
+        /// <summary>
+        /// Initiates the space mapping process for a specific room.
+        /// </summary>
+        /// <param name="room">Reference to MRUKRoom</param>
+        public async void StartSpaceMap(MRUKRoom room)
+        {
+            Dirty = true;
+            await InitUpdateGradientTexture();
+            InitializeCaptureCamera(room);
+            ApplyMaterial();
+
+            UpdateBuffer(room);
+
+            SpaceMapRoomCreatedEvent.Invoke(room);
+            Dirty = false;
         }
 
         private void Start()
         {
             _RTextures = new RenderTexture[2];
+            roomTextures = new Dictionary<MRUKRoom, RenderTexture>();
 
             //kernels for compute shader
             _csSpaceMapKernel = CSSpaceMap.FindKernel("SpaceMap");
             _csFillSpaceMapKernel = CSSpaceMap.FindKernel("FillSpaceMap");
             _csPrepareSpaceMapKernel = CSSpaceMap.FindKernel("PrepareSpaceMap");
 
+            matFloor = new Material(Shader.Find(OculusUnlitShader));
+            matObjects = new Material(Shader.Find(OculusUnlitShader));
+            matFloor.color = colorFloorWall;
+            matObjects.color = colorSceneObjects;
+
             if (MRUK.Instance is null)
             {
                 return;
             }
-
-            _isDirty = true;
 
             MRUK.Instance.RegisterSceneLoadedCallback(() =>
             {
@@ -201,6 +256,173 @@ namespace Meta.XR.MRUtilityKit
             MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
         }
 
+        private void InitBuffer()
+        {
+            commandBuffer = new CommandBuffer()
+            {
+                name = "SpaceMap"
+            };
+
+            rtCB = CreateNewRenderTexture(TextureDimension);
+            commandBuffer.SetRenderTarget(rtCB);
+        }
+
+        private void UpdateBuffer(MRUKRoom room)
+        {
+            Prepare();
+            if (_RTextures[0] == null)
+            {
+                return; //initialize phase
+            }
+
+            if (_captureCamera == null)
+            {
+                return;
+            }
+
+            if (!_captureCamera.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            commandBuffer.SetViewProjectionMatrices(_captureCamera.worldToCameraMatrix, _captureCamera.projectionMatrix);
+
+            DrawRoomIntoCB(room);
+            Graphics.ExecuteCommandBuffer(commandBuffer);
+
+            var rtRoom = CreateNewRenderTexture(RenderTexture.width);
+            RunSpaceMap(ref rtRoom);
+
+            if (CreateOutputTexture)
+            {
+                RenderTexture.active = rtRoom;
+                OutputTexture.ReadPixels(new Rect(0, 0, TextureDimension, TextureDimension), 0, 0);
+                OutputTexture.Apply();
+                RenderTexture.active = null;
+            }
+
+            commandBuffer.Clear();
+            commandBuffer.Dispose();
+
+            roomTextures[room] = rtRoom;
+        }
+
+        private void Prepare()
+        {
+            InitBuffer();
+            InitUpdateRT();
+        }
+
+        private void UpdateBuffer(MRUK.RoomFilter roomFilter)
+        {
+            Prepare();
+            if (_RTextures[0] == null)
+            {
+                return; //initialize phase
+            }
+
+            if (_captureCamera == null)
+            {
+                return;
+            }
+
+            if (!_captureCamera.isActiveAndEnabled)
+            {
+                return;
+            }
+
+            commandBuffer.SetViewProjectionMatrices(_captureCamera.worldToCameraMatrix, _captureCamera.projectionMatrix);
+
+            switch (roomFilter)
+            {
+                case MRUK.RoomFilter.None:
+                    break;
+                case MRUK.RoomFilter.CurrentRoomOnly:
+                    DrawRoomIntoCB(MRUK.Instance.GetCurrentRoom());
+                    Graphics.ExecuteCommandBuffer(commandBuffer);
+                    break;
+                case MRUK.RoomFilter.AllRooms:
+                    foreach (var room in MRUK.Instance.Rooms)
+                    {
+                        DrawRoomIntoCB(room);
+                        Graphics.ExecuteCommandBuffer(commandBuffer);
+                    }
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(roomFilter), roomFilter, null);
+            }
+
+            RunSpaceMap(ref RenderTexture);
+
+            if (CreateOutputTexture)
+            {
+                RenderTexture.active = RenderTexture;
+                OutputTexture.ReadPixels(new Rect(0, 0, TextureDimension, TextureDimension), 0, 0);
+                OutputTexture.Apply();
+                RenderTexture.active = null;
+            }
+            commandBuffer.Clear();
+            commandBuffer.Dispose();
+        }
+
+        private void DrawRoomIntoCB(MRUKRoom room)
+        {
+            var rendFloor = room.FloorAnchor.gameObject.GetComponentInChildren<Renderer>();
+            commandBuffer.DrawRenderer(rendFloor, matFloor, 0, -1);
+
+            foreach (var anchor in room.Anchors)
+            {
+                var rend = anchor.gameObject.GetComponentInChildren<Renderer>();
+                if (anchor.HasAnyLabel(SceneObjectLabels))
+                {
+                    commandBuffer.DrawRenderer(rend, matObjects, 0, -1);
+                }
+            }
+        }
+
+        private void RunSpaceMap(ref RenderTexture RT)
+        {
+            CSSpaceMap.SetInt(WidthID, (int)TextureDimension);
+            CSSpaceMap.SetInt(HeightID, (int)TextureDimension);
+            CSSpaceMap.SetVector(ColorFloorWallID, colorFloorWall);
+            CSSpaceMap.SetVector(ColorSceneObjectsID, colorSceneObjects);
+            CSSpaceMap.SetVector(ColorVirtualObjectsID, colorVirtualObjects);
+
+            var threadGroupsX = Mathf.CeilToInt(TextureDimension / 8.0f);
+            var threadGroupsY = Mathf.CeilToInt(TextureDimension / 8.0f);
+
+            CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, SourceID, rtCB);
+            CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, ResultID, _RTextures[0]);
+            CSSpaceMap.Dispatch(_csPrepareSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
+
+            var stepAmount = (int)Mathf.Log(TextureDimension, 2);
+
+            int sourceIndex = 0, resultIndex = 0;
+
+            for (var i = 0; i < stepAmount; i++)
+            {
+                var step = (int)Mathf.Pow(2, stepAmount - i - 1);
+
+                sourceIndex = i % 2;
+                resultIndex = (i + 1) % 2;
+
+                CSSpaceMap.SetInt(StepID, step);
+                CSSpaceMap.SetTexture(_csSpaceMapKernel, SourceID, _RTextures[sourceIndex]);
+                CSSpaceMap.SetTexture(_csSpaceMapKernel, ResultID, _RTextures[resultIndex]);
+                CSSpaceMap.Dispatch(_csSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
+            }
+
+            //swap indexes to get the correct one for source again
+            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, SourceID, _RTextures[resultIndex]);
+            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, ResultID, _RTextures[sourceIndex]);
+            CSSpaceMap.Dispatch(_csFillSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
+
+            Graphics.Blit(_RTextures[sourceIndex], RT);
+
+            gradientMaterial.SetTexture("_MainTex", _RTextures[sourceIndex]);
+            SpaceMapUpdatedEvent.Invoke();
+        }
+
         private void OnDestroy()
         {
             if (MRUK.Instance == null)
@@ -218,25 +440,15 @@ namespace Meta.XR.MRUtilityKit
             if (TrackUpdates &&
                 CreateOnStart == MRUK.RoomFilter.AllRooms)
             {
-                if (_effectMeshFloor == null || _effectMeshObjects == null)
-                {
-                    _effectMeshFloor = InitEffectMeshComponent(_effectMeshFloor, colorFloorWall, FloorWallLabel);
-                    _effectMeshObjects = InitEffectMeshComponent(_effectMeshObjects, colorSceneObjects, SceneObjectLabels);
-                }
-                _effectMeshFloor.CreateMesh(room);
-                _effectMeshObjects.CreateMesh(room);
-
                 RegisterAnchorUpdates(room);
-                _isDirty = true;
+                UpdateBuffer(room);
             }
         }
 
         private void ReceiveRemovedRoom(MRUKRoom room)
         {
-            _effectMeshFloor.DestroyMesh(room);
-            _effectMeshObjects.DestroyMesh(room);
             UnregisterAnchorUpdates(room);
-            _isDirty = true;
+            roomTextures.Remove(room);
         }
 
         private void UnregisterAnchorUpdates(MRUKRoom room)
@@ -260,16 +472,13 @@ namespace Meta.XR.MRUtilityKit
             {
                 return;
             }
-            CreateEffectMesh(anchor);
-            DestroyEffectMesh(anchor);
-            _isDirty = true;
+            UpdateBuffer(anchor.Room);
         }
 
         private void ReceiveAnchorRemovedCallback(MRUKAnchor anchor)
         {
             // there is no check on ```TrackUpdates``` when removing an anchor.
-            DestroyEffectMesh(anchor);
-            _isDirty = true;
+            UpdateBuffer(anchor.Room);
         }
 
         private void ReceiveAnchorCreatedEvent(MRUKAnchor anchor)
@@ -279,42 +488,8 @@ namespace Meta.XR.MRUtilityKit
             {
                 return;
             }
-            CreateEffectMesh(anchor);
-            _isDirty = true;
+            UpdateBuffer(anchor.Room);
         }
-
-        private void DestroyEffectMesh(MRUKAnchor anchor)
-        {
-            if (anchor.Label == MRUKAnchor.SceneLabels.FLOOR)
-            {
-                _effectMeshFloor.DestroyMesh(anchor);
-
-            }
-            else
-            {
-                _effectMeshObjects.DestroyMesh(anchor);
-            }
-        }
-
-        private void CreateEffectMesh(MRUKAnchor anchor)
-        {
-            if (_effectMeshFloor == null || _effectMeshObjects == null)
-            {
-                _effectMeshFloor = InitEffectMeshComponent(_effectMeshFloor, colorFloorWall, FloorWallLabel);
-                _effectMeshObjects = InitEffectMeshComponent(_effectMeshObjects, colorSceneObjects, SceneObjectLabels);
-            }
-
-            if (anchor.Label == MRUKAnchor.SceneLabels.FLOOR)
-            {
-                _effectMeshFloor.CreateEffectMesh(anchor);
-
-            }
-            else
-            {
-                _effectMeshObjects.CreateEffectMesh(anchor);
-            }
-        }
-
 
         private void Update()
         {
@@ -352,101 +527,6 @@ namespace Meta.XR.MRUtilityKit
             return rawColor.b > 0 ? InsideObjectColor : MapGradient.Evaluate(1 - rawColor.r);
         }
 
-        private void InitEffectMesh(MRUK.RoomFilter roomFilter)
-        {
-            _effectMeshFloor = InitEffectMeshComponent(_effectMeshFloor, colorFloorWall, FloorWallLabel);
-            _effectMeshObjects = InitEffectMeshComponent(_effectMeshObjects, colorSceneObjects, SceneObjectLabels);
-            switch (roomFilter)
-            {
-                case MRUK.RoomFilter.CurrentRoomOnly:
-                    _effectMeshFloor.CreateMesh(MRUK.Instance.GetCurrentRoom());
-                    _effectMeshObjects.CreateMesh(MRUK.Instance.GetCurrentRoom());
-                    break;
-                case MRUK.RoomFilter.AllRooms:
-                    _effectMeshFloor.CreateMesh();
-                    _effectMeshObjects.CreateMesh();
-                    break;
-            }
-        }
-
-        private EffectMesh InitEffectMeshComponent(EffectMesh effectMesh, Color color, MRUKAnchor.SceneLabels labels)
-        {
-            if (effectMesh == null)
-            {
-                effectMesh = gameObject.AddComponent<EffectMesh>();
-                effectMesh.MeshMaterial = new Material(Shader.Find(OculusUnlitShader)) { color = color };
-                effectMesh.HideMesh = false;
-                effectMesh.Labels = labels;
-                effectMesh.Layer = LayerToInt();
-                effectMesh.CastShadow = false;
-                effectMesh.TrackUpdates = true;
-            }
-
-            return effectMesh;
-        }
-
-        private void OnRenderImage(RenderTexture source, RenderTexture destination)
-        {
-            if (!_isDirty)
-            {
-                return;
-            }
-
-            InitUpdateRT();
-            if (_RTextures[0] == null)
-            {
-                return; //initialize phase
-            }
-
-            CSSpaceMap.SetInt(WidthID, (int)TextureDimension);
-            CSSpaceMap.SetInt(HeightID, (int)TextureDimension);
-            CSSpaceMap.SetVector(ColorFloorWallID, colorFloorWall);
-            CSSpaceMap.SetVector(ColorSceneObjectsID, colorSceneObjects);
-            CSSpaceMap.SetVector(ColorVirtualObjectsID, colorVirtualObjects);
-
-            var threadGroupsX = Mathf.CeilToInt(TextureDimension / 8.0f);
-            var threadGroupsY = Mathf.CeilToInt(TextureDimension / 8.0f);
-
-            CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, SourceID, source);
-            CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, ResultID, _RTextures[0]);
-            CSSpaceMap.Dispatch(_csPrepareSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
-
-            var stepAmount = (int)Mathf.Log(TextureDimension, 2);
-
-            int sourceIndex = 0, resultIndex = 0;
-
-            for (var i = 0; i < stepAmount; i++)
-            {
-                var step = (int)Mathf.Pow(2, stepAmount - i - 1);
-
-                sourceIndex = i % 2;
-                resultIndex = (i + 1) % 2;
-
-                CSSpaceMap.SetInt(StepID, step);
-                CSSpaceMap.SetTexture(_csSpaceMapKernel, SourceID, _RTextures[sourceIndex]);
-                CSSpaceMap.SetTexture(_csSpaceMapKernel, ResultID, _RTextures[resultIndex]);
-                CSSpaceMap.Dispatch(_csSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
-            }
-
-            //swap indexes to get the correct one for source again
-            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, SourceID, _RTextures[resultIndex]);
-            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, ResultID, _RTextures[sourceIndex]);
-            CSSpaceMap.Dispatch(_csFillSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
-
-            if (CreateOutputTexture)
-            {
-                Graphics.Blit(_RTextures[sourceIndex], destination);
-
-                RenderTexture.active = destination;
-                OutputTexture.ReadPixels(new Rect(0, 0, TextureDimension, TextureDimension), 0, 0);
-                OutputTexture.Apply();
-            }
-
-            gradientMaterial.SetTexture("_MainTex", _RTextures[sourceIndex]);
-            SpaceMapUpdatedEvent.Invoke();
-            _isDirty = false;
-        }
-
         private void InitUpdateRT()
         {
             var wh = TextureDimension;
@@ -459,16 +539,18 @@ namespace Meta.XR.MRUtilityKit
                 _RTextures[1] = CreateNewRenderTexture(wh);
             }
 
-            var tmpRT = RenderTexture.active;
             RenderTexture.active = _RTextures[0];
             GL.Clear(true, true, Color.clear);
-            RenderTexture.active = tmpRT;
+            RenderTexture.active = null;
         }
 
         private static RenderTexture CreateNewRenderTexture(int wh)
         {
             var rt = new RenderTexture(wh, wh, 0, RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear) { enableRandomWrite = true };
             rt.Create();
+            RenderTexture.active = rt;
+            GL.Clear(true, true, new Color(1, 1, 1, 1));
+            RenderTexture.active = null;
             return rt;
         }
 
@@ -503,7 +585,7 @@ namespace Meta.XR.MRUtilityKit
                 _gradientTexture.SetPixel(i, 0, MapGradient.Evaluate(t));
             }
 
-            SynchronizationContext unityContext = SynchronizationContext.Current;
+            var unityContext = SynchronizationContext.Current;
             await Task.Run(() =>
             {
                 unityContext.Post(_ =>
@@ -513,7 +595,7 @@ namespace Meta.XR.MRUtilityKit
             });
         }
 
-        private void InitializeCaptureCamera(MRUK.RoomFilter roomFilter)
+        private void SetupCaptureCamera()
         {
             if (_captureCamera == null)
             {
@@ -522,46 +604,102 @@ namespace Meta.XR.MRUtilityKit
 
             _captureCamera.orthographic = true;
             _captureCamera.stereoTargetEye = StereoTargetEyeMask.None;
-            _captureCamera.targetDisplay = 7;
-            _captureCamera.cullingMask = layerMask;
+            _captureCamera.aspect = 1;
+        }
 
-            _captureCamera.targetTexture = RenderTexture;
-
-            var bb = GetBoudingBoxByFilter(roomFilter);
+        private void InitializeCaptureCamera(MRUK.RoomFilter roomFilter)
+        {
+            SetupCaptureCamera();
+            var bb = GetBoundingBoxByFilter(roomFilter);
             transform.position = CalculateCameraPosition(bb);
             _captureCamera.orthographicSize = CalculateOrthographicSize(bb);
         }
 
-        private Rect GetBoudingBoxByFilter(MRUK.RoomFilter roomFilter)
+        private void InitializeCaptureCamera(MRUKRoom room)
+        {
+            SetupCaptureCamera();
+            var bb = GetBoundingBoxByRoom(room);
+            transform.position = CalculateCameraPosition(bb);
+            _captureCamera.orthographicSize = CalculateOrthographicSize(bb);
+        }
+
+        private HashSet<Transform> GetTargets(MRUK.RoomFilter roomFilter)
         {
             HashSet<Transform> targets = new();
             switch (roomFilter)
             {
                 case MRUK.RoomFilter.CurrentRoomOnly:
-                    foreach (var anchor in MRUK.Instance.GetCurrentRoom().Anchors)
-                    {
-                        if (anchor.HasAnyLabel(SceneObjectLabels))
-                        {
-                            targets.Add(anchor.transform);
-                        }
-                    }
-
+                    targets = GetTargets(MRUK.Instance.GetCurrentRoom());
                     break;
                 case MRUK.RoomFilter.AllRooms:
                     foreach (var room in MRUK.Instance.Rooms)
                     {
-                        foreach (var anchor in room.Anchors)
-                        {
-                            if (anchor.HasAnyLabel(SceneObjectLabels))
-                            {
-                                targets.Add(anchor.transform);
-                            }
-                        }
+                        targets.UnionWith(GetTargets(room));
                     }
-
                     break;
             }
 
+            return targets;
+        }
+
+        private HashSet<Transform> GetTargets(MRUKRoom room)
+        {
+            HashSet<Transform> targets = new();
+            foreach (var anchor in room.Anchors)
+            {
+                if (anchor.HasAnyLabel(SceneObjectLabels))
+                {
+                    targets.Add(anchor.transform);
+                }
+            }
+            targets.Add(room.FloorAnchor.transform);
+
+
+
+            foreach (var roomWallAnchor in room.WallAnchors)
+            {
+                targets.Add(roomWallAnchor.transform);
+            }
+
+            return targets;
+        }
+
+        private Rect GetBoundingBoxByRoom(MRUKRoom room)
+        {
+            var targets = GetTargets(room);
+            var (minX, maxX, minZ, maxZ) = CalculateMinMaxXY(targets);
+            HandleDebugPlane(minX, maxX, minZ, maxZ);
+            return Rect.MinMaxRect(minX - CameraCaptureBorderBuffer, maxZ + CameraCaptureBorderBuffer,
+                maxX + CameraCaptureBorderBuffer, minZ - CameraCaptureBorderBuffer);
+        }
+        private Rect GetBoundingBoxByFilter(MRUK.RoomFilter roomFilter)
+        {
+            var targets = GetTargets(roomFilter);
+            var (minX, maxX, minZ, maxZ) = CalculateMinMaxXY(targets);
+            HandleDebugPlane(minX, maxX, minZ, maxZ);
+            return Rect.MinMaxRect(minX - CameraCaptureBorderBuffer, maxZ + CameraCaptureBorderBuffer,
+                maxX + CameraCaptureBorderBuffer, minZ - CameraCaptureBorderBuffer);
+        }
+
+        private void HandleDebugPlane(float minX, float maxX, float minZ, float maxZ)
+        {
+            if (DebugPlane == null)
+            {
+                return;
+            }
+
+            var sizeX = (maxX - minX + 2 * CameraCaptureBorderBuffer) / 10f;
+            var sizeZ = (maxZ - minZ + 2 * CameraCaptureBorderBuffer) / 10f;
+
+            var centerX = (minX + maxX) / 2;
+            var centerZ = (minZ + maxZ) / 2;
+
+            DebugPlane.transform.localScale = new Vector3(sizeX, 1, sizeZ);
+            DebugPlane.transform.position = new Vector3(centerX, DebugPlane.transform.position.y, centerZ);
+        }
+
+        private (float, float, float, float) CalculateMinMaxXY(HashSet<Transform> targets)
+        {
             var minX = Mathf.Infinity;
             var maxX = Mathf.NegativeInfinity;
             var minZ = Mathf.Infinity;
@@ -575,20 +713,7 @@ namespace Meta.XR.MRUtilityKit
                 maxZ = Mathf.Max(maxZ, position.z);
             }
 
-            if (DebugPlane != null)
-            {
-                var sizeX = (maxX - minX + 2 * CameraCaptureBorderBuffer) / 10f;
-                var sizeZ = (maxZ - minZ + 2 * CameraCaptureBorderBuffer) / 10f;
-
-                var centerX = (minX + maxX) / 2;
-                var centerZ = (minZ + maxZ) / 2;
-
-                DebugPlane.transform.localScale = new Vector3(sizeX, 1, sizeZ);
-                DebugPlane.transform.position = new Vector3(centerX, DebugPlane.transform.position.y, centerZ);
-            }
-
-            return Rect.MinMaxRect(minX - CameraCaptureBorderBuffer, maxZ + CameraCaptureBorderBuffer,
-                maxX + CameraCaptureBorderBuffer, minZ - CameraCaptureBorderBuffer);
+            return (minX, maxX, minZ, maxX);
         }
 
         private Vector3 CalculateCameraPosition(Rect boundingBox)
@@ -598,20 +723,7 @@ namespace Meta.XR.MRUtilityKit
 
         private float CalculateOrthographicSize(Rect boundingBox)
         {
-            return Mathf.Max(Mathf.Abs(boundingBox.width), Mathf.Abs(boundingBox.height)) / 2f;
-        }
-
-        private int LayerToInt()
-        {
-            var layerNumber = 0;
-            var layer = layerMask.value;
-            while (layer > 0)
-            {
-                layer >>= 1;
-                layerNumber++;
-            }
-
-            return layerNumber - 1;
+            return Mathf.Max(Mathf.Abs(boundingBox.width), Mathf.Abs(boundingBox.height)) / 2;
         }
     }
 }

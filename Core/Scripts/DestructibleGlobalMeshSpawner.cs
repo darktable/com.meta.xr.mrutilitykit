@@ -140,10 +140,15 @@ namespace Meta.XR.MRUtilityKit
                 switch (CreateOnRoomLoaded)
                 {
                     case MRUK.RoomFilter.CurrentRoomOnly:
-                        AddDestructibleGlobalMesh(MRUK.Instance.GetCurrentRoom());
+                        var currentRoom = MRUK.Instance.GetCurrentRoom();
+                        if (!_spawnedDestructibleMeshes.ContainsKey(currentRoom))
+                        {
+                            AddDestructibleGlobalMesh(MRUK.Instance.GetCurrentRoom());
+                        }
+
                         break;
                     case MRUK.RoomFilter.AllRooms:
-                        AddDestructibleGlobalMesh(null);
+                        AddDestructibleGlobalMesh();
                         break;
                     case MRUK.RoomFilter.None:
                         break;
@@ -168,7 +173,11 @@ namespace Meta.XR.MRUtilityKit
                         $"Can not find a global mesh anchor, skipping the destructible mesh creation for this room");
                     continue;
                 }
-                AddDestructibleGlobalMesh(room);
+
+                if (!_spawnedDestructibleMeshes.ContainsKey(room))
+                {
+                    AddDestructibleGlobalMesh(room);
+                }
             }
         }
 
@@ -176,12 +185,8 @@ namespace Meta.XR.MRUtilityKit
         /// Adds a destructible global mesh to a specific room. This method checks for existing meshes in the room and creates a new one if none exists.
         /// </summary>
         /// <param name="room">The room to which the mesh will be added.</param>
-        /// <param name="includeFloor">Whether to include the floor surface in the destructible global mesh generated.</param>
-        /// <param name="includeCeiling">Whether to include the ceiling surface in the destructible global mesh generated..</param>
-        /// <param name="includeWalls">Whether to include the walls surfaces in the destructible global mesh generated.</param>
         /// <returns>The destructible mesh created for the room.</returns>
-        public DestructibleGlobalMesh AddDestructibleGlobalMesh(MRUKRoom room, bool includeFloor = true,
-            bool includeCeiling = true, bool includeWalls = true)
+        public DestructibleGlobalMesh AddDestructibleGlobalMesh(MRUKRoom room)
         {
             if (_spawnedDestructibleMeshes.ContainsKey(room))
             {
@@ -222,15 +227,9 @@ namespace Meta.XR.MRUtilityKit
         /// This method handles the mesh creation by calculating segmentation points and starts the segmentation process.
         /// </summary>
         /// <param name="destructibleGlobalMesh">The destructible global mesh to create.</param>
-        /// <param name="room">The room where the mesh will be created. If null, the current room is used.</param>
-        private static void CreateDestructibleGlobalMesh(DestructibleGlobalMesh destructibleGlobalMesh,
-            MRUKRoom room = null)
+        /// <param name="room">The room where the mesh will be created.</param>
+        private static void CreateDestructibleGlobalMesh(DestructibleGlobalMesh destructibleGlobalMesh, MRUKRoom room)
         {
-            if (!room)
-            {
-                room = MRUK.Instance.GetCurrentRoom();
-            }
-
             if (!room)
             {
                 throw new Exception("Could not find a room for the destructible mesh");
@@ -299,7 +298,10 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            AddDestructibleGlobalMesh(room);
+            if (CreateOnRoomLoaded == MRUK.RoomFilter.AllRooms)
+            {
+                AddDestructibleGlobalMesh();
+            }
         }
 
         private void ReceiveRemovedRoom(MRUKRoom room)

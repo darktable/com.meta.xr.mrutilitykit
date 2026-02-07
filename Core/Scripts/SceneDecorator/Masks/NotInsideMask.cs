@@ -23,16 +23,32 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that returns true if the object is not inside a sceneelement with the specified label
+    /// </summary>
     [Feature(Feature.Scene)]
     public class NotInsideMask : Mask
     {
+        /// <summary>
+        /// Define which Labels should be checked for this mask.
+        /// </summary>
         [SerializeField] public MRUKAnchor.SceneLabels Labels;
 
+        /// <summary>
+        /// This is not used in this mask
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>Not used in this mask, always 0</returns>
         public override float SampleMask(Candidate c)
         {
             return 0;
         }
 
+        /// <summary>
+        /// Checks if the hit point of the candidate is inside an MRUKAnchor
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>The adjusted and clamped value</returns>
         public override bool Check(Candidate c)
         {
             var bounds = Utilities.GetPrefabBounds(c.decorationPrefab);

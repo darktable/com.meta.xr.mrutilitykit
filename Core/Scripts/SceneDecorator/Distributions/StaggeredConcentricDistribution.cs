@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A distribution that places objects in a staggered concentric circle pattern.
+    /// </summary>
     [Serializable]
     [Feature(Feature.Scene)]
     public class StaggeredConcentricDistribution : SceneDecorator.IDistribution

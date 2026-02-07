@@ -23,10 +23,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using Meta.XR.MRUtilityKit;
 using Unity.Collections;
+using TMPro;
 
 public class DestructibleMeshExperience : MonoBehaviour
 {
     public DestructibleGlobalMeshSpawner destructibleGlobalMeshSpawner;
+    public GameObject ExceptionUI;
+    public TextMeshProUGUI ExceptionMessage;
     private DestructibleMeshComponent _destructibleMeshComponent;
     private List<GameObject> _globalMeshSegments = new();
     private OVRCameraRig _cameraRig;
@@ -48,6 +51,11 @@ public class DestructibleMeshExperience : MonoBehaviour
         destructibleGlobalMeshSpawner.OnDestructibleMeshCreated.RemoveListener(OnDestructibleMeshCreated);
     }
 
+    private void Start()
+    {
+        GlobalMeshSanityCheck();
+    }
+
     private void Update()
     {
         if (OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger) ||
@@ -59,6 +67,7 @@ public class DestructibleMeshExperience : MonoBehaviour
         if (OVRInput.GetDown(OVRInput.Button.One) ||
             OVRInput.GetDown(OVRInput.Button.Three))
         {
+            GlobalMeshSanityCheck();
             destructibleGlobalMeshSpawner.AddDestructibleGlobalMesh(MRUK.Instance.GetCurrentRoom());
         }
 
@@ -86,6 +95,32 @@ public class DestructibleMeshExperience : MonoBehaviour
         }
     }
 
+    private void GlobalMeshSanityCheck()
+    {
+        if (OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Quest_3 ||
+            OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Quest_3S ||
+            OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Link_Quest_3S ||
+            OVRPlugin.GetSystemHeadsetType() == OVRPlugin.SystemHeadset.Meta_Link_Quest_3)
+        {
+            if (MRUK.Instance != null && MRUK.Instance.GetCurrentRoom() != null &&
+                MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor == null)
+            {
+                ExceptionUI.SetActive(true);
+                ExceptionMessage.text =
+                    "No Global Mesh was found for the current room. Make sure to have correctly set up the space through a room capture.";
+            }
+            else
+            {
+                ExceptionUI.SetActive(false);
+            }
+        }
+        else
+        {
+            ExceptionUI.SetActive(true);
+            ExceptionMessage.text =
+                "Destructible meshes are only supported on Quest 3 and Quest 3S devices.";
+        }
+    }
     private void TryDestroyMeshSegment()
     {
         var ray = GetControllerRay();

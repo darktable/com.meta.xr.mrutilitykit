@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// This modifier will rotate the decoration to match a color from the spacemap
+    /// </summary>
     [Feature(Feature.Scene)]
     public class RotationModifierSpaceMap : Modifier
     {

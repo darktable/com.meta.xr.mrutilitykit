@@ -23,9 +23,20 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that uses cellular noise to generate a 2D grid of points.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class CellularNoiseMask : Mask2D
     {
+        /// <summary>
+        /// This method generates a sample mask for the given candidate.
+        /// It applies an affine transformation to the local position of the candidate,
+        /// and then uses the Worley noise function to generate a value between 0 and 1.
+        /// The resulting value is used as the sample mask for the candidate.
+        /// </summary>
+        /// <param name="c">The candidate for which to generate the sample mask.</param>
+        /// <returns>The sample mask value for the given candidate.</returns>
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);
@@ -37,6 +48,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return value;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

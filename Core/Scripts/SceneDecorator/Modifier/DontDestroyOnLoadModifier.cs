@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A modifier that sets the GameObject to DontDestroyOnLoad
+    /// </summary>
     [Feature(Feature.Scene)]
     public class DontDestroyOnLoadModifier : Modifier
     {

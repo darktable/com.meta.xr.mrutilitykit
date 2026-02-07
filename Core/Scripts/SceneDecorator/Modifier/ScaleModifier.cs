@@ -24,9 +24,15 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A modifier that scales the decoration based on a mask
+    /// </summary>
     [Feature(Feature.Scene)]
     public class ScaleModifier : Modifier
     {
+        /// <summary>
+        /// Parameters for scaling along an axis
+        /// </summary>
         [Serializable]
         public struct AxisParameters
         {

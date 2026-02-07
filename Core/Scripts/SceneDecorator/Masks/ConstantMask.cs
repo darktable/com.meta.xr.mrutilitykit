@@ -23,17 +23,30 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that always returns a constant value
+    /// </summary>
     [Feature(Feature.Scene)]
     public class ConstantMask : Mask
     {
         [SerializeField]
         public float constant = 0f;
 
+        /// <summary>
+        /// Returns the constant value
+        /// </summary>
+        /// <param name="c">The Candidate, ignored here</param>
+        /// <returns>The constant</returns>
         public override float SampleMask(Candidate c)
         {
             return constant;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

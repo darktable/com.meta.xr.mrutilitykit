@@ -44,7 +44,7 @@ public class NavMeshAgentController : MonoBehaviour
     {
         agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
         timer = delayTimer;
-        Transform childTransform = transform.Find("PositionIndicator");
+        var childTransform = transform.Find("PositionIndicator");
         positionIndicator = childTransform.gameObject;
     }
 
@@ -56,7 +56,7 @@ public class NavMeshAgentController : MonoBehaviour
         if (timer >= delayTimer)
         {
             // set the new set of randomize values for target position and speed
-            Vector3 newPos = RandomNavPoint();
+            var newPos = RandomNavPoint();
 
             var room = MRUK.Instance?.GetCurrentRoom();
             if (!room)
@@ -64,7 +64,8 @@ public class NavMeshAgentController : MonoBehaviour
                 return;
             }
 
-            bool test = room.IsPositionInRoom(newPos, false); // occasionally NavMesh will generate areas outside the room, so we must test the value from RandomNavPoint
+            var test = room.IsPositionInRoom(newPos,
+                false); // occasionally NavMesh will generate areas outside the room, so we must test the value from RandomNavPoint
 
             if (!test)
             {
@@ -79,9 +80,9 @@ public class NavMeshAgentController : MonoBehaviour
             }
 
             agent.SetDestination(newPos);
-            float newDelay = Random.Range(2f, 6.0f);
+            var newDelay = Random.Range(2f, 6.0f);
             delayTimer = newDelay;
-            float newSpeed = Random.Range(1.2f, 1.6f);
+            var newSpeed = Random.Range(1.2f, 1.6f);
             agent.speed = newSpeed;
             timer = 0;
         }

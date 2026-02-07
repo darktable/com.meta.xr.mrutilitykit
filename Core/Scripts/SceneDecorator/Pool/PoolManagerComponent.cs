@@ -24,12 +24,22 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// This component is responsible for managing the pooling of GameObjects.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class PoolManagerComponent : MonoBehaviour
     {
+        /// <summary>
+        /// Pool Callbacks
+        /// </summary>
         [Serializable]
         public abstract class CallbackProvider : MonoBehaviour
         {
+            /// <summary>
+            /// Gets the callbacks for the GameObject pool.
+            /// </summary>
+            /// <returns>An instance of Pool<GameObject>.Callbacks containing the callback methods for the GameObject pool.</returns>
             public abstract Pool<GameObject>.Callbacks GetPoolCallbacks();
         }
 
@@ -123,11 +133,17 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             }
         }
 
-        /*
-         * Create is a drop-in replacement for Instantiate that uses a pool if available.
-         * Note that it is not named Instantiate so that it is easy to find & replace Instantiate
-         *  calls with Create calls when switching to using Pools.
-         */
+        /// <summary>
+        /// Create is a drop-in replacement for Instantiate that uses a pool if available.
+        /// Note that it is not named Instantiate so that it is easy to find & replace Instantiate
+        /// calls with Create calls when switching to using Pools.
+        /// </summary>
+        /// <param name="primitive">The primitive to use</param>
+        /// <param name="position">Position of the object to instatiate</param>
+        /// <param name="rotation">Rotation of the object to instatiate</param>
+        /// <param name="anchor">The MRUKAnchor to associate with.</param>
+        /// <param name="parent">The Parent object to attach to.</param>
+        /// <returns>The instantiated gameobject</returns>
         public GameObject Create(GameObject primitive, Vector3 position, Quaternion rotation, MRUKAnchor anchor, Transform parent = null)
         {
             Pool<GameObject> pool = poolManager.GetPool(primitive);
@@ -169,6 +185,16 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return go;
         }
 
+        /// <summary>
+        /// Create is a drop-in replacement for Instantiate that uses a pool if available.
+        /// Note that it is not named Instantiate so that it is easy to find & replace Instantiate
+        /// calls with Create calls when switching to using Pools.
+        /// </summary>
+        /// <param name="primitive">The primitive to use</param>
+        /// <param name="anchor">The MRUKAnchor to associate with.</param>
+        /// <param name="parent">The Parent object to attach to.</param>
+        /// <param name="instantiateInWorldSpace">Define if it should staz in worldspace</param>
+        /// <returns>The instantiated gameobject</returns>
         public GameObject Create(GameObject primitive, MRUKAnchor anchor, Transform parent = null, bool instantiateInWorldSpace = false)
         {
             Pool<GameObject> pool = poolManager.GetPool(primitive);
@@ -220,24 +246,44 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return go;
         }
 
+        /// <summary>
+        /// Creates a new instance of the specified component type, attached to a GameObject created from the given primitive.
+        /// The GameObject is positioned and rotated according to the provided parameters, and optionally parented to another Transform.
+        /// </summary>
+        /// <param name="primitive">The primitive object used to create the new GameObject.</param>
+        /// <param name="position">The position of the new GameObject in world space.</param>
+        /// <param name="rotation">The rotation of the new GameObject in world space.</param>
+        /// <param name="anchor">The MRUKAnchor to which the new GameObject will be attached.</param>
+        /// <param name="parent">An optional parent Transform for the new GameObject. Defaults to null.</param>
+        /// <typeparam name="T">The type of component to create and attach to the new GameObject.</typeparam>
+        /// <returns>The newly created component instance, or null if creation failed.</returns>
         public T Create<T>(T primitive, Vector3 position, Quaternion rotation, MRUKAnchor anchor, Transform parent = null) where T : Component
         {
             GameObject go = Create(primitive.gameObject, position, rotation, anchor, parent);
             return go == null ? null : go.GetComponent<T>();
         }
 
+        /// <summary>
+        /// Creates a new instance of the specified component type, attached to a GameObject created from the given primitive.
+        /// The GameObject is positioned and rotated according to the provided MRUKAnchor, and optionally parented to another Transform.
+        /// </summary>
+        /// <param name="primitive">The primitive object used to create the new GameObject.</param>
+        /// <param name="anchor">The MRUKAnchor to which the new GameObject will be attached.</param>
+        /// <param name="parent">An optional parent Transform for the new GameObject. Defaults to null.</param>
+        /// <param name="instantiateInWorldSpace">If true, the new GameObject will be instantiated in world space instead of local space. Defaults to false.</param>
+        /// <typeparam name="T">The type of component to create and attach to the new GameObject.</typeparam>
+        /// <returns>The newly created component instance, or null if creation failed.</returns>
         public T Create<T>(T primitive, MRUKAnchor anchor, Transform parent = null, bool instantiateInWorldSpace = false) where T : Component
         {
             GameObject go = Create(primitive.gameObject, anchor, parent, instantiateInWorldSpace);
             return go == null ? null : go.GetComponent<T>();
         }
 
-
-        /*
-         * Release is a drop-in replacement for Destroy that releases into a pool if available.
-         * Note that it is not named Destroy so that it is easy to find & replace Destroy
-         *  calls with Release calls when switching to using Pools.
-         */
+        /// <summary>
+        /// Releases a previously created GameObject back to its pool, or destroys it if it's not poolable.
+        /// This method is used to return a GameObject to its original state and make it available for reuse.
+        /// </summary>
+        /// <param name="go">The GameObject to release.</param>
         public void Release(GameObject go)
         {
             if (go.TryGetComponent<PoolableData>(out var poolableData) &&

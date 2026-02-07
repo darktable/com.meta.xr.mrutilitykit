@@ -33,10 +33,10 @@ namespace Meta.XR.MRUtilityKit
     ///     stretched. In essence, the GridSliceResizer is a 27-Slice-Scaler for 3D meshes.
     ///     The component operates by dividing the bounding box of a 3D mesh into 27 cuboids, as illustrated below.
     ///     Not all cuboids are visible in this picture. Only the once that are front facing:
-    ///     +-----+-----------+-----+
-    ///     /_____/___________/_____/|
-    ///     /_____/___________/_____/||
-    ///     /     /           /     /|||
+    ///         +-----+-----------+-----+
+    ///        /_____/___________/_____/|
+    ///       /_____/___________/_____/||
+    ///      /     /           /     /|||
     ///     +-----+-----------+-----+ |||
     ///     |  A  |     B     |  C  |/|||
     ///     +-----+-----------+-----+ |||

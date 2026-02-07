@@ -148,7 +148,7 @@ namespace Meta.XR.MRUtilityKit
 
                 return _globalMesh;
             }
-            set => _globalMesh = value;
+            private set => _globalMesh = value;
         }
 
         Mesh _globalMesh;

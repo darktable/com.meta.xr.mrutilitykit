@@ -59,7 +59,7 @@ MonoBehaviour:
   - {fileID: 7324994890478250422, guid: 59b9b707dce96c8499d1f7d3f22f78e4, type: 3}
   - {fileID: 6799459537376695888, guid: 470a9fd690e83014b9d5c22a9fcefba2, type: 3}
   executeSceneLabels: 1
-  targets: 4
+  targets: 1
   targetPhysicsLayers:
     serializedVersion: 2
     m_Bits: 63
@@ -104,7 +104,7 @@ MonoBehaviour:
     enabled: 1
     mask: {fileID: -7621775890710267462}
     modeCheck: 0
-    min: 0.2
+    min: 0.5
     max: 0.8
   - name: ColliderConstraint
     enabled: 1
@@ -117,7 +117,7 @@ MonoBehaviour:
   - {fileID: 9113171534021985920}
   discardParentScaling: 1
   lifetime: 0
-  DrawDebugRaysAndImpactPoints: 0
+  DrawDebugRaysAndImpactPoints: 1
 --- !u!114 &4295945798623667204
 MonoBehaviour:
   m_ObjectHideFlags: 0

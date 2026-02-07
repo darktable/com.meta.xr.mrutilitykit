@@ -22,14 +22,27 @@ using Meta.XR.Util;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that returns the anchor distance
+    /// </summary>
     [Feature(Feature.Scene)]
     public class AnchorDistanceMask : Mask
     {
+        /// <summary>
+        /// Returns the distance from the hit to the anchor
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>the distance</returns>
         public override float SampleMask(Candidate c)
         {
             return c.anchorDist;
         }
 
+        /// <summary>
+        /// Not used in this mask
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

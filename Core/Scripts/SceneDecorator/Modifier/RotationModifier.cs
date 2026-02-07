@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// Rotates a decoration around an axis.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class RotationModifier : Modifier
     {

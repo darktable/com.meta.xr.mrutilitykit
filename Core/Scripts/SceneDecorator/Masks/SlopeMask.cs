@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that samples the slope of a candidate.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SlopeMask : Mask
     {

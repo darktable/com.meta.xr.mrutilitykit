@@ -25,6 +25,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that uses the SpaceMapGPU to determine if a point is in or out of an object.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SpaceMapGPUMask : Mask
     {

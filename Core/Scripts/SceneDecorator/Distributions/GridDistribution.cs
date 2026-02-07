@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A distribution that places a grid of decorations
+    /// </summary>
     [Serializable]
     [Feature(Feature.Scene)]
     public class GridDistribution : SceneDecorator.IDistribution
@@ -31,6 +34,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         [SerializeField] private float spacingX = 1f;
         [SerializeField] private float spacingY = 1f;
 
+        /// <summary>
+        /// Distribute in a grid pattern
+        /// </summary>
+        /// <param name="sceneDecorator">The decorator</param>
+        /// <param name="sceneAnchor">The SceneAnchor</param>
+        /// <param name="sceneDecoration">The SceneDecoration</param>
         public void Distribute(SceneDecorator sceneDecorator, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration)
         {
             Vector3 anchorScale = Vector3.one;

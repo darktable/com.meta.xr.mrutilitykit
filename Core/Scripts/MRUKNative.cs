@@ -98,11 +98,16 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
+#if UNITY_EDITOR_WIN
             var path = Path.GetFullPath("Packages/com.meta.xr.mrutilitykit/Plugins/Win64/mrutilitykitshared.dll");
-#elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+#elif UNITY_EDITOR_OSX
             string folder = RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "MacArm" : "Mac";
             var path = Path.GetFullPath($"Packages/com.meta.xr.mrutilitykit/Plugins/{folder}/libmrutilitykitshared.dylib");
+#elif UNITY_STANDALONE_WIN
+            var path = Path.Join(Application.dataPath, "Plugins/x86_64/mrutilitykitshared.dll");
+#elif UNITY_STANDALONE_OSX
+            // NOTE: This only works for Arm64 Macs
+            var path = Path.Join(Application.dataPath, "Plugins/ARM64/libmrutilitykitshared.dylib");
 #elif UNITY_ANDROID
             var path = "libmrutilitykitshared.so";
 #endif

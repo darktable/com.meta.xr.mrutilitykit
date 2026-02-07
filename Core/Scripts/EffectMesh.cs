@@ -176,7 +176,13 @@ namespace Meta.XR.MRUtilityKit
 
         private static readonly string Suffix = "_EffectMesh";
 
-        Dictionary<MRUKAnchor, EffectMeshObject> effectMeshObjects = new();
+        private Dictionary<MRUKAnchor, EffectMeshObject> effectMeshObjects = new();
+
+        /// <summary>
+        /// Gets a dictionary that maps MRUKAnchor instances to their corresponding spawned EffectMeshObject.
+        /// This should be treated as read-only, do not modify the contents.
+        /// </summary>
+        public IReadOnlyDictionary<MRUKAnchor, EffectMeshObject> EffectMeshObjects => effectMeshObjects;
 
 
         /// <summary>
@@ -774,229 +780,28 @@ namespace Meta.XR.MRUtilityKit
             }
 
             EffectMeshObject effectMeshObject = new EffectMeshObject();
-            int totalVertices;
-            int totalIndices;
-            if (anchorInfo.VolumeBounds.HasValue)
-            {
-                totalVertices = 24;
-                totalIndices = 36;
-            }
-            else if (anchorInfo.PlaneRect.HasValue && anchorInfo.PlaneBoundary2D.Count > 2)
-            {
-                totalVertices = anchorInfo.PlaneBoundary2D.Count;
-                totalIndices = (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
-            }
-            else
-            {
-                return effectMeshObject;
-            }
+            var newMesh = Utilities.SetupAnchorMeshGeometry(anchorInfo, false, textureCoordinateModes);
 
-            GameObject newGameObject = new GameObject(anchorInfo.name + Suffix);
+
+            var newGameObject = new GameObject(anchorInfo.name + Suffix);
             newGameObject.transform.SetParent(anchorInfo.transform, false);
             newGameObject.layer = Layer;
 
             effectMeshObject.effectMeshGO = newGameObject;
-            Mesh newMesh = new Mesh();
+
             var meshFilter = newGameObject.AddComponent<MeshFilter>();
             meshFilter.mesh = newMesh;
 
             // only attach MeshRenderer if a material has been assigned
             if (MeshMaterial != null)
             {
-                MeshRenderer newRenderer = newGameObject.AddComponent<MeshRenderer>();
+                var newRenderer = newGameObject.AddComponent<MeshRenderer>();
                 newRenderer.material = MeshMaterial;
                 newRenderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
                 newRenderer.enabled = !hideMesh;
             }
 
-            int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
-            Vector2[][] MeshUVs = new Vector2[UVChannelCount][];
-            for (int x = 0; x < UVChannelCount; x++)
-            {
-                MeshUVs[x] = new Vector2[totalVertices];
-            }
-
-            Vector3[] MeshVertices = new Vector3[totalVertices];
-            Color32[] MeshColors = new Color32[totalVertices];
-            Vector3[] MeshNormals = new Vector3[totalVertices];
-            Vector4[] MeshTangents = new Vector4[totalVertices];
-
-            int[] MeshTriangles = new int[totalIndices];
-
-            int vertCounter = 0;
-            int triCounter = 0;
-            int baseVert = 0;
-
-            if (anchorInfo.VolumeBounds.HasValue)
-            {
-                Vector3 dim = anchorInfo.VolumeBounds.Value.size;
-
-                // each cube face gets an 8-vertex mesh
-                for (int j = 0; j < 6; j++)
-                {
-                    Vector3 right, up, fwd;
-                    Vector3 rotatedDim;
-                    float UVxDim = dim.x;
-                    float UVyDim = dim.y;
-                    switch (j)
-                    {
-                        case 0:
-                            rotatedDim = new Vector3(dim.x, dim.y, dim.z);
-                            right = Vector3.right;
-                            up = Vector3.up;
-                            fwd = Vector3.forward;
-                            break;
-                        case 1:
-                            rotatedDim = new Vector3(dim.x, dim.z, dim.y);
-                            right = Vector3.right;
-                            up = -Vector3.forward;
-                            fwd = Vector3.up;
-                            UVyDim = dim.z;
-                            break;
-                        case 2:
-                            rotatedDim = new Vector3(dim.x, dim.y, dim.z);
-                            right = Vector3.right;
-                            up = -Vector3.up;
-                            fwd = -Vector3.forward;
-                            break;
-                        case 3:
-                            rotatedDim = new Vector3(dim.x, dim.z, dim.y);
-                            right = Vector3.right;
-                            up = Vector3.forward;
-                            fwd = -Vector3.up;
-                            UVyDim = dim.z;
-                            break;
-                        case 4:
-                            rotatedDim = new Vector3(dim.z, dim.y, dim.x);
-                            right = -Vector3.forward;
-                            up = Vector3.up;
-                            fwd = Vector3.right;
-                            UVxDim = dim.z;
-                            break;
-                        case 5:
-                            rotatedDim = new Vector3(dim.z, dim.y, dim.x);
-                            right = Vector3.forward;
-                            up = Vector3.up;
-                            fwd = -Vector3.right;
-                            UVxDim = dim.z;
-                            break;
-                        default:
-                            throw new IndexOutOfRangeException("Index j is out of range");
-                    }
-
-                    // for each face of the cube, make a bordered quad
-                    for (int k = 0; k < 4; k++)
-                    {
-                        float UVx = (k / 2 == 0) ? 0.0f : 1.0f;
-                        float UVy = (k == 1 || k == 2) ? 1.0f : 0.0f;
-
-                        float xDir = Mathf.Sign(UVx - 0.5f);
-                        float yDir = Mathf.Sign(UVy - 0.5f);
-
-                        Vector3 centerPoint = anchorInfo.VolumeBounds.Value.center - up * rotatedDim.y * 0.5f + right * rotatedDim.x * 0.5f + fwd * rotatedDim.z * 0.5f;
-                        centerPoint += up * rotatedDim.y * UVy - right * rotatedDim.x * UVx;
-
-                        Vector2 quadUV = new Vector2(UVx, UVy);
-
-                        for (int x = 0; x < UVChannelCount; x++)
-                        {
-                            Vector2 uvScaleFactor = Vector2.one;
-                            switch (textureCoordinateModes[x].AnchorUV)
-                            {
-                                case AnchorTextureCoordinateMode.METRIC:
-                                    uvScaleFactor = new Vector2(UVxDim, UVyDim);
-                                    break;
-                            }
-
-                            MeshUVs[x][vertCounter] = Vector2.Scale(quadUV, uvScaleFactor);
-                        }
-
-                        MeshVertices[vertCounter] = centerPoint;
-                        MeshColors[vertCounter] = Color.white;
-                        MeshNormals[vertCounter] = fwd;
-                        MeshTangents[vertCounter] = new Vector4(-right.x, -right.y, -right.z, -1);
-
-                        vertCounter++;
-                    }
-
-                    CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, baseVert, 4);
-                    baseVert += 4;
-                }
-            }
-            else
-            {
-                Rect rect = anchorInfo.PlaneRect.Value;
-
-                List<Vector2> localPoints = anchorInfo.PlaneBoundary2D;
-
-                for (int i = 0; i < localPoints.Count; i++)
-                {
-                    Vector2 thisCorner = localPoints[i];
-                    Vector2 nextCorner = (i == localPoints.Count - 1) ? localPoints[0] : localPoints[i + 1];
-                    Vector2 lastCorner = (i == 0) ? localPoints[localPoints.Count - 1] : localPoints[i - 1];
-
-                    for (int x = 0; x < UVChannelCount; x++)
-                    {
-                        Vector2 uvScaleFactor = Vector2.one;
-                        switch (textureCoordinateModes[x].AnchorUV)
-                        {
-                            case AnchorTextureCoordinateMode.STRETCH:
-                                uvScaleFactor = new Vector2(1 / (rect.xMax - rect.xMin), 1 / (rect.yMax - rect.yMin));
-                                break;
-                        }
-
-                        MeshUVs[x][vertCounter] = Vector2.Scale(new Vector2(rect.xMax - thisCorner.x, thisCorner.y - rect.yMin), uvScaleFactor);
-                    }
-
-                    MeshVertices[vertCounter] = new Vector3(thisCorner.x, thisCorner.y, 0);
-                    MeshColors[vertCounter] = Color.white;
-                    MeshNormals[vertCounter] = Vector3.forward;
-                    MeshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
-
-                    vertCounter++;
-                }
-
-                CreateInteriorPolygon(ref MeshTriangles, ref triCounter, baseVert, localPoints);
-            }
-
-            newMesh.Clear();
             newMesh.name = anchorInfo.name;
-            newMesh.vertices = MeshVertices;
-            for (int x = 0; x < UVChannelCount; x++)
-            {
-                switch (x)
-                {
-                    case 0:
-                        newMesh.uv = MeshUVs[x];
-                        break;
-                    case 1:
-                        newMesh.uv2 = MeshUVs[x];
-                        break;
-                    case 2:
-                        newMesh.uv3 = MeshUVs[x];
-                        break;
-                    case 3:
-                        newMesh.uv4 = MeshUVs[x];
-                        break;
-                    case 4:
-                        newMesh.uv5 = MeshUVs[x];
-                        break;
-                    case 5:
-                        newMesh.uv6 = MeshUVs[x];
-                        break;
-                    case 6:
-                        newMesh.uv7 = MeshUVs[x];
-                        break;
-                    case 7:
-                        newMesh.uv8 = MeshUVs[x];
-                        break;
-                }
-            }
-
-            newMesh.colors32 = MeshColors;
-            newMesh.triangles = MeshTriangles;
-            newMesh.normals = MeshNormals;
-            newMesh.tangents = MeshTangents;
 
             effectMeshObject.mesh = newMesh;
 
@@ -1128,8 +933,6 @@ namespace Meta.XR.MRUtilityKit
             Vector3 wallNorm = Vector3.forward;
             Vector4 wallTan = new Vector4(1, 0, 0, 1);
 
-            var wallCenter = wallRect.center;
-
             for (int j = 0; j < vertices.Length; j++)
             {
                 var vert = MeshVertices[j];
@@ -1251,7 +1054,7 @@ namespace Meta.XR.MRUtilityKit
             return effectMeshObject;
         }
 
-        async void CreateGlobalMeshObject(MRUKAnchor globalMeshAnchor)
+        void CreateGlobalMeshObject(MRUKAnchor globalMeshAnchor)
         {
             if (!globalMeshAnchor)
             {
@@ -1271,27 +1074,6 @@ namespace Meta.XR.MRUtilityKit
             globalMeshGO.layer = Layer;
             globalMeshGO.transform.SetParent(globalMeshAnchor.transform, false);
             effectMeshObject.effectMeshGO = globalMeshGO;
-
-            if (globalMeshAnchor.GlobalMesh == null)
-            {
-                globalMeshAnchor.Anchor.TryGetComponent(out OVRLocatable locatable);
-                await locatable.SetEnabledAsync(true);
-
-                if (!locatable.TryGetSceneAnchorPose(out var pose))
-                {
-                    return;
-                }
-
-                var pos = pose.ComputeWorldPosition(MRUK.Instance._cameraRig.trackingSpace);
-                var rot = pose.ComputeWorldRotation(MRUK.Instance._cameraRig.trackingSpace);
-                if (!pos.HasValue || !rot.HasValue)
-                {
-                    return;
-                }
-
-                globalMeshGO.transform.SetPositionAndRotation(pos.Value, rot.Value);
-                globalMeshAnchor.GlobalMesh = globalMeshAnchor.LoadGlobalMeshTriangles();
-            }
 
             globalMeshAnchor.GlobalMesh.RecalculateNormals();
             var trimesh = globalMeshAnchor.GlobalMesh;

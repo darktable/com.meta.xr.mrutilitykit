@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that samples the height of a candidate
+    /// </summary>
     [Feature(Feature.Scene)]
     public class HeightMask : Mask
     {
@@ -31,6 +34,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return c.hit.point.y;
         }
 
+        /// <summary>
+        /// This is not used in this mask
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>Not used</returns>
         public override bool Check(Candidate c)
         {
             return true;

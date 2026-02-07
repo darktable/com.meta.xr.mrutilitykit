@@ -72,7 +72,13 @@ Shader "Meta/MRUK/MixedReality/SpaceMapGradient"
                 if(col.b > 0) {
                     return _InsideColor;
                 }
-                return tex2D(_GradientTex, 1-col.r);
+                if(col.r > 0.9) {
+                    return tex2D(_GradientTex, 0.05);
+                }
+                else {
+                    return tex2D(_GradientTex, 1-col.r);
+                }
+
             }
             ENDCG
         }

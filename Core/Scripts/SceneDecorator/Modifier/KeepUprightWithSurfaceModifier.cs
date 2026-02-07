@@ -24,12 +24,25 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A modifier that keeps the decoration upright with respect to a surface.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class KeepUprightWithSurfaceModifier : Modifier
     {
+        /// <summary>
+        /// The axis that is used to determine the upright direction.
+        /// </summary>
         [SerializeField]
         public Vector3 uprightAxis = new(0f, 1f, 0f);
 
+        /// <summary>
+        /// Applies the modifier to a decoration
+        /// </summary>
+        /// <param name="decorationGO">The gameobject</param>
+        /// <param name="sceneAnchor">The SceneAnchor</param>
+        /// <param name="sceneDecoration">The SceneDecoration</param>
+        /// <param name="candidate">The candidate</param>
         public override void ApplyModifier(GameObject decorationGO, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration, Candidate candidate)
         {
             var rotation = decorationGO.transform.rotation;

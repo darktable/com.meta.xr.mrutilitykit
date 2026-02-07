@@ -42,7 +42,7 @@ MonoBehaviour:
   decorationPrefabs:
   - {fileID: 1413971863201818828, guid: 91a96c297423bd54b85c3a4dec3b2ec4, type: 3}
   executeSceneLabels: 536
-  targets: 5
+  targets: 1
   targetPhysicsLayers:
     serializedVersion: 2
     m_Bits: 4294967295

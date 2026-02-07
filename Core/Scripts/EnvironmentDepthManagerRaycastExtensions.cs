@@ -207,7 +207,7 @@ namespace Meta.XR
                             depthManager.Raycast(new Ray(p0, direction), out var hit, distance, reconstructNormal: false, allowOccludedRayOrigin: false);
                             if (hit.result != DepthRaycastResult.NoHit)
                             {
-                                // If any edge of the box is occluded by or intersects with the depth texture, return false.
+                                // If any edge of the box is occluded by or intersects with the depth texture, return true.
                                 DrawLine(p0, hit.point, Color.red);
                                 DrawLine(Vector3.zero, hit.point, Color.red);
                                 return true;
@@ -606,7 +606,7 @@ namespace Meta.XR
 
             _currentEyeIndex = eyeIndex;
             var rayOrigin = ray.origin;
-            var rayDir = ray.direction.normalized;
+            var rayDir = ray.direction;
             var rayEnd = rayOrigin + maxDistance * rayDir;
 
             var projectedRayOrigin = WorldPosToNonNormalizedTextureCoords(rayOrigin);
@@ -624,6 +624,19 @@ namespace Meta.XR
             int lengthX = projectedRayEnd.x - projectedRayOrigin.x;
             int lengthY = projectedRayEnd.y - projectedRayOrigin.y;
             int maxSideLength = Mathf.Max(Mathf.Abs(lengthX), Mathf.Abs(lengthY));
+            // Check if both rayOrigin and rayEnd have the same depth texture coordinate
+            if (maxSideLength == 0) // the same as 'if (projectedRayOrigin.Equals(projectedRayEnd))' but faster
+            {
+                // If rayOrigin is in front of the envDepth and rayEnd is behind it, this means that the ray intersects the depth texture
+                float envDepth = SampleDepthTexture(projectedRayOrigin);
+                if (envDepth < maxDistance && WorldPosToLinearDepth(rayOrigin) < envDepth && WorldPosToLinearDepth(rayEnd) > envDepth)
+                {
+                    position = ray.origin + rayDir * envDepth;
+                    return DepthRaycastResult.Success;
+                }
+                return DepthRaycastResult.NoHit;
+            }
+
             float invDepthStart = 1.0f / WorldPosToLinearDepth(rayOrigin);
             float invDepthEnd = 1.0f / WorldPosToLinearDepth(rayEnd);
 
@@ -662,7 +675,7 @@ namespace Meta.XR
                             var prevTexCoord = new Vector2Int((int)(currentX - deltaX), (int)(currentY - deltaY));
                             float prevEnvDepth = SampleDepthTexture(prevTexCoord);
 
-                            // Returning a closet point on raycast ray creates an effect of 'interpolation' between worldPos1 and worldPos2, producing smooth results
+                            // Returning the closest point on raycast ray creates an effect of 'interpolation' between worldPos1 and worldPos2, producing smooth results
                             var worldPos1 = WorldPosAtDepthTexCoord(prevTexCoord);
                             var worldPos2 = WorldPosAtDepthTexCoord(texCoord);
                             position = ClosestPointOnFirstRay(rayOrigin, rayDir, worldPos1, worldPos2 - worldPos1);

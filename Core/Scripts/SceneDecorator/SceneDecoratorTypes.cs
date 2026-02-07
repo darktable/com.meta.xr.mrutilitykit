@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// Define how the constraints are checked, by value or boolean
+    /// </summary>
     [Serializable]
     public enum ConstraintModeCheck
     {
@@ -31,74 +34,96 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         Bool
     }
 
+    /// <summary>
+    /// A struct that contains all the information for a constraint
+    /// </summary>
     [Serializable]
     public struct Constraint
     {
         [SerializeField]
-        public string name;
+        public string name; /// <summary> The name of the constraint </summary>
 
         [SerializeField]
-        public bool enabled;
+        public bool enabled; /// <summary> Whether the constraint is enabled or not </summary>
 
         [SerializeField]
-        public Mask mask;
+        public Mask mask; /// <summary> The mask to use for the constraint </summary>
 
-        [SerializeField] public ConstraintModeCheck modeCheck;
+        [SerializeField] public ConstraintModeCheck modeCheck; /// <summary> The mode to use for the constraint </summary>
 
-        [SerializeField] public float min;
-        [SerializeField] public float max;
+        [SerializeField] public float min; /// <summary> The minimum value for the constraint </summary>
+        [SerializeField] public float max; /// <summary> The maximum value for the constraint </summary>
     }
 
+    /// <summary>
+    /// A struct that contains all the information needed to spawn a decoration
+    /// </summary>
     public struct Candidate
     {
-        public GameObject decorationPrefab;
-        public Vector2 localPos;
-        public Vector2 localPosNormalized;
-        public RaycastHit hit;
-        public Vector3 anchorCompDists;
-        public float anchorDist;
-        public float slope;
+        public GameObject decorationPrefab; /// <summary> The prefab to spawn </summary>
+        public Vector2 localPos;  /// <summary>The position of the object in local space </summary>
+        public Vector2 localPosNormalized;  /// <summary> The position of the object in local space normalized </summary>
+        public RaycastHit hit; /// <summary>The raycast hit </summary>
+        public Vector3 anchorCompDists; /// <summary> The distance to the anchor with the given component </summary>
+        public float anchorDist; /// <summary> The distance to the anchor </summary>
+        public float slope; /// <summary>The slope of the surface </summary>
     }
 
+    /// <summary>
+    /// Which axis  to use
+    /// </summary>
     [Flags]
     public enum Axes
     {
-        X = 0x1,
-        Y = 0x2,
-        Z = 0x4
+        X = 0x1, /// <summary>The X axis </summary>
+        Y = 0x2, /// <summary>The Y axis </summary>
+        Z = 0x4 /// <summary>The Z axis </summary>
     }
 
+    /// <summary>
+    /// Which distribution to use
+    /// </summary>
     public enum DistributionType
     {
-        GRID = 0x0,
-        SIMPLEX = 0x1,
-        STAGGERED_CONCENTRIC = 0x2,
-        RANDOM = 0x3
+        GRID = 0x0, //The objects will be spawned in a grid pattern
+        SIMPLEX = 0x1, //The objects will be spawned in a simplex pattern
+        STAGGERED_CONCENTRIC = 0x2, //The objects will be spawned in a staggered concentric pattern
+        RANDOM = 0x3 //The objects will be spawned in a random pattern
     }
 
+    /// <summary>
+    /// Which placement to use
+    /// </summary>
     public enum Placement
     {
-        LOCAL_PLANAR,
-        WORLD_PLANAR,
-        SPHERICAL
+        LOCAL_PLANAR, /// <summary> The object will be spawned in the local space </summary>
+        WORLD_PLANAR, /// <summary> The object will be spawned in the world space </summary>
+        SPHERICAL /// <summary> The object will be spawned in the world space </summary>
     }
 
+    /// <summary>
+    /// Which hierarchy to use for the spawned object
+    /// </summary>
     public enum SpawnHierarchy
     {
-        ROOT,
-        SCENE_DECORATOR_CHILD,
-        ANCHOR_CHILD,
-        TARGET_CHILD,
-        TARGET_COLLIDER_CHILD
+        ROOT, /// <summary> The object will be spawned in the root of the scene </summary>
+        SCENE_DECORATOR_CHILD, /// <summary> The object will be spawned as a child of the scene decorator </summary>
+        ANCHOR_CHILD, /// <summary> The object will be spawned as a child of the anchor </summary>
+        TARGET_CHILD, /// <summary> The object will be spawned as a child of the target </summary>
+        TARGET_COLLIDER_CHILD /// <summary> The object will be spawned as a child of the target collider </summary>
     }
 
+    /// <summary>
+    /// Which target to use for the spawned object
+    /// </summary>
     [Flags]
     public enum Target
     {
-        GLOBAL_MESH = 0x1, //The final position will be determined by a point on the global mesh
-        RESERVED_MESH = 0x2, //Not supported yet, same as GLOBAL_MESH
-        PHYSICS_LAYERS = 0x4, //All physics layers defined will help determine the position
-        CUSTOM_COLLIDERS = 0x8, //Use a custom collider to determine the position
-        CUSTOM_TAGS = 0x16 //use only gameobjects with custom tag, needs a collider
+        GLOBAL_MESH = 1 << 0, /// <summary> The object will be spawned on a hit on the global mesh </summary>
+        RESERVED_MESH = 1 << 1, /// <summary> Not suppoerted yet, same as GLOBAL_MESH </summary>
+        PHYSICS_LAYERS = 1 << 2, /// <summary> All physics layers defined will help determine the position </summary>
+        CUSTOM_COLLIDERS = 1 << 3, /// <summary> Use a custom collider to determine the position </summary>
+        CUSTOM_TAGS = 1 << 4, /// <summary> use only gameobjects with custom tag, needs a collider </summary>
+        SCENE_ANCHORS = 1 << 5 /// <summary> use MRUK anchor Raycast, no colliders required </summary>
     }
 }

@@ -25,6 +25,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that samples the color of a SpaceMap at the given position.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SpaceMapMask : Mask
     {

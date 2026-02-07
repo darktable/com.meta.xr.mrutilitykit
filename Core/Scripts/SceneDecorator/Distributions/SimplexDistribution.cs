@@ -24,10 +24,16 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    ///    A distribution that generates points on a plane using simplex noise.
+    /// </summary>
     [Serializable]
     [Feature(Feature.Scene)]
     public class SimplexDistribution : SceneDecorator.IDistribution
     {
+        /// <summary>
+        ///   Configuration for the point sampling.
+        /// </summary>
         [Serializable]
         public struct PointSamplingConfig
         {
@@ -47,10 +53,13 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         public PointSamplingConfig pointSamplingConfig;
 
         /// <summary>
-        ///     Generates uniform sampling points with simplex noise applied for a given plane in localspace.
-        ///     The points will be generated based on the specified resolution within the interior of the plane, with no points on the borders.
-        ///     If the plane is too small, at least one point will still be generated.
+        /// Generates uniform sampling points with simplex noise applied for a given plane in localspace.
+        /// The points will be generated based on the specified resolution within the interior of the plane, with no points on the borders.
+        /// If the plane is too small, at least one point will still be generated.
         /// </summary>
+        /// <param name="sceneAnchor">The MRUKAnchor representing the plane.</param>
+        /// <param name="config">The configuration for point sampling.</param>
+        /// <returns>A tuple containing two arrays: the first array contains the sampling points in local space, and the second array contains the normalized sampling points.</returns>
         public static (Vector2[], Vector2[]) GeneratePointsLocal(MRUKAnchor sceneAnchor, PointSamplingConfig config)
         {
             if (!sceneAnchor.PlaneRect.HasValue)
@@ -88,6 +97,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return (points, pointsNormalized);
         }
 
+        /// <summary>
+        /// Distributes a scene decoration across a surface defined by an MRUKAnchor using the generated sampling points.
+        /// </summary>
+        /// <param name="sceneDecorator">The scene decorator used to generate the decoration.</param>
+        /// <param name="sceneAnchor">The MRUKAnchor that defines the surface on which to distribute the decoration.</param>
+        /// <param name="sceneDecoration">The scene decoration to be distributed.</param>
         public void Distribute(SceneDecorator sceneDecorator, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration)
         {
             var positions = GeneratePointsLocal(sceneAnchor, pointSamplingConfig);

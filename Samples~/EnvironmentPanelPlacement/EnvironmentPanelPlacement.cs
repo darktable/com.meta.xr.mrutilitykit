@@ -40,55 +40,48 @@ namespace Meta.XR.MRUtilityKit
         [SerializeField] private Transform _raycastVisualizationNormal;
 
         private readonly RollingAverage _rollingAverageFilter = new RollingAverage();
-        private Pose _targetPose;
+        private Pose? _targetPose;
         private Vector3 _positionVelocity;
         private float _rotationVelocity;
         private bool _isGrabbing;
         private float _distanceFromController;
         private Pose? _environmentPose;
         private EnvironmentRaycastHitStatus _currentEnvHitStatus;
+        private OVRSpatialAnchor _spatialAnchor;
 
         private IEnumerator Start()
         {
-            // Wait until headset starts tracking and place the panel in front of the user
+            // Wait until headset starts tracking
             enabled = false;
             while (!OVRPlugin.userPresent || !OVRManager.isHmdPresent)
             {
                 yield return null;
             }
             yield return null;
-            RecenterPanel();
             enabled = true;
-        }
 
-        private void OnEnable()
-        {
-            var display = OVRManager.display;
-            if (display != null)
-            {
-                display.RecenteredPose += RecenterPanel;
-            }
-        }
-
-        private void OnDisable()
-        {
-            var display = OVRManager.display;
-            if (display != null)
-            {
-                display.RecenteredPose -= RecenterPanel;
-            }
-        }
-
-        private void RecenterPanel()
-        {
+            // Place the panel in front of the user
             var position = _centerEyeAnchor.position + _centerEyeAnchor.forward;
             var forward = Vector3.ProjectOnPlane(_centerEyeAnchor.position - position, Vector3.up).normalized;
-            _panel.position = _targetPose.position = position;
-            _panel.rotation = _targetPose.rotation = Quaternion.LookRotation(forward);
+            _panel.position = position;
+            _panel.rotation = Quaternion.LookRotation(forward);
+
+            // Create the OVRSpatialAnchor and make it a parent of the panel.
+            // This will prevent the panel front drifting after headset lock/unlock.
+            _spatialAnchor = new GameObject(nameof(OVRSpatialAnchor)).AddComponent<OVRSpatialAnchor>();
+            _spatialAnchor.transform.SetPositionAndRotation(_panel.position, _panel.rotation);
+            _panel.SetParent(_spatialAnchor.transform);
         }
 
         private void Update()
         {
+            if (!Application.isFocused)
+            {
+                _isGrabbing = false;
+                _targetPose = null;
+                return;
+            }
+
             VisualizeRaycast();
             if (_isGrabbing)
             {
@@ -98,6 +91,20 @@ namespace Meta.XR.MRUtilityKit
                     _panelGlow.SetActive(false);
                     _isGrabbing = false;
                     _environmentPose = null;
+
+                    // If the existing OVRSpatialAnchor if further than 3 meters away from the current panel position, delete it and create a new one:
+                    // https://developers.meta.com/horizon/documentation/unity/unity-spatial-anchors-best-practices#tips-for-using-spatial-anchors
+                    if (_panel.localPosition.magnitude > 3f)
+                    {
+                        _spatialAnchor.EraseAnchorAsync();
+                        DestroyImmediate(_spatialAnchor);
+
+                        var parent = _panel.parent;
+                        _panel.SetParent(null);
+                        parent.SetPositionAndRotation(_panel.position, _panel.rotation);
+                        _spatialAnchor = parent.gameObject.AddComponent<OVRSpatialAnchor>();
+                        _panel.SetParent(parent);
+                    }
                 }
             }
             else
@@ -194,15 +201,20 @@ namespace Meta.XR.MRUtilityKit
 
         private void AnimatePanelPose()
         {
-            const float smoothTime = 0.13f;
-            _panel.position = Vector3.SmoothDamp(_panel.position, _targetPose.position, ref _positionVelocity, smoothTime);
+            if (!_targetPose.HasValue)
+            {
+                return;
+            }
 
-            float angle = Quaternion.Angle(_panel.rotation, _targetPose.rotation);
+            const float smoothTime = 0.13f;
+            _panel.position = Vector3.SmoothDamp(_panel.position, _targetPose.Value.position, ref _positionVelocity, smoothTime);
+
+            float angle = Quaternion.Angle(_panel.rotation, _targetPose.Value.rotation);
             if (angle > 0f)
             {
                 float dampedAngle = Mathf.SmoothDampAngle(angle, 0f, ref _rotationVelocity, smoothTime);
                 float t = 1f - dampedAngle / angle;
-                _panel.rotation = Quaternion.SlerpUnclamped(_panel.rotation, _targetPose.rotation, t);
+                _panel.rotation = Quaternion.SlerpUnclamped(_panel.rotation, _targetPose.Value.rotation, t);
             }
         }
 

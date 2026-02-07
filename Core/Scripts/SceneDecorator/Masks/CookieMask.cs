@@ -24,25 +24,46 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that uses a cookie texture to determine the opacity of each pixel.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class CookieMask : Mask2D
     {
+        /// <summary>
+        /// The enumerator to define the samplemode. See each item for the description.
+        /// </summary>
         public enum SampleMode
         {
-            NEAREST = 0x0,
-            NEAREST_REPEAT = 0x1,
-            NEAREST_REPEAT_MIRROR = 0x2,
-            BILINEAR = 0x3,
-            BILINEAR_REPEAT = 0x4,
-            BILINEAR_REPEAT_MIRROR = 0x5
+            NEAREST = 0x0, /// <summary>Nearest neighbor</summary>
+            NEAREST_REPEAT = 0x1, /// <summary>Nearest neighbor, with repeat</summary>
+            NEAREST_REPEAT_MIRROR = 0x2, /// <summary>Nearest neighbor, with repeat and mirror</summary>
+            BILINEAR = 0x3, /// <summary>Bilinear</summary>
+            BILINEAR_REPEAT = 0x4, /// <summary>Bilinear, with repeat</summary>
+            BILINEAR_REPEAT_MIRROR = 0x5 /// <summary>Bilinear, with repeat and mirror</summary>
         }
 
+        /// <summary>
+        /// The cookie texture to use for the mask.
+        /// </summary>
         [SerializeField]
         public Texture2D cookie;
 
+        /// <summary>
+        /// The sample mode to use for the mask.
+        /// </summary>
         [SerializeField]
         public SampleMode sampleMode;
 
+        /// <summary>
+        /// This method applies the cookie mask to the given candidate.
+        /// It first generates an affine transformation based on the provided parameters,
+        /// and then applies this transformation to the local position of the candidate.
+        /// The resulting position is used to sample the cookie texture using the specified sample mode,
+        /// and the resulting value is returned as the mask value for the candidate.
+        /// </summary>
+        /// <param name="c">The candidate to apply the mask to.</param>
+        /// <returns>The mask value for the given candidate.</returns>
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);
@@ -84,6 +105,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return value;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

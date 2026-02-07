@@ -47,6 +47,9 @@ MonoBehaviour:
   <SpaceMapCreatedEvent>k__BackingField:
     m_PersistentCalls:
       m_Calls: []
+  SpaceMapRoomCreatedEvent:
+    m_PersistentCalls:
+      m_Calls: []
   <SpaceMapUpdatedEvent>k__BackingField:
     m_PersistentCalls:
       m_Calls: []
@@ -62,7 +65,7 @@ MonoBehaviour:
     key5: {r: 0, g: 0, b: 0, a: 0}
     key6: {r: 0, g: 0, b: 0, a: 0}
     key7: {r: 0, g: 0, b: 0, a: 0}
-    ctime0: 40092
+    ctime0: 32768
     ctime1: 65535
     ctime2: 0
     ctime3: 0
@@ -83,10 +86,7 @@ MonoBehaviour:
     m_NumAlphaKeys: 2
   gradientMaterial: {fileID: 2100000, guid: 1cc763fb3d24f5843acd98f8b4dfa804, type: 2}
   CSSpaceMap: {fileID: 7200000, guid: 59e8a77a6e68f9e4ead6050275ee7c0c, type: 3}
-  layerMask:
-    serializedVersion: 2
-    m_Bits: 1024
-  SceneObjectLabels: 8088
+  SceneObjectLabels: 73624
   InsideObjectColor: {r: 0, g: 0.053680897, b: 1, a: 0}
   CameraCaptureBorderBuffer: 2
   CreateOutputTexture: 1

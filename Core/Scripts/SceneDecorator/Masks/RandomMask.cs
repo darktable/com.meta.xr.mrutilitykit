@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that randomly samples a value between 0 and 1.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class RandomMask : Mask
     {

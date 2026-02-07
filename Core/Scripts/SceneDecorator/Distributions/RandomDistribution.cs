@@ -25,6 +25,9 @@ using Random = UnityEngine.Random;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A distribution that randomly places objects defined by the scenedecorator
+    /// </summary>
     [Serializable]
     [Feature(Feature.Scene)]
     public class RandomDistribution : SceneDecorator.IDistribution
@@ -33,6 +36,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         [Tooltip("How many entries to generate per unit (1m)")]
         private float numPerUnit = 10f;
 
+        /// <summary>
+        /// Distributes randomly decorations.
+        /// </summary>
+        /// <param name="sceneDecorator">The scene decorator used to generate the decoration.</param>
+        /// <param name="sceneAnchor">The MRUKAnchor that defines the surface on which to distribute the decoration.</param>
+        /// <param name="sceneDecoration">The scene decoration to be distributed.</param>
         public void Distribute(SceneDecorator sceneDecorator, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration)
         {
             Vector3 anchorScale = Vector3.one;

@@ -108,7 +108,6 @@ namespace Meta.XR.MRUtilityKit
             public MeshSegment reservedSegment;
         }
 
-
         /// <summary>
         /// Initiates the mesh segmentation process asynchronously based on the provided mesh positions, indices, and segmentation points. It uses native functions to perform the segmentation and updates the mesh accordingly.
         /// </summary>
@@ -117,8 +116,8 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="segmentationPoints">Array of points used for segmenting the mesh.</param>
         public unsafe void SegmentMesh(Vector3[] meshPositions, uint[] meshIndices, Vector3[] segmentationPoints)
         {
-            Vector3 reservedMin = new Vector3(ReservedBottom, -1.0f, -1.0f);
-            Vector3 reservedMax = new Vector3(ReservedTop, -1.0f, -1.0f);
+            Vector3 reservedMin = new Vector3(-1.0f, -1.0f, ReservedBottom);
+            Vector3 reservedMax = new Vector3(-1.0f, -1.0f, ReservedTop);
             _segmentationTask = Task.Run(() =>
             {
                 MRUKNativeFuncs.MrukResult result = MRUKNativeFuncs.ComputeMeshSegmentation(
@@ -410,7 +409,9 @@ namespace Meta.XR.MRUtilityKit
 
         public override void OnInspectorGUI()
         {
+            GUI.enabled = false;
             DrawDefaultInspector(); // Draws the default inspector
+            GUI.enabled = true;
             var component = (DestructibleMeshComponent)target;
             if (GUILayout.Button("Debug Destructible Mesh"))
             {

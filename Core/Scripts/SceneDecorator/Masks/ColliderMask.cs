@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that checks for collisions with the scene
+    /// </summary>
     [Feature(Feature.Scene)]
     public class ColliderMask : Mask
     {
@@ -35,6 +38,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return 0;
         }
 
+        /// <summary>
+        /// Checks if the candidate collides with any other objects in the scene
+        /// </summary>
+        /// <param name="c">The candidate for a location</param>
+        /// <returns></returns>
         public override bool Check(Candidate c)
         {
             var prefabCollider = c.decorationPrefab.GetComponentInChildren<Collider>();

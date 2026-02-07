@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that is the minimum of all its layers.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class CompositeMaskMin : Mask2D
     {
@@ -41,6 +44,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return value;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

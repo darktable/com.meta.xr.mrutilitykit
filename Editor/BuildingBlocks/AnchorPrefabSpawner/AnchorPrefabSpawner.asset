@@ -18,9 +18,9 @@ MonoBehaviour:
   description: Spawn gameobjects in relation to scene anchors
   tags:
     array:
-    - name: Anchor
-    - name: Helper
     - name: Scene
+    - name: Spatial Anchor
+    - name: Helper
   thumbnail: {fileID: 2800000, guid: 2d5d1e65047dfba4da2c1ce0564eed8f, type: 3}
   order: 0
   prefab: {fileID: 0}
@@ -30,3 +30,5 @@ MonoBehaviour:
   packageDependencies: []
   isSingleton: 0
   usageInstructions: 
+  featureDocumentationName: 
+  featureDocumentationUrl: 

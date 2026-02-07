@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that uses Simplex noise to generate a 2D pattern.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SimplexNoiseMask : Mask2D
     {

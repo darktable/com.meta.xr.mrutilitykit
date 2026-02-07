@@ -26,12 +26,25 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// Base class for all modifiers.
+    /// </summary>
     [Feature(Feature.Scene)]
     public abstract class Modifier : ScriptableObject
     {
+        /// <summary>
+        /// If the modifier is enabled.
+        /// </summary>
         [SerializeField]
         public bool enabled = true;
 
+        /// <summary>
+        /// Applies the modifier to a decoration
+        /// </summary>
+        /// <param name="decorationGO">The gameobject</param>
+        /// <param name="sceneAnchor">The SceneAnchor</param>
+        /// <param name="sceneDecoration">The SceneDecoration</param>
+        /// <param name="candidate">The candidate</param>
         public abstract void ApplyModifier(GameObject decorationGO, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration, Candidate candidate);
 
 #if UNITY_EDITOR

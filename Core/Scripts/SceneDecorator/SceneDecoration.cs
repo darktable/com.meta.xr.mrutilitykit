@@ -26,6 +26,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// This class is used to define a decoration effect.
+    /// </summary>
     [Feature(Feature.Scene)]
     [CreateAssetMenu(fileName = "SceneDecoration", menuName = "Meta/MRUK/Scene Decoration")]
     public class SceneDecoration : ScriptableObject

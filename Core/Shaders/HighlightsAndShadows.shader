@@ -23,6 +23,7 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
         _ShadowIntensity ("Shadow Intensity", Range (0, 1)) = 0.8
         _HighLightAttenuation ("Highlight Attenuation", Range (0, 1)) = 0.8
         _HighlightOpacity("Highlight Opacity", Range (0, 1)) = 0.2
+        _EnvironmentDepthBias("Environment Depth Bias", Range (0, 1)) = 0.06
     }
 
     SubShader
@@ -60,12 +61,15 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            #pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION //occl
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "Packages/com.meta.xr.sdk.core/Shaders/EnvironmentDepth/URP/EnvironmentOcclusionURP.hlsl" //occl
 
             float _HighLightAttenuation;
             float _ShadowIntensity;
             float _HighlightOpacity;
+            float _EnvironmentDepthBias;
 
             struct Attributes {
                 float4 positionOS : POSITION;
@@ -117,7 +121,8 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                     lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
                     color += light.color * lightAlpha * (1-alpha);
                 }
-                return half4(color, alpha + (lightAlpha * _HighlightOpacity));
+                float occlusionValue = META_DEPTH_GET_OCCLUSION_VALUE_WORLDPOS(input.positionWS, _EnvironmentDepthBias);//occl
+                return half4(color * occlusionValue, (alpha + (lightAlpha * _HighlightOpacity)) * occlusionValue);
             }
             ENDHLSL
         }
@@ -178,14 +183,17 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdadd_fullshadows
+            #pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION //occl
 
             #include "UnityCG.cginc"
             #include "UnityLightingCommon.cginc"
             #include "AutoLight.cginc"
+            #include "Packages/com.meta.xr.sdk.core/Shaders/EnvironmentDepth/BiRP/EnvironmentOcclusionBiRP.cginc" //occl
 
             uniform float _ShadowIntensity;
             uniform float _HighLightAttenuation;
             uniform float _HighlightOpacity;
+            uniform float _EnvironmentDepthBias;
 
             struct appdata
             {
@@ -243,6 +251,8 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 float ndtol = max(0.0, dot(i.normal, light.direction));
                 float lightContribution = light.distanceAttenuation * _HighLightAttenuation * ndtol * light.color.w;
                 float4 color = light.color * lightContribution;
+                META_DEPTH_OCCLUDE_OUTPUT_PREMULTIPLY_WORLDPOS(i.worldPos, color, _EnvironmentDepthBias); //occl
+
                 float alpha = lightContribution * _HighlightOpacity;
                 return fixed4(color.r, color.g, color.b, alpha);
             }
@@ -264,12 +274,15 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdadd_fullshadows
+            #pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION //occl
 
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
+            #include "Packages/com.meta.xr.sdk.core/Shaders/EnvironmentDepth/BiRP/EnvironmentOcclusionBiRP.cginc" //occl
 
             uniform float _ShadowIntensity;
             uniform float _DepthCheckBias;
+            uniform float _EnvironmentDepthBias;
 
             struct appdata
             {
@@ -304,7 +317,9 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 float3 lightDirection = _WorldSpaceLightPos0.xyz;
                 float ndtol = dot(i.normal, lightDirection);
                 int directionCheck = step(0,ndtol);
-                float alpha = (1 - attenuation) * _ShadowIntensity * directionCheck;
+                float occlusionValue = META_DEPTH_GET_OCCLUSION_VALUE_WORLDPOS(i.worldPos, _EnvironmentDepthBias); //occl
+
+                float alpha = (1 - attenuation) * _ShadowIntensity * directionCheck * occlusionValue;
                 return fixed4(0, 0, 0, alpha);
             }
             ENDCG

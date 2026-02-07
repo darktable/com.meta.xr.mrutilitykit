@@ -75,6 +75,14 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.15
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
       objectReference: {fileID: 0}
@@ -121,7 +129,7 @@ PrefabInstance:
     - target: {fileID: -5754084199372789682, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 1049928748687988745, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}
       propertyPath: m_Name
       value: Window
@@ -151,14 +159,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   PivotOffset: {x: 0, y: 0, z: 0}
-  ScalingX: 2
-  BorderXNegative: 1
+  ScalingX: 0
+  BorderXNegative: 0.4
   BorderXPositive: 1
   ScalingY: 2
   BorderYNegative: 0.01
   BorderYPositive: 0.31
-  ScalingZ: 0
+  ScalingZ: 2
   BorderZNegative: 0.01
   BorderZPositive: 0.01
   StretchCenter: 0
   UpdateInPlayMode: 1
+  OriginalMesh: {fileID: 1049928748687988745, guid: 0100bf8d0ac99e149972c5c14238aad3, type: 3}

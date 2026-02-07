@@ -34,6 +34,9 @@ namespace Meta.XR.MRUtilityKitSamples
         [Tooltip("The transform to which the keyboard's detected position and scale should be applied.")]
         public Transform BoxTransform { get; private set; }
 
+        [SerializeField]
+        GameObject _axes;
+
         MRUKTrackable _trackable;
 
         OVRPassthroughLayer _passthroughLayer;
@@ -50,10 +53,18 @@ namespace Meta.XR.MRUtilityKitSamples
 
         void Update()
         {
-            if (_passthroughLayer && BoxTransform)
+            if (_passthroughLayer)
             {
-                // Only draw the box when we're using surface projected passthrough
-                BoxTransform.gameObject.SetActive(_passthroughLayer.projectionSurfaceType == OVRPassthroughLayer.ProjectionSurfaceType.Reconstructed);
+                if (BoxTransform)
+                {
+                    // Only draw the box when we're using surface projected passthrough
+                    BoxTransform.gameObject.SetActive(_passthroughLayer.isActiveAndEnabled);
+                }
+
+                if (_axes)
+                {
+                    _axes.SetActive(!_passthroughLayer.isActiveAndEnabled);
+                }
             }
         }
 

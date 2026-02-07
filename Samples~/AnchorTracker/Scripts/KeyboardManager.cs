@@ -29,7 +29,10 @@ namespace Meta.XR.MRUtilityKitSamples
         GameObject _prefab;
 
         [SerializeField]
-        OVRPassthroughLayer _passthroughLayer;
+        OVRPassthroughLayer _passthroughUnderlay;
+
+        [SerializeField]
+        OVRPassthroughLayer _passthroughOverlay;
 
         public void OnTrackableAdded(MRUKTrackable trackable)
         {
@@ -48,7 +51,7 @@ namespace Meta.XR.MRUtilityKitSamples
             var boundaryVisualizer = newGameObject.GetComponentInChildren<Bounded3DVisualizer>();
             if (boundaryVisualizer)
             {
-                boundaryVisualizer.Initialize(_passthroughLayer, trackable);
+                boundaryVisualizer.Initialize(_passthroughOverlay, trackable);
             }
         }
 
@@ -61,29 +64,20 @@ namespace Meta.XR.MRUtilityKitSamples
         void Update()
         {
             // Toggle between full passthrough and surface-projected passthrough
-            if (_passthroughLayer && OVRInput.GetDown(OVRInput.RawButton.A))
+            if (OVRInput.GetDown(OVRInput.RawButton.A))
             {
-                _passthroughLayer.enabled = false;
-
-                switch (_passthroughLayer.projectionSurfaceType)
+                if (_passthroughOverlay.isActiveAndEnabled)
                 {
-                    case OVRPassthroughLayer.ProjectionSurfaceType.Reconstructed:
-                    {
-                        _passthroughLayer.projectionSurfaceType = OVRPassthroughLayer.ProjectionSurfaceType.UserDefined;
-                        _passthroughLayer.overlayType = OVROverlay.OverlayType.Overlay;
-                        Camera.main.clearFlags = CameraClearFlags.Skybox;
-                        break;
-                    }
-                    case OVRPassthroughLayer.ProjectionSurfaceType.UserDefined:
-                    {
-                        _passthroughLayer.projectionSurfaceType = OVRPassthroughLayer.ProjectionSurfaceType.Reconstructed;
-                        _passthroughLayer.overlayType = OVROverlay.OverlayType.Underlay;
-                        Camera.main.clearFlags = CameraClearFlags.SolidColor;
-                        break;
-                    }
+                    _passthroughOverlay.gameObject.SetActive(false);
+                    _passthroughUnderlay.gameObject.SetActive(true);
+                    Camera.main.clearFlags = CameraClearFlags.SolidColor;
                 }
-
-                _passthroughLayer.enabled = true;
+                else
+                {
+                    _passthroughOverlay.gameObject.SetActive(true);
+                    _passthroughUnderlay.gameObject.SetActive(false);
+                    Camera.main.clearFlags = CameraClearFlags.Skybox;
+                }
             }
         }
     }

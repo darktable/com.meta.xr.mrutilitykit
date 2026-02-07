@@ -23,6 +23,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that samples the distance of a raycast hit.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class RayDistanceMask : Mask
     {

@@ -48,6 +48,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     {
         private static T _instance;
 
+        /// <summary>
+        /// The reference to the singleton instance.
+        /// </summary>
         public static T Instance
         {
             get
@@ -82,6 +85,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             }
         }
 
+        /// <summary>
+        /// Initializes the singleton instance of this class.
+        /// </summary>
         protected virtual void Awake()
         {
             if (_instance == null)
@@ -96,6 +102,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             }
         }
 
+        /// <summary>
+        /// Resets the singleton instance when the object is destroyed.
+        /// </summary>
         protected virtual void OnDestroy()
         {
             _instance = null;

@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+using System;
 using UnityEngine;
 using UnityEngine.Events;
 using Unity.AI.Navigation;
@@ -41,7 +42,6 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
         internal bool TrackUpdates = true;
 
-        [Header("Custom Nav Mesh Settings")]
         [Tooltip("Used for specifying the type of geometry to collect when building a NavMesh")]
         public NavMeshCollectGeometry CollectGeometry = NavMeshCollectGeometry.PhysicsColliders;
 
@@ -64,7 +64,6 @@ namespace Meta.XR.MRUtilityKit
         public List<NavMeshAgent> Agents;
 
         [FormerlySerializedAs("SceneObjectsToInclude")]
-        [Header("Scene Settings")]
         [Tooltip("The scene objects that will contribute to the creation of the NavMesh.")]
         public MRUKAnchor.SceneLabels NavigableSurfaces;
 
@@ -74,10 +73,44 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("A bitmask representing the layers to consider when selecting what that will be used for baking.")]
         public LayerMask Layers;
 
+        [Tooltip("The agent's used that is going to be used to build the NavMesh")]
+        public int AgentIndex;
+
+        [Tooltip(
+            "Determines whether scene data should be used for NavMesh generation.")]
+        public bool UseSceneData = true;
+
+        [Tooltip(
+            "Determines whether a custom NavMeshAgent configuration should be used. If true, a new agent will be created when building this the NavMesh.")]
+        public bool CustomAgent = true;
+
+        [Tooltip(
+            "Allows overriding the default voxel size used in NavMesh generation. Enable this to specify a custom voxel size.")]
+        public bool OverrideVoxelSize;
+
+        [Tooltip("The NavMesh voxel size in world length units. Should be 4-6 voxels per character diameter.")]
+        public float VoxelSize;
+
+        [Tooltip(
+            "Allows overriding the default tile size used in NavMesh generation. Enable this to specify a custom tile size.")]
+        public bool OverrideTileSize;
+
+        [Tooltip(
+            "Specifies the tile size for the NavMesh if OverrideTileSize is enabled. Represents the width and height of the square tiles in world units.")]
+        public int TileSize = 256;
+#if UNITY_2022_3_OR_NEWER
+[Tooltip("Enables the generation of off-mesh links in the NavMesh, allowing agents to navigate between disconnected mesh regions, such as jumping or climbing.")]
+        public bool GenerateLinks;
+#endif
+        private EffectMesh _effectMesh;
+        private readonly List<NavMeshBuildSource> _sources = new();
+        private readonly List<Mesh> _connectionMeshes = new();
+
         /// <summary>
         /// Event triggered when the navigation mesh has been initialized.
         /// </summary>
-        [field: SerializeField, FormerlySerializedAs(nameof(OnNavMeshInitialized)), Space(10)]
+        [field: SerializeField]
+        [field: Space(10)]
         public UnityEvent OnNavMeshInitialized
         {
             get;
@@ -93,21 +126,34 @@ namespace Meta.XR.MRUtilityKit
             private set;
         } = new();
 
+
         /// <summary>
         /// Gets a dictionary mapping <see cref="MRUKAnchor"/> objects to their corresponding GameObjects that represent surfaces in the environment.
         /// </summary>
-        public Dictionary<MRUKAnchor, GameObject> Surfaces
-        {
-            get;
-            private set;
-        } = new();
+        [Obsolete(
+            "Navigable surfaces are now handled as NavMeshBuildSource hence this container is not going to be populated." +
+            "Access the anchors used as navigable surfaces directly.")]
+        public Dictionary<MRUKAnchor, GameObject> Surfaces { get; private set; } = new();
 
         private const float _minimumNavMeshSurfaceArea = 0;
         private NavMeshSurface _navMeshSurface;
         private const string _obstaclePrefix = "_obstacles";
         private Transform _obstaclesRoot;
         private Transform _surfacesRoot;
-        private const string _surfacesPrefix = "_surfaces";
+
+        private Transform ObstacleRoot
+        {
+            get
+            {
+                if (_obstaclesRoot == null)
+                {
+                    _obstaclesRoot = new GameObject(_obstaclePrefix).transform;
+                }
+
+                return _obstaclesRoot;
+            }
+        }
+
         private MRUKAnchor.SceneLabels _cachedNavigableSceneLabels;
 
         private void Awake()
@@ -140,6 +186,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void OnSceneLoadedEvent()
         {
+
             switch (BuildOnSceneLoaded)
             {
                 case MRUK.RoomFilter.CurrentRoomOnly:
@@ -185,7 +232,6 @@ namespace Meta.XR.MRUtilityKit
             RemoveNavMeshData();
         }
 
-
         /// <summary>
         ///     Toggles the use of global mesh for navigation.
         /// </summary>
@@ -212,23 +258,15 @@ namespace Meta.XR.MRUtilityKit
                 NavigableSurfaces = _cachedNavigableSceneLabels;
             }
 
-            if (agentTypeID == -1)
-            {
-                BuildSceneNavMesh();
-            }
-            else
-            {
-                BuildSceneNavMeshFromExistingAgent(agentTypeID);
-            }
+            BuildSceneNavMesh();
         }
-
 
         /// <summary>
         ///     Creates a navigation mesh for the entire scene.
         /// </summary>
         public void BuildSceneNavMesh()
         {
-            // Use all of the rooms
+            // Use all the rooms
             BuildSceneNavMeshForRoom();
         }
 
@@ -237,48 +275,87 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="room">
         ///     Optional parameter for the MRUKRoom to create the NavMesh for.
-        ///     If not provided, obstacles will be created for all rooms.
+        ///      If not provided, obstacles will be created for all rooms.
         /// </param>
         /// <remarks>
         ///     This method creates a navigation mesh by collecting geometry from the scene,
         ///     building the navigation mesh data, and adding it to the NavMesh.
-        ///     Currently Unity does not allow the creation of custom NavMeshAgents at runtime.
+        ///     Currently, Unity does not allow the creation of custom NavMeshAgents at runtime.
         ///     It also assigns the created navigation mesh to all NavMeshAgents in the scene.
         /// </remarks>
         public void BuildSceneNavMeshForRoom(MRUKRoom room = null)
         {
-            CreateNavMeshSurface(); // in case no NavMeshSurface component was found, create a new one
-            RemoveNavMeshData(); // clean up previous data
-            var navMeshBounds = ResizeNavMeshFromRoomBounds(ref _navMeshSurface); // resize the nav mesh to fit the room
-            var navMeshBuildSettings = CreateNavMeshBuildSettings(AgentRadius, AgentHeight, AgentMaxSlope, AgentClimb);
-            if (!ValidateBuildSettings(navMeshBuildSettings, navMeshBounds))
+            if (!MRUK.Instance)
             {
-                return;
+                throw new NullReferenceException("MRUK instance is not initialized.");
+            }
+            var rooms = room != null ? new List<MRUKRoom> { room } : MRUK.Instance.Rooms;
+            if (rooms.Count == 0)
+            {
+                throw new InvalidOperationException("No rooms available for NavMesh building.");
             }
 
-            CreateObstacles(room);
-            var data = CreateNavMeshData(navMeshBounds, navMeshBuildSettings, room);
-            _navMeshSurface.navMeshData = data;
-            _navMeshSurface.agentTypeID = navMeshBuildSettings.agentTypeID;
-            _navMeshSurface.AddData();
+            CreateNavMeshSurface(); // in case no NavMeshSurface component was found, create a new one
+            RemoveNavMeshData(); // clean up previous data
+            var navMeshBounds =
+                ResizeNavMeshFromRoomBounds(ref _navMeshSurface, rooms); // resize the nav mesh to fit the room
+            _sources.Clear();
+            var navMeshBuildSettings = !CustomAgent
+                ? NavMesh.GetSettingsByIndex(AgentIndex)
+                : CreateNavMeshBuildSettings(AgentRadius, AgentHeight, AgentMaxSlope, AgentClimb);
 
+            _navMeshSurface.agentTypeID = navMeshBuildSettings.agentTypeID;
+
+            ValidateBuildSettings(navMeshBuildSettings, navMeshBounds);
+
+            if (UseSceneData)
+            {
+                CreateObstacles(rooms);
+                CollectSceneSources(rooms, _sources);
+            }
+            else
+            {
+#if UNITY_2022_3_OR_NEWER
+                NavMeshBuilder.CollectSources(navMeshBounds, _navMeshSurface.layerMask,
+                    _navMeshSurface.useGeometry, 0, GenerateLinks, new List<NavMeshBuildMarkup>(), false, _sources);
+#else
+                NavMeshBuilder.CollectSources(navMeshBounds, _navMeshSurface.layerMask,
+                    _navMeshSurface.useGeometry, 0, new List<NavMeshBuildMarkup>(), _sources);
+#endif
+            }
+
+
+            var data = NavMeshBuilder.BuildNavMeshData(navMeshBuildSettings, _sources, navMeshBounds,
+                Vector3.zero, Quaternion.identity);
+            _navMeshSurface.navMeshData = data;
+            _navMeshSurface.AddData();
             InitializeNavMesh(navMeshBuildSettings.agentTypeID);
         }
 
         /// <summary>
-        ///     Creates a navigation mesh from an existing NavMeshAgent.
+        /// Collects navigation mesh sources from a list of rooms and their anchors, and optionally connects rooms in the navigation mesh.
         /// </summary>
-        /// <param name="agentIndex">The index of the NavMeshAgent to create the navigation mesh from.</param>
-        public void BuildSceneNavMeshFromExistingAgent(int agentIndex)
+        /// <param name="rooms">List of rooms to collect navigation mesh sources from.</param>
+        /// <param name="sources">Collection to which the navigation mesh sources are added.</param>
+        private void CollectSceneSources(List<MRUKRoom> rooms, ICollection<NavMeshBuildSource> sources)
         {
-            CreateNavMeshSurface();
-            RemoveNavMeshData(); // clean up previous data
-            var navMeshBuildSettings = NavMesh.GetSettingsByIndex(agentIndex);
-            _navMeshSurface.agentTypeID = navMeshBuildSettings.agentTypeID;
-            CreateObstacles();
-            CreateNavigableSurfaces();
-            _navMeshSurface.BuildNavMesh();
-            InitializeNavMesh(navMeshBuildSettings.agentTypeID);
+            var src = new NavMeshBuildSource();
+            foreach (var room in rooms)
+            {
+                foreach (var anchor in room.Anchors)
+                {
+                    if (!anchor || !anchor.HasAnyLabel(NavigableSurfaces))
+                    {
+                        continue;
+                    }
+
+                    src.transform = anchor.transform.localToWorldMatrix;
+                    src.sourceObject = Utilities.SetupAnchorMeshGeometry(anchor, true);
+                    src.shape = NavMeshBuildSourceShape.Mesh;
+                    sources.Add(src);
+                }
+            }
+
         }
 
         /// <summary>
@@ -297,6 +374,17 @@ namespace Meta.XR.MRUtilityKit
             settings.agentHeight = agentHeight;
             settings.agentSlope = agentMaxSlope;
             settings.agentClimb = agentClimb;
+            settings.overrideVoxelSize = OverrideVoxelSize;
+            if (OverrideVoxelSize)
+            {
+                settings.voxelSize = VoxelSize;
+            }
+
+            settings.overrideTileSize = OverrideTileSize;
+            if (OverrideTileSize)
+            {
+                settings.tileSize = TileSize;
+            }
             return settings;
         }
 
@@ -311,9 +399,24 @@ namespace Meta.XR.MRUtilityKit
                 _navMeshSurface = gameObject.AddComponent<NavMeshSurface>();
             }
 
-            ResizeNavMeshFromRoomBounds(ref _navMeshSurface);
-            _navMeshSurface.collectObjects = CollectObjects;
-            _navMeshSurface.useGeometry = CollectGeometry;
+            _navMeshSurface.minRegionArea = 0.01f;
+            _navMeshSurface.voxelSize = VoxelSize;
+
+            if (!UseSceneData)
+            {
+                _navMeshSurface.collectObjects = CollectObjects;
+                _navMeshSurface.useGeometry = CollectGeometry;
+                _navMeshSurface.hideFlags = HideFlags.None;
+            }
+            else
+            {
+                _navMeshSurface.collectObjects = CollectObjects.Children;
+                _navMeshSurface.useGeometry = NavMeshCollectGeometry.RenderMeshes;
+                // The NavMeshSurface component attached to the GO can be edited, but its properties will not affect the
+                // generated NavMesh. Marking it as non-editable, use the configuration options in the SceneNavigation
+                // component to modify tweak the NavMesh build options.
+                _navMeshSurface.hideFlags = HideFlags.NotEditable;
+            }
             _navMeshSurface.layerMask = Layers;
         }
 
@@ -334,13 +437,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 ClearObstacles();
             }
-
-            if (Surfaces != null)
-            {
-                ClearSurfaces();
-            }
         }
-
 
         /// <summary>
         ///     Resizes the NavMeshSurface to fit the room bounds.
@@ -350,19 +447,42 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>The bounds of the resized NavMeshSurface.</returns>
         public Bounds ResizeNavMeshFromRoomBounds(ref NavMeshSurface surface, MRUKRoom room = null)
         {
-            if (room == null)
+            var rooms = room != null
+                ? new List<MRUKRoom>() { room }
+                : new List<MRUKRoom>() { MRUK.Instance.GetCurrentRoom() };
+            return ResizeNavMeshFromRoomBounds(ref surface, rooms);
+        }
+
+        /// <summary>
+        ///     Resizes the NavMeshSurface to fit the room bounds.
+        /// </summary>
+        /// <param name="surface">The NavMeshSurface to resize.</param>
+        /// <param name="rooms">The rooms bounds to use.</param>
+        /// <returns>The bounds of the resized NavMeshSurface.</returns>
+        public Bounds ResizeNavMeshFromRoomBounds(ref NavMeshSurface surface, List<MRUKRoom> rooms)
+        {
+            if (rooms.Count == 0)
             {
-                room = MRUK.Instance.GetCurrentRoom();
+                throw new InvalidOperationException("No rooms available to resize the NavMeshSurface.");
             }
 
-            var mapBounds = room.GetRoomBounds();
-            var mapCenter = new Vector3(mapBounds.center.x, mapBounds.min.y, mapBounds.center.z);
-            surface.center = mapCenter;
+            // Initialize bounds with the first room's bounds
+            var combinedBounds = rooms[0].GetRoomBounds();
+            // Expand the combined bounds to include all other rooms
+            for (var i = 1; i < rooms.Count; i++)
+            {
+                combinedBounds.Encapsulate(rooms[i].GetRoomBounds());
+            }
 
-            var mapScale = new Vector3(mapBounds.size.x, 2f, mapBounds.size.z);
-            surface.size = mapScale;
-            var bounds = new Bounds(surface.center, Abs(surface.size));
-            return bounds;
+            // Set the NavMeshSurface to the combined bounds
+            var combinedCenter = new Vector3(combinedBounds.center.x, combinedBounds.center.y, combinedBounds.center.z);
+            surface.center = combinedCenter;
+            var combinedSize =
+                new Vector3(combinedBounds.size.x, combinedBounds.size.y,
+                    combinedBounds.size.z);
+            surface.size = combinedSize * 1.1f;
+            // Return the adjusted bounds
+            return new Bounds(surface.center, surface.size);
         }
 
         /// <summary>
@@ -393,34 +513,6 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Creates NavMeshData for the given bounds and build settings.
-        /// </summary>
-        /// <param name="navMeshBounds">The bounds for the NavMesh.</param>
-        /// <param name="navMeshBuildSettings">The build settings for the NavMesh.</param>
-        /// <param name="room">The room for which creating the NavMesh.</param>
-        /// <returns>The created NavMeshData.</returns>
-        private NavMeshData CreateNavMeshData(Bounds navMeshBounds, NavMeshBuildSettings navMeshBuildSettings,
-            MRUKRoom room = null)
-        {
-            List<NavMeshBuildSource> sources = new();
-            if (_navMeshSurface.collectObjects == CollectObjects.Volume)
-            {
-                NavMeshBuilder.CollectSources(navMeshBounds, _navMeshSurface.layerMask,
-                    _navMeshSurface.useGeometry, 0, new List<NavMeshBuildMarkup>(), sources);
-            }
-            else
-            {
-                CreateNavigableSurfaces(room);
-                NavMeshBuilder.CollectSources(transform, _navMeshSurface.layerMask,
-                    _navMeshSurface.useGeometry, 0, new List<NavMeshBuildMarkup>(), sources);
-            }
-
-            var data = NavMeshBuilder.BuildNavMeshData(navMeshBuildSettings, sources, navMeshBounds,
-                transform.position, transform.rotation);
-            return data;
-        }
-
-        /// <summary>
         ///     Creates obstacles for the given MRUKRoom or all rooms if no room is specified.
         /// </summary>
         /// <param name="room">
@@ -429,22 +521,19 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void CreateObstacles(MRUKRoom room = null)
         {
-            var rooms = new List<MRUKRoom>();
-            if (room)
-            {
-                rooms.Add(room);
-            }
-            else
-            {
-                rooms = MRUK.Instance.Rooms;
-            }
+            var rooms = room == null
+                ? new List<MRUKRoom>() { room }
+                : new List<MRUKRoom>() { MRUK.Instance.GetCurrentRoom() };
+            CreateObstacles(rooms);
+        }
 
-            if (_obstaclesRoot == null)
-            {
-                _obstaclesRoot = new GameObject(_obstaclePrefix).transform;
-            }
-
-            _obstaclesRoot.transform.SetParent(transform);
+        /// <summary>
+        ///     Creates obstacles for the given MRUKRoom or all rooms if no room is specified.
+        /// </summary>
+        /// <param name="rooms"> The rooms for which obstacles will be created.</param>
+        public void CreateObstacles(List<MRUKRoom> rooms)
+        {
+            ObstacleRoot.transform.SetParent(transform);
             foreach (var _room in rooms)
             {
                 var sceneAnchors = _room.Anchors;
@@ -472,7 +561,7 @@ namespace Meta.XR.MRUtilityKit
         ///     Optional parameter that sets the minimum world space distance the
         ///     obstacle must move before it is considered moving. Default is 0.2f.
         /// </param>
-        public void CreateObstacle(MRUKAnchor anchor, bool shouldCarve = true, bool carveOnlyStationary = true,
+        public void CreateObstacle(MRUKAnchor anchor, bool shouldCarve = true, bool carveOnlyStationary = false,
             float carvingTimeToStationary = 0.2f, float carvingMoveThreshold = 0.2f)
         {
             Vector3 obstacleSize, obstacleCenter;
@@ -503,6 +592,14 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
+            InstantiateObstacle(anchor, shouldCarve, carveOnlyStationary, carvingTimeToStationary,
+                carvingMoveThreshold,
+                obstacleSize, obstacleCenter);
+        }
+
+        private void InstantiateObstacle(MRUKAnchor anchor, bool shouldCarve, bool carveOnlyStationary,
+            float carvingTimeToStationary, float carvingMoveThreshold, Vector3 obstacleSize, Vector3 obstacleCenter)
+        {
             var obstacleGO = new GameObject($"{_obstaclePrefix}_{anchor.name}");
             obstacleGO.transform.SetParent(_obstaclesRoot.transform);
             var obstacle = obstacleGO.AddComponent<NavMeshObstacle>();
@@ -518,9 +615,47 @@ namespace Meta.XR.MRUtilityKit
             Obstacles.Add(anchor, obstacleGO);
         }
 
-
         /// <summary>
-        ///     Creates navigable surfaces for the given MRUKRoom or all rooms if no room is specified.
+        ///     This method creates the bottom part of the tunnel that connects two rooms together.
+        ///     See <see cref="EffectMesh.CreateRoomConnections"/> for the full implementation.
+        ///     </summary>
+        ///     <param name="connections">The connections between the rooms.</param>
+        ///     <returns>A list containing all the meshes representing the bridges between rooms.</returns>
+        private List<Mesh> CreateRoomBridges(List<(MRUKAnchor, MRUKAnchor)> connections)
+        {
+            _connectionMeshes.Clear();
+            var vertices = new Vector3[4];
+            var triangles = new int[] { 0, 2, 1, 1, 2, 3 }; // triangulation of the bottom part is fixed
+            for (var i = 0; i < connections.Count; i++)
+            {
+                var anchor1 = connections[i].Item1;
+                var anchor2 = connections[i].Item2;
+                if (!anchor1.PlaneRect.HasValue || !anchor2.PlaneRect.HasValue)
+                {
+                    continue;
+                }
+
+                var anchor1Points = anchor1.PlaneBoundary2D;
+                var anchor2Boundary = anchor2.PlaneBoundary2D;
+
+                var newMesh = new Mesh();
+                // Define the bottom part of the tunnel
+                vertices[0] = anchor1.transform.TransformPoint(new Vector3(anchor1Points[0].x, anchor1Points[0].y, 0));
+                vertices[1] =
+                    anchor2.transform.TransformPoint(new Vector3(anchor2Boundary[1].x, anchor2Boundary[1].y, 0));
+                vertices[2] = anchor1.transform.TransformPoint(new Vector3(anchor1Points[1].x, anchor1Points[1].y, 0));
+                vertices[3] =
+                    anchor2.transform.TransformPoint(new Vector3(anchor2Boundary[0].x, anchor2Boundary[0].y, 0));
+                newMesh.vertices = vertices;
+                newMesh.triangles = triangles;
+                newMesh.RecalculateNormals();
+
+                _connectionMeshes.Add(newMesh);
+            }
+
+            return _connectionMeshes;
+        }
+
         /// </summary>
         /// <param name="room">
         ///     Optional parameter for the MRUKRoom to create the navigable surfaces for.
@@ -530,6 +665,9 @@ namespace Meta.XR.MRUtilityKit
         ///     Creating surfaces will not automatically build a new NavMesh. When changing surfaces at run time,
         ///     always use <see cref="BuildSceneNavMesh" /> method
         /// </remarks>
+        [Obsolete(
+            "Navigable surfaces are now handled as NavMeshBuildSource, and are automatically created when building" +
+            "the NavMesh using the scene data. Use EffectMesh to spawn colliders in the place of anchors.", true)]
         public void CreateNavigableSurfaces(MRUKRoom room = null)
         {
             var rooms = new List<MRUKRoom>();
@@ -544,7 +682,7 @@ namespace Meta.XR.MRUtilityKit
 
             if (_surfacesRoot == null)
             {
-                _surfacesRoot = new GameObject(_surfacesPrefix).transform;
+                _surfacesRoot = new GameObject("_surface").transform;
             }
 
             _surfacesRoot.transform.SetParent(transform);
@@ -564,7 +702,7 @@ namespace Meta.XR.MRUtilityKit
         ///     Creates a navigable surface for the given MRUKAnchor.
         /// </summary>
         /// <param name="anchor">The MRUKAnchor to create the navigable surface for.</param>
-        private async void CreateNavigableSurface(MRUKAnchor anchor)
+        private void CreateNavigableSurface(MRUKAnchor anchor)
         {
             Vector3 surfaceSize, surfaceCenter;
             if (!anchor || !anchor.HasAnyLabel(NavigableSurfaces))
@@ -572,19 +710,20 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            var surfaceGO = new GameObject($"{_surfacesPrefix}_{anchor.name}");
+            var surfaceGO = new GameObject($"{"_surface"}_{anchor.name}");
             surfaceGO.transform.SetParent(_surfacesRoot.transform);
             surfaceGO.gameObject.layer = GetFirstLayerFromLayerMask(Layers);
             if (!anchor || !anchor.HasAnyLabel(NavigableSurfaces))
             {
                 return;
             }
-
+#pragma warning disable CS0618 // Type or member is obsolete
             if (Surfaces.ContainsKey(anchor))
             {
                 Debug.LogWarning("Anchor already associated with an obstacle from this SceneNavigation");
                 return;
             }
+#pragma warning restore CS0618
 
             if (anchor.VolumeBounds != null)
             {
@@ -599,34 +738,15 @@ namespace Meta.XR.MRUtilityKit
             else
             {
                 // global mesh
-                if (anchor.GlobalMesh == null)
-                {
-                    anchor.Anchor.TryGetComponent(out OVRLocatable locatable);
-                    await locatable.SetEnabledAsync(true);
-
-                    if (!locatable.TryGetSceneAnchorPose(out var pose))
-                    {
-                        return;
-                    }
-
-                    var pos = pose.ComputeWorldPosition(MRUK.Instance._cameraRig.trackingSpace);
-                    var rot = pose.ComputeWorldRotation(MRUK.Instance._cameraRig.trackingSpace);
-                    if (!pos.HasValue || !rot.HasValue)
-                    {
-                        return;
-                    }
-
-                    anchor.transform.SetPositionAndRotation(pos.Value, rot.Value);
-                    anchor.GlobalMesh = anchor.LoadGlobalMeshTriangles();
-                }
-
                 var trimesh = anchor.GlobalMesh;
 
                 var meshCollider = surfaceGO.AddComponent<MeshCollider>();
                 meshCollider.sharedMesh = trimesh;
                 meshCollider.transform.position = anchor.transform.position;
                 meshCollider.transform.rotation = anchor.transform.rotation;
+#pragma warning disable CS0618 // Type or member is obsolete
                 Surfaces.Add(anchor, surfaceGO);
+#pragma warning restore CS0618
                 return;
             }
 
@@ -635,8 +755,9 @@ namespace Meta.XR.MRUtilityKit
             surfaceCollider.transform.rotation = anchor.transform.rotation;
             surfaceCollider.size = surfaceSize;
             surfaceCollider.center = surfaceCenter;
-
+#pragma warning disable CS0618 // Type or member is obsolete
             Surfaces.Add(anchor, surfaceGO);
+#pragma warning restore CS0618
         }
 
         /// <summary>
@@ -673,15 +794,16 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="anchor">The MRUKAnchor whose associated obstacle should be cleared.</param>
         public void ClearObstacle(MRUKAnchor anchor)
         {
-            if (!Obstacles.ContainsKey(anchor))
+            if (!Obstacles.TryGetValue(anchor, out var obstacle))
             {
                 return;
             }
 
-            DestroyImmediate(Obstacles[anchor]);
+            DestroyImmediate(obstacle);
             Obstacles.Remove(anchor);
         }
 
+#pragma warning disable CS0618 // Type or member is obsolete
         /// <summary>
         ///     Clears all surfaces from the Obstacles dictionary associated with the given MRUKRoom.
         ///     If no room is specified, all obstacles are cleared.
@@ -718,6 +840,8 @@ namespace Meta.XR.MRUtilityKit
         ///     Clears the surface associated with the given MRUKAnchor from the Obstacles dictionary.
         /// </summary>
         /// <param name="anchor">The MRUKAnchor whose associated obstacle should be cleared.</param>
+        [Obsolete(
+            "Navigable surfaces are now handled as NavMeshBuildSource hence their destruction is handled internally.")]
         public void ClearSurface(MRUKAnchor anchor)
         {
             if (!Surfaces.ContainsKey(anchor))
@@ -728,6 +852,7 @@ namespace Meta.XR.MRUtilityKit
             DestroyImmediate(Surfaces[anchor]);
             Surfaces.Remove(anchor);
         }
+#pragma warning restore CS0618
 
         /// <summary>
         ///     Gets the first layer included in the given LayerMask.
@@ -775,10 +900,6 @@ namespace Meta.XR.MRUtilityKit
             return false;
         }
 
-        static Vector3 Abs(Vector3 v)
-        {
-            return new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
-        }
 
         private void OnDestroy()
         {

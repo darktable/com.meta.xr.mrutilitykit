@@ -23,21 +23,41 @@ using Meta.XR.Util;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A circular pool of objects that can be reused.
+    /// </summary>
+    /// <typeparam name="T">Type</typeparam>
     [Feature(Feature.Scene)]
     public class CircularPool<T> : Pool<T> where T : class
     {
         private int active;
 
+        /// <summary>
+        /// Gets the number of objects in the pool.
+        /// </summary>
         protected override int CountAll
         {
             get => pool.Length;
         }
 
+        /// <summary>
+        /// Gets the number of objects in use.
+        /// </summary>
         protected override int CountActive
         {
             get => active;
         }
 
+        /// <summary>
+        /// This constructor initializes a new instance of the CircularPool class.
+        /// It takes in three parameters: the type of primitive to be stored in the pool,
+        /// the size of the pool, and a set of callbacks that will be used to create and destroy
+        /// instances of the primitive type. The constructor initializes the pool with the specified
+        /// size and creates instances of the primitive type using the provided callbacks.
+        /// </summary>
+        /// <param name="primitive">The type of primitive to be stored in the pool.</param>
+        /// <param name="size">The size of the pool.</param>
+        /// <param name="callbacks">A set of callbacks that will be used to create and destroy instances of the primitive type.</param>
         public CircularPool(T primitive, int size, Callbacks callbacks)
         {
             pool = new Entry[size];

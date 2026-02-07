@@ -18,9 +18,9 @@ MonoBehaviour:
   description: Search a scene for suitable locations to place content
   tags:
     array:
-    - name: Anchor
-    - name: Helper
     - name: Scene
+    - name: Spatial Anchor
+    - name: Helper
   thumbnail: {fileID: 2800000, guid: b5c5be7e0b904844aa95ba4b9a80d254, type: 3}
   order: 5
   prefab: {fileID: 924406752040691048, guid: 2c79091165ddb24409b0a91f0d71bba0, type: 3}
@@ -30,3 +30,5 @@ MonoBehaviour:
   packageDependencies: []
   isSingleton: 0
   usageInstructions: 
+  featureDocumentationName: 
+  featureDocumentationUrl: 

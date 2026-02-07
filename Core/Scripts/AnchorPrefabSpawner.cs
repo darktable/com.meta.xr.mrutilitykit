@@ -170,8 +170,9 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         /// Gets a dictionary that maps MRUKAnchor instances to their corresponding spawned GameObjects.
+        /// This should be treated as read-only, do not modify the contents.
         /// </summary>
-        public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects { get; private set; } = new();
+        public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects { get; } = new();
 
         [Obsolete("Event onPrefabSpawned will be deprecated in a future version"), NonSerialized]
         public UnityEvent onPrefabSpawned = new();

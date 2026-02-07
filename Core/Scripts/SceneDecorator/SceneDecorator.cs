@@ -26,13 +26,25 @@ using Random = UnityEngine.Random;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// This class is used to decorate the scene with objects.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SceneDecorator : MonoBehaviour
     {
         public static readonly float PI = 3.14159f;
 
+        /// <summary>
+        /// Interface for different distributions
+        /// </summary>
         public interface IDistribution
         {
+            /// <summary>
+            /// Executes the custom distribution
+            /// </summary>
+            /// <param name="sceneDecorator">Which decorator to use.</param>
+            /// <param name="sceneAnchor">The associated MRUK Anchor.</param>
+            /// <param name="sceneDecoration">The decoration to use</param>
             public void Distribute(SceneDecorator sceneDecorator, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration);
         }
 
@@ -257,6 +269,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             }
         }
 
+        /// <summary>
+        /// Clears all decorations from the scene by releasing them back to their respective pools.
+        /// </summary>
         public void ClearDecorations()
         {
             foreach (var decoration in _spawnedDecorations)
@@ -269,6 +284,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             DecorateScene(room, 0);
         }
 
+        /// <summary>
+        /// Decorates all rooms in the scene with scene decorations.
+        /// </summary>
         public void DecorateScene()
         {
             foreach (var room in MRUK.Instance.Rooms)
@@ -458,6 +476,13 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             }
         }
 
+        /// <summary>
+        /// Generates a scene decoration at a specific position on an MRUKAnchor.
+        /// </summary>
+        /// <param name="localPos">The local position of the decoration on the anchor.</param>
+        /// <param name="localPosNormalized">The normalized local position of the decoration on the anchor.</param>
+        /// <param name="sceneAnchor">The MRUKAnchor that the decoration will be attached to.</param>
+        /// <param name="sceneDecoration">The scene decoration to be generated.</param>
         public void GenerateOn(Vector2 localPos, Vector2 localPosNormalized, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration)
         {
             Vector3 pos = Vector3.zero;
@@ -559,7 +584,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
             var anchorDist = sceneAnchor.GetClosestSurfacePosition(closestHit.point, out var closestPosition);
 
-            GameObject decorationGO = sceneDecoration.decorationPrefabs[Random.Range(0, sceneDecoration.decorationPrefabs.Length - 1)];
+            GameObject decorationGO = sceneDecoration.decorationPrefabs[Random.Range(0, sceneDecoration.decorationPrefabs.Length)];
             Candidate candidate = new Candidate()
             {
                 decorationPrefab = decorationGO,

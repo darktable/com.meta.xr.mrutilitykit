@@ -1623,19 +1623,14 @@ namespace Meta.XR.MRUtilityKit
             AnchorUpdatedEvent.RemoveAllListeners();
         }
 
-        /// <summary>
-        ///     Creates an anchor in the specified room using the provided data and coordinate system.
-        /// </summary>
-        /// <param name="anchorData">The data for the anchor.</param>
-        /// <returns>The created anchor.</returns>
-        internal MRUKAnchor CreateAnchor(Data.AnchorData anchorData)
+        internal void CreateAnchor(Data.AnchorData anchorData, Matrix4x4 anchorOffset)
         {
             var anchorName = Utilities.GetAnchorName(anchorData);
             var anchorGO = new GameObject(anchorName);
 
             anchorGO.transform.SetParent(transform);
-            anchorGO.transform.position = anchorData.Transform.Translation;
-            anchorGO.transform.rotation = Quaternion.Euler(anchorData.Transform.Rotation);
+            anchorGO.transform.position = anchorOffset.MultiplyPoint3x4(anchorData.Transform.Translation);
+            anchorGO.transform.rotation = anchorOffset.rotation * Quaternion.Euler(anchorData.Transform.Rotation);
             anchorGO.transform.localScale = anchorData.Transform.Scale;
 
             var createdAnchor = anchorGO.AddComponent<MRUKAnchor>();
@@ -1645,7 +1640,6 @@ namespace Meta.XR.MRUtilityKit
 
             Anchors.Add(createdAnchor);
             AnchorCreatedEvent.Invoke(createdAnchor);
-            return createdAnchor;
         }
 
         /// <summary>

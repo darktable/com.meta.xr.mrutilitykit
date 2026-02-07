@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that averages the results of multiple other masks.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class CompositeMaskAvg : Mask2D
     {
@@ -48,6 +51,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return value;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

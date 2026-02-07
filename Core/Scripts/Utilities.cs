@@ -136,6 +136,281 @@ namespace Meta.XR.MRUtilityKit
             return newMesh;
         }
 
+        internal static Mesh SetupAnchorMeshGeometry(MRUKAnchor anchorInfo, bool useFunctionalSurfaces = false,
+            EffectMesh.TextureCoordinateModes[] textureCoordinateModes = null)
+        {
+            var useSurface = false;
+            var totalVertices = 24; // 6 faces * 4 vertices per face
+            var totalIndices = 36; // 6 faces * 2 triangles per face * 3 indices per triangle
+            if (anchorInfo.VolumeBounds.HasValue || anchorInfo.PlaneRect.HasValue)
+            {
+                if (anchorInfo.PlaneRect.HasValue && (useFunctionalSurfaces || !anchorInfo.VolumeBounds.HasValue))
+                {
+                    totalVertices = anchorInfo.PlaneBoundary2D.Count;
+                    totalIndices = (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
+                    useSurface = true;
+                }
+            }
+            else
+            {
+                if (anchorInfo.GlobalMesh != null)
+                {
+                    return anchorInfo.GlobalMesh;
+                }
+
+                throw new InvalidOperationException("No valid geometry data available.");
+            }
+
+            var meshVertices = new Vector3[totalVertices];
+            var meshColors = new Color32[totalVertices];
+            var meshNormals = new Vector3[totalVertices];
+            var meshTangents = new Vector4[totalVertices];
+            var meshTriangles = new int[totalIndices];
+
+            var UVChannelCount = textureCoordinateModes == null ? 0 : Math.Min(8, textureCoordinateModes.Length);
+
+            var meshUVs = new Vector2[UVChannelCount][];
+            for (var x = 0; x < UVChannelCount; x++)
+            {
+                meshUVs[x] = new Vector2[totalVertices];
+            }
+
+            if (useSurface)
+            {
+                CreatePolygonMesh(anchorInfo, ref meshVertices, ref meshColors, ref meshNormals, ref meshTangents,
+                    ref meshTriangles, ref meshUVs, textureCoordinateModes);
+            }
+            else
+            {
+                CreateVolumeMesh(anchorInfo, ref meshVertices, ref meshColors, ref meshNormals, ref meshTangents,
+                    ref meshTriangles, ref meshUVs, textureCoordinateModes);
+            }
+
+            var newMesh = new Mesh
+            {
+                name = anchorInfo.name,
+                vertices = meshVertices,
+                colors32 = meshColors,
+                triangles = meshTriangles,
+                normals = meshNormals,
+                tangents = meshTangents
+            };
+
+            for (var x = 0; x < UVChannelCount; x++)
+            {
+                switch (x)
+                {
+                    case 0:
+                        newMesh.uv = meshUVs[x];
+                        break;
+                    case 1:
+                        newMesh.uv2 = meshUVs[x];
+                        break;
+                    case 2:
+                        newMesh.uv3 = meshUVs[x];
+                        break;
+                    case 3:
+                        newMesh.uv4 = meshUVs[x];
+                        break;
+                    case 4:
+                        newMesh.uv5 = meshUVs[x];
+                        break;
+                    case 5:
+                        newMesh.uv6 = meshUVs[x];
+                        break;
+                    case 6:
+                        newMesh.uv7 = meshUVs[x];
+                        break;
+                    case 7:
+                        newMesh.uv8 = meshUVs[x];
+                        break;
+                }
+            }
+
+            newMesh.name = anchorInfo.name;
+            return newMesh;
+        }
+
+        private static void CreateVolumeMesh(MRUKAnchor anchorInfo, ref Vector3[] meshVertices,
+            ref Color32[] meshColors, ref Vector3[] meshNormals, ref Vector4[] meshTangents, ref int[] meshTriangles,
+            ref Vector2[][] meshUVs, EffectMesh.TextureCoordinateModes[] textureCoordinateModes = null)
+        {
+            if (!anchorInfo.VolumeBounds.HasValue)
+            {
+                throw new Exception("Can not create a volume mesh for an anchor without volume bounds.");
+            }
+
+            var bounds = anchorInfo.VolumeBounds.Value;
+
+            var dim = bounds.size;
+            var vertCounter = 0;
+            var triCounter = 0;
+            var baseVert = 0;
+            // each cube face gets an 8-vertex mesh
+            for (var j = 0; j < 6; j++)
+            {
+                Vector3 right, up, fwd;
+                Vector3 rotatedDim;
+                var UVxDim = dim.x;
+                var UVyDim = dim.y;
+                switch (j)
+                {
+                    case 0:
+                        rotatedDim = new Vector3(dim.x, dim.y, dim.z);
+                        right = Vector3.right;
+                        up = Vector3.up;
+                        fwd = Vector3.forward;
+                        break;
+                    case 1:
+                        rotatedDim = new Vector3(dim.x, dim.z, dim.y);
+                        right = Vector3.right;
+                        up = -Vector3.forward;
+                        fwd = Vector3.up;
+                        UVyDim = dim.z;
+                        break;
+                    case 2:
+                        rotatedDim = new Vector3(dim.x, dim.y, dim.z);
+                        right = Vector3.right;
+                        up = -Vector3.up;
+                        fwd = -Vector3.forward;
+                        break;
+                    case 3:
+                        rotatedDim = new Vector3(dim.x, dim.z, dim.y);
+                        right = Vector3.right;
+                        up = Vector3.forward;
+                        fwd = -Vector3.up;
+                        UVyDim = dim.z;
+                        break;
+                    case 4:
+                        rotatedDim = new Vector3(dim.z, dim.y, dim.x);
+                        right = -Vector3.forward;
+                        up = Vector3.up;
+                        fwd = Vector3.right;
+                        UVxDim = dim.z;
+                        break;
+                    case 5:
+                        rotatedDim = new Vector3(dim.z, dim.y, dim.x);
+                        right = Vector3.forward;
+                        up = Vector3.up;
+                        fwd = -Vector3.right;
+                        UVxDim = dim.z;
+                        break;
+                    default:
+                        throw new IndexOutOfRangeException("Index j is out of range");
+                }
+
+                for (var k = 0; k < 4; k++)
+                {
+                    var UVx = k / 2 == 0 ? 0.0f : 1.0f;
+                    var UVy = k == 1 || k == 2 ? 1.0f : 0.0f;
+                    var centerPoint = bounds.center - up * rotatedDim.y * 0.5f +
+                                      right * rotatedDim.x * 0.5f + fwd * rotatedDim.z * 0.5f;
+                    centerPoint += up * rotatedDim.y * UVy - right * rotatedDim.x * UVx;
+                    var quadUV = new Vector2(UVx, UVy);
+                    for (var x = 0; x < meshUVs.Length; x++)
+                    {
+                        var uvScaleFactor = Vector2.one;
+                        if (textureCoordinateModes != null)
+                        {
+                            switch (textureCoordinateModes[x].AnchorUV)
+                            {
+                                case EffectMesh.AnchorTextureCoordinateMode.METRIC:
+                                    uvScaleFactor.x = UVxDim;
+                                    uvScaleFactor.y = UVyDim;
+                                    break;
+                            }
+                        }
+
+                        meshUVs[x][vertCounter] = Vector2.Scale(quadUV, uvScaleFactor);
+                    }
+
+                    meshVertices[vertCounter] = centerPoint;
+                    meshColors[vertCounter] = Color.white;
+                    meshNormals[vertCounter] = fwd;
+                    meshTangents[vertCounter] = new Vector4(-right.x, -right.y, -right.z, -1);
+                    vertCounter++;
+                }
+
+                CreateInteriorTriangleFan(ref meshTriangles, ref triCounter, baseVert, 4);
+                baseVert += 4;
+            }
+        }
+
+        private static void CreatePolygonMesh(MRUKAnchor anchorInfo, ref Vector3[] meshVertices,
+            ref Color32[] meshColors, ref Vector3[] meshNormals, ref Vector4[] meshTangents, ref int[] meshTriangles,
+            ref Vector2[][] meshUVs,
+            EffectMesh.TextureCoordinateModes[] textureCoordinateModes)
+        {
+            if (!anchorInfo.PlaneRect.HasValue || anchorInfo.PlaneBoundary2D == null)
+            {
+                throw new Exception("Not enough plane data associated to this anchor to create a polygon mesh.");
+            }
+
+            var rect = anchorInfo.PlaneRect.Value;
+            var localPoints = anchorInfo.PlaneBoundary2D;
+            var vertCounter = 0;
+            var triCounter = 0;
+            var baseVert = 0;
+            for (var i = 0; i < localPoints.Count; i++)
+            {
+                var thisCorner = localPoints[i];
+                for (var x = 0; x < meshUVs.Length; x++)
+                {
+                    var uvScaleFactor = Vector2.one;
+                    switch (textureCoordinateModes[x].AnchorUV)
+                    {
+                        case EffectMesh.AnchorTextureCoordinateMode.STRETCH:
+                            uvScaleFactor = new Vector2(1 / (rect.xMax - rect.xMin), 1 / (rect.yMax - rect.yMin));
+                            break;
+                    }
+
+                    meshUVs[x][vertCounter] =
+                        Vector2.Scale(new Vector2(rect.xMax - thisCorner.x, thisCorner.y - rect.yMin), uvScaleFactor);
+                }
+
+                meshVertices[vertCounter] = new Vector3(thisCorner.x, thisCorner.y, 0);
+                meshColors[vertCounter] = Color.white;
+                meshNormals[vertCounter] = Vector3.forward;
+                meshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
+                vertCounter++;
+            }
+
+            CreateInteriorPolygon(ref meshTriangles, ref triCounter, baseVert, localPoints);
+        }
+
+
+        internal static void CreateInteriorPolygon(ref int[] indexArray, ref int indexCounter, int baseCount,
+            List<Vector2> points)
+        {
+            Triangulator.TriangulatePoints(points, null, out var vertices, out var indices);
+            var capTriCount = indices.Length / 3;
+            for (var j = 0; j < capTriCount; j++)
+            {
+                var id0 = indices[j * 3];
+                var id1 = indices[j * 3 + 1];
+                var id2 = indices[j * 3 + 2];
+
+                indexArray[indexCounter++] = baseCount + id0;
+                indexArray[indexCounter++] = baseCount + id1;
+                indexArray[indexCounter++] = baseCount + id2;
+            }
+        }
+
+
+        internal static void CreateInteriorTriangleFan(ref int[] indexArray, ref int indexCounter, int baseCount,
+            int pointsInLoop)
+        {
+            var capTriCount = pointsInLoop - 2;
+            for (var j = 0; j < capTriCount; j++)
+            {
+                var id1 = j + 1;
+                var id2 = j + 2;
+                indexArray[indexCounter++] = baseCount;
+                indexArray[indexCounter++] = baseCount + id1;
+                indexArray[indexCounter++] = baseCount + id2;
+            }
+        }
+
         internal static void DestroyGameObjectAndChildren(GameObject gameObject)
         {
             if (gameObject == null)

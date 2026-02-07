@@ -23,14 +23,27 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that returns true if the position is inside of a room.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class InsideCurrentRoomMask : Mask
     {
+        /// <summary>
+        /// This is not used in this check
+        /// </summary>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
+        /// <returns>Not used in this check, always 0</returns>
         public override float SampleMask(Candidate candidate)
         {
             return 0;
         }
 
+        /// <summary>
+        /// Checks if the hit point of the candidate is in the current room
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>The adjusted and clamped value</returns>
         public override bool Check(Candidate c)
         {
             var room = MRUK.Instance.GetCurrentRoom();

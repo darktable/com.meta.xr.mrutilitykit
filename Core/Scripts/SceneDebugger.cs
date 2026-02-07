@@ -881,7 +881,7 @@ namespace Meta.XR.MRUtilityKit
             foreach (var segment in segments)
             {
                 // Create a new material with a random color for each segment
-                var newMaterial = new Material(Shader.Find("Standard"))
+                var newMaterial = new Material(Shader.Find("Meta/Lit"))
                 {
                     color = UnityEngine.Random.ColorHSV()
                 };
@@ -987,7 +987,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void ShowRoomDetails()
         {
-            var currentRoomName = MRUK.Instance?.GetCurrentRoom().name ?? "N/A";
+            var currentRoomName = MRUK.Instance?.GetCurrentRoom()?.name ?? "N/A";
             var numRooms = MRUK.Instance?.Rooms.Count ?? 0;
             RoomDetails.text = string.Format("\n[{0}]\nNumber of rooms: {1}\nCurrent room: {2}",
                 nameof(ShowRoomDetailsDebugger), numRooms, currentRoomName);

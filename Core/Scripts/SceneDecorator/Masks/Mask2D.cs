@@ -23,29 +23,33 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// Base class for all masks that are 2D
+    /// </summary>
     [Feature(Feature.Scene)]
     public abstract class Mask2D : Mask
     {
         [SerializeField]
-        public float offsetX;
+        public float offsetX; /// <summary>x offset </summary>
 
         [SerializeField]
-        public float offsetY;
+        public float offsetY; /// <summary>y offset </summary>
 
         [SerializeField]
-        public float rotation;
+        public float rotation; /// <summary>rotation in degrees </summary>
 
         [SerializeField]
-        public float scaleX = 1f;
+        public float scaleX = 1f; /// <summary>scale in x direction </summary>
 
         [SerializeField]
-        public float scaleY = 1f;
+        public float scaleY = 1f; /// <summary>scale in y direction </summary>
 
         [SerializeField]
-        public float shearX;
+        public float shearX; /// <summary>shear in x direction </summary>
 
         [SerializeField]
-        public float shearY;
+        public float shearY; /// <summary>shear in y direction </summary>
+
 
         private static Float3X3 GenerateAffineTransform(Vector2 position, float rotation, Vector2 scale, Vector2 shear)
         {

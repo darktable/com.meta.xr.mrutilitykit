@@ -25,12 +25,23 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A mask that combines multiple other masks and returns the maximum value of all
+    /// </summary>
     [Feature(Feature.Scene)]
     public class CompositeMaskMax : Mask2D
     {
         [SerializeField]
         private CompositeMaskAdd.MaskLayer[] maskLayers;
 
+        /// <summary>
+        /// This method applies the mask to the given candidate.
+        /// It first generates an affine transformation based on the provided parameters,
+        /// and then applies this transformation to the local position of the candidate.
+        /// If there are no mask layers, it returns 0. Otherwise, it returns negative infinity.
+        /// </summary>
+        /// <param name="c">The candidate to apply the mask to.</param>
+        /// <returns>The mask value for the given candidate.</returns>
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);
@@ -43,6 +54,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return value;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

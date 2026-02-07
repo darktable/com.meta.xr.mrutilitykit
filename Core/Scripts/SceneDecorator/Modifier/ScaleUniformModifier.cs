@@ -24,6 +24,9 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A modifier that scales the decoration uniformly based on a mask
+    /// </summary>
     [Feature(Feature.Scene)]
     public class ScaleUniformModifier : Modifier
     {

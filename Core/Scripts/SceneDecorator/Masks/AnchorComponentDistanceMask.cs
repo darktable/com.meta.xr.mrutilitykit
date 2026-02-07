@@ -23,9 +23,16 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+
+    /// <summary>
+    /// A mask that samples the distance between an anchor and a component
+    /// </summary>
     [Feature(Feature.Scene)]
     public class AnchorComponentDistanceMask : Mask
     {
+        /// <summary>
+        /// Axis representation
+        /// </summary>
         public enum Axis
         {
             X = 0,
@@ -33,14 +40,27 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             Z = 2
         }
 
+        /// <summary>
+        /// The axis to sample the distance along
+        /// </summary>
         [SerializeField]
         public Axis axis;
 
+        /// <summary>
+        /// The distance with the configured axis.
+        /// </summary>
+        /// <param name="c">The candidate for a location</param>
+        /// <returns>Distance</returns>
         public override float SampleMask(Candidate c)
         {
             return c.anchorCompDists[(int)axis];
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

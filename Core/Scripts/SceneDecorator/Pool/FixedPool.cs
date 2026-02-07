@@ -23,19 +23,35 @@ using Meta.XR.Util;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// A pool of objects that can be reused.
+    /// </summary>
+    /// <typeparam name="T">Type</typeparam>
     [Feature(Feature.Scene)]
     public class FixedPool<T> : Pool<T> where T : class
     {
+        /// <summary>
+        /// Returns the length of the pool.
+        /// </summary>
         protected override int CountAll
         {
             get => pool.Length;
         }
 
+        /// <summary>
+        /// Returns the active objects in the pool.
+        /// </summary>
         protected override int CountActive
         {
             get => index;
         }
 
+        /// <summary>
+        /// Provides a fixed pool with the given size and the type of primitive. Use callbacks to register specific callbacks
+        /// </summary>
+        /// <param name="primitive">The primitive (gameobject)</param>
+        /// <param name="size">Size of the pool</param>
+        /// <param name="callbacks">Custom or generic callbacks to attach for create, onGet, onRelease</param>
         public FixedPool(T primitive, int size, Callbacks callbacks)
         {
             pool = new Entry[size];

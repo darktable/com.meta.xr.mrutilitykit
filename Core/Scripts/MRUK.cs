@@ -26,6 +26,7 @@ using Unity.Collections;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Android;
+using UnityEngine.Assertions;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
 
@@ -173,8 +174,7 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// This struct is used to manage which rooms and anchors are not being tracked.
         /// </summary>
-        [Serializable]
-        public struct SceneTrackingSettings
+        internal struct SceneTrackingSettings
         {
             internal HashSet<MRUKRoom> UnTrackedRooms;
             internal HashSet<MRUKAnchor> UnTrackedAnchors;
@@ -255,6 +255,15 @@ namespace Meta.XR.MRUtilityKit
         public bool EnableWorldLock = true;
 
         /// <summary>
+        ///     This property indicates if world lock is currently active. This means that <see cref="EnableWorldLock"/> is enabled and the current
+        ///     room has successfully been localized. In some cases such as when the headset goes into standby, the user moves to another room and
+        ///     comes back out of standby the headset may fail to localize and this property will be false. The property may become true again once
+        ///     the device is able to localise the room again (e.g. if the user walks back into the original room). This property can be used to show
+        ///     a UI panel asking the user to return to their room.
+        /// </summary>
+        public bool IsWorldLockActive => EnableWorldLock && _worldLockActive;
+
+        /// <summary>
         ///     When the <see cref="EnableWorldLock"/> is enabled, MRUK will modify the TrackingSpace transform, overwriting any manual changes.
         ///     Use this field to change the position and rotation of the TrackingSpace transform when the world locking is enabled.
         /// </summary>
@@ -262,6 +271,7 @@ namespace Meta.XR.MRUtilityKit
         public Matrix4x4 TrackingSpaceOffset = Matrix4x4.identity;
 
         internal OVRCameraRig _cameraRig { get; private set; }
+        private bool _worldLockActive = false;
         private bool _worldLockWasEnabled = false;
         private bool _loadSceneCalled = false;
         private Pose? _prevTrackingSpacePose = default;
@@ -444,7 +454,6 @@ namespace Meta.XR.MRUtilityKit
             [SerializeField, Tooltip("Trigger a scene load on startup. If set to false, you can call LoadSceneFromDevice(), LoadSceneFromPrefab() or LoadSceneFromJsonString() manually.")]
             public bool LoadSceneOnStartup = true;
 
-
             [Space]
             [Header("Other settings")]
             [SerializeField, Tooltip("The width of a seat. Used to calculate seat positions with the COUCH label.")]
@@ -590,6 +599,8 @@ namespace Meta.XR.MRUtilityKit
 #endif
             }
 
+            bool worldLockActive = false;
+
             if (_cameraRig)
             {
                 if (EnableWorldLock)
@@ -610,6 +621,7 @@ namespace Meta.XR.MRUtilityKit
                             rotation = TrackingSpaceOffset.rotation * rotation;
                             _cameraRig.trackingSpace.SetPositionAndRotation(position, rotation);
                             _prevTrackingSpacePose = new(position, rotation);
+                            worldLockActive = true;
                         }
                     }
                 }
@@ -623,6 +635,8 @@ namespace Meta.XR.MRUtilityKit
 
                 _worldLockWasEnabled = EnableWorldLock;
             }
+
+            _worldLockActive = worldLockActive;
 
             UpdateTrackables();
         }
@@ -747,10 +761,12 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <remarks>
         ///     The user must have granted ScenePermissions or this will fail.
-        ///     In order to check if the user has granted permissions use the following call:
-        ///     Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission)
-        ///     In order to request permissions from the user, use the following call:
-        ///     Permission.RequestUserPermission(OVRPermissionsRequester.ScenePermission, callbacks);
+        ///
+        ///     In order to check if the user has granted permissions, call
+        ///     `Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission)`.
+        ///
+        ///     In order to request permissions from the user, call
+        ///     `Permission.RequestUserPermission(OVRPermissionsRequester.ScenePermission, callbacks)`.
         /// </remarks>
         /// <param name="requestSceneCaptureIfNoDataFound">
         ///     If true and no rooms are found when loading from device,
@@ -762,12 +778,14 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         /// <returns>An enum indicating whether loading was successful or not.</returns>
         public async Task<LoadDeviceResult> LoadSceneFromDevice(bool requestSceneCaptureIfNoDataFound = true, bool removeMissingRooms = true)
-            => await LoadSceneFromDevice(null, requestSceneCaptureIfNoDataFound, removeMissingRooms);
+            => await LoadSceneFromDeviceInternal(requestSceneCaptureIfNoDataFound, removeMissingRooms);
 
-        private async Task<LoadDeviceResult> LoadSceneFromDevice(IEnumerable<Guid> Uuids,
-            bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms)
+        private async Task<LoadDeviceResult> LoadSceneFromDeviceInternal(
+            bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms
+        )
         {
-            var results = await CreateSceneDataFromDevice(Uuids);
+            var results = await CreateSceneDataFromDevice(
+            );
 
             if (results.SceneData.Rooms.Count == 0)
             {
@@ -798,7 +816,8 @@ namespace Meta.XR.MRUtilityKit
                     {
                         // Try again but this time don't request a space setup again if there are no rooms to avoid
                         // the user getting stuck in an infinite loop.
-                        return await LoadSceneFromDevice(Uuids, false, removeMissingRooms);
+                        return await LoadSceneFromDeviceInternal(false, removeMissingRooms
+                        );
                     }
                 }
 
@@ -810,7 +829,11 @@ namespace Meta.XR.MRUtilityKit
                 return (LoadDeviceResult)results.FetchResult;
             }
 
-            UpdateScene(results.SceneData, removeMissingRooms);
+            if (!UpdateScene(results.SceneData, removeMissingRooms
+                ))
+            {
+                return LoadDeviceResult.FailureDataIsInvalid;
+            }
 
             InitializeScene();
 
@@ -829,31 +852,17 @@ namespace Meta.XR.MRUtilityKit
         ///     Attempts to create scene data from the device.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the operation was successful, the created scene data, and a list of OVRAnchors.</returns>
-        private async Task<CreateSceneDataResults> CreateSceneDataFromDevice(IEnumerable<Guid> Uuids)
+        private async Task<CreateSceneDataResults> CreateSceneDataFromDevice(
+        )
         {
+            var componentType = typeof(OVRRoomLayout);
             var rooms = new List<OVRAnchor>();
+            var status = (await FetchAnchors()).Status;
 
-            CreateSceneDataResults sceneDataResults;
-            OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult> result;
-
-            var useRoomLayout = true;
-            var useUuids = Uuids != null;
-
-            var fetchOptions = new OVRAnchor.FetchOptions();
-
-            if (useUuids)
+            async OVRTask<OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult>> FetchAnchors()
             {
-                fetchOptions.Uuids = Uuids;
-                result = await OVRAnchor.FetchAnchorsAsync(rooms, fetchOptions);
-                sceneDataResults.FetchResult = result.Status;
+                return await OVRAnchor.FetchAnchorsAsync(rooms, new OVRAnchor.FetchOptions { SingleComponentType = componentType });
             }
-            else
-            {
-                fetchOptions.SingleComponentType = typeof(OVRRoomLayout);
-                result = await OVRAnchor.FetchAnchorsAsync(rooms, fetchOptions);
-                sceneDataResults.FetchResult = result.Status;
-            }
-
 
             var sceneData = new Data.SceneData()
             {
@@ -861,11 +870,10 @@ namespace Meta.XR.MRUtilityKit
                 Rooms = new List<Data.RoomData>()
             };
 
-
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromDevice)
                 .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, rooms.Count.ToString())
-                .SetResult(sceneDataResults.FetchResult == OVRAnchor.FetchResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
+                .SetResult(status == OVRAnchor.FetchResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
                 .Send();
 #endif
 
@@ -878,12 +886,13 @@ namespace Meta.XR.MRUtilityKit
                     RoomLayout = new Data.RoomLayoutData()
                 };
 
-                if (useRoomLayout)
+                if (componentType == typeof(OVRRoomLayout))
                 {
-                    var layout = roomAnchor.GetComponent<OVRRoomLayout>();
+                    bool hasRoomLayout = roomAnchor.TryGetComponent<OVRRoomLayout>(out var layout);
+                    Assert.IsTrue(hasRoomLayout, nameof(hasRoomLayout));
                     if (!layout.TryGetRoomLayout(out var ceiling, out var floor, out var walls))
                     {
-                        Debug.LogWarning($"Failed to get room layout");
+                        Debug.LogWarning("Failed to get room layout");
                         continue;
                     }
                     roomData.RoomLayout.FloorUuid = floor;
@@ -1008,9 +1017,7 @@ namespace Meta.XR.MRUtilityKit
                 sceneData.Rooms.Add(roomData);
             }
 
-            sceneDataResults.SceneData = sceneData;
-
-            return sceneDataResults;
+            return new CreateSceneDataResults { FetchResult = status, SceneData = sceneData };
         }
 
 
@@ -1450,8 +1457,11 @@ namespace Meta.XR.MRUtilityKit
         /// This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
         /// </param>
         /// <returns>A list of managed MRUKRoom objects.</returns>
-        private void UpdateScene(Data.SceneData newSceneData, bool removeMissingRooms)
+        private bool UpdateScene(Data.SceneData newSceneData, bool removeMissingRooms
+        )
         {
+            var anchorOffset = Matrix4x4.identity;
+
             List<Data.RoomData> newRoomsToCreate = new();
 
             //the existing rooms will get removed from this list and updated separately
@@ -1535,7 +1545,7 @@ namespace Meta.XR.MRUtilityKit
 
                         foreach (var anchor in newAnchorsToCreate)
                         {
-                            oldRoom.CreateAnchor(anchor);
+                            oldRoom.CreateAnchor(anchor, anchorOffset);
                         }
 
                         foreach (var anchor in anchorsToRemove)
@@ -1597,7 +1607,7 @@ namespace Meta.XR.MRUtilityKit
             foreach (var newRoomData in newRoomsToCreate)
             {
                 //create room and throw events for room and anchors
-                var room = CreateRoom(newRoomData);
+                var room = CreateRoom(newRoomData, anchorOffset);
                 room.ComputeRoomInfo();
                 roomsToNotifyCreated.Add(room);
                 Rooms.Add(room);
@@ -1618,14 +1628,10 @@ namespace Meta.XR.MRUtilityKit
             {
                 RoomCreatedEvent?.Invoke(room);
             }
+            return true;
         }
 
-        /// <summary>
-        ///     Creates a new room with the specified parameters.
-        /// </summary>
-        /// <param name="roomData">The data for the new room.</param>
-        /// <returns>The created MRUKRoom object.</returns>
-        private MRUKRoom CreateRoom(Data.RoomData roomData)
+        private static MRUKRoom CreateRoom(Data.RoomData roomData, Matrix4x4 anchorOffset)
         {
             GameObject sceneRoom = new GameObject();
             MRUKRoom roomInfo = sceneRoom.AddComponent<MRUKRoom>();
@@ -1633,7 +1639,7 @@ namespace Meta.XR.MRUtilityKit
             roomInfo.Anchor = roomData.Anchor;
             foreach (Data.AnchorData anchorData in roomData.Anchors)
             {
-                roomInfo.CreateAnchor(anchorData);
+                roomInfo.CreateAnchor(anchorData, anchorOffset);
             }
 
             roomInfo.UpdateRoomLabel(roomData);
@@ -1642,56 +1648,5 @@ namespace Meta.XR.MRUtilityKit
             return roomInfo;
         }
 
-    }
-
-    /// <summary>
-    /// Attribute used to show or hide a field depending on certain conditions.
-    /// </summary>
-    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
-    public class ShowWhenAttribute : PropertyAttribute
-    {
-        /// <summary>
-        /// Name of the field
-        /// </summary>
-        public readonly string ConditionFieldName;
-        /// <summary>
-        /// Value to compare against
-        /// </summary>
-        public readonly object CompareValue;
-        /// <summary>
-        /// Multiple values to compare against
-        /// </summary>
-        public readonly object[] CompareValueArray;
-
-        /// <summary>
-        /// Attribute used to show or hide the Field depending on certain conditions
-        /// </summary>
-        /// <param name="conditionFieldName">Name of the bool condition Field</param>
-        public ShowWhenAttribute(string conditionFieldName)
-        {
-            ConditionFieldName = conditionFieldName;
-        }
-
-        /// <summary>
-        /// Attribute used to show or hide the Field depending on certain conditions
-        /// </summary>
-        /// <param name="conditionFieldName">Name of the Field to compare (bool, enum, int or float)</param>
-        /// <param name="compareValue">Value to compare</param>
-        public ShowWhenAttribute(string conditionFieldName, object compareValue = null)
-        {
-            ConditionFieldName = conditionFieldName;
-            CompareValue = compareValue;
-        }
-
-        /// <summary>
-        /// Attribute used to show or hide the Field depending on certain conditions
-        /// </summary>
-        /// <param name="conditionFieldName">Name of the Field to compare (bool, enum, int or float)</param>
-        /// <param name="compareValueArray">Array of values to compare (only for enums)</param>
-        public ShowWhenAttribute(string conditionFieldName, object[] compareValueArray = null)
-        {
-            ConditionFieldName = conditionFieldName;
-            CompareValueArray = compareValueArray;
-        }
     }
 }
