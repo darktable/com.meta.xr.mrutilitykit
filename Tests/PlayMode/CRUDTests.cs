@@ -68,6 +68,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.AreEqual(12, _currentRoom.Anchors.Count, "Number of anchors in room");
             yield return null;
         }
+
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TwoAnchorsLess()
@@ -177,7 +178,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
-
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator RoomAnchorPlaneBoundaryChanged()
@@ -211,7 +211,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
-
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator RoomAnchorVolumeBoundsChanged()
@@ -235,7 +234,6 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             Debug.Log($"counterRoomUpdated {counterRoomUpdated} counterRoomDeleted {counterRoomDeleted} counterRoomCreated {counterRoomCreated} " +
                       $"counterAnchorUpdated {counterAnchorUpdated} counterAnchorDeleted {counterAnchorDeleted} counterAnchorCreated {counterAnchorCreated}");
-
 
             Assert.AreEqual(1, counterRoomUpdated, "Counter for rooms updated");
             Assert.AreEqual(0, counterRoomCreated, "Counter for rooms created");
@@ -271,7 +269,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             Debug.Log($"counterRoomUpdated {counterRoomUpdated} counterRoomDeleted {counterRoomDeleted} counterRoomCreated {counterRoomCreated} " +
                       $"counterAnchorUpdated {counterAnchorUpdated} counterAnchorDeleted {counterAnchorDeleted} counterAnchorCreated {counterAnchorCreated}");
 
-
             Assert.AreEqual(1, counterRoomUpdated, "Counter for rooms updated");
             Assert.AreEqual(0, counterRoomCreated, "Counter for rooms created");
             Assert.AreEqual(0, counterRoomDeleted, "Counter for rooms deleted");
@@ -306,7 +303,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             Debug.Log($"counterRoomUpdated {counterRoomUpdated} counterRoomDeleted {counterRoomDeleted} counterRoomCreated {counterRoomCreated} " +
                       $"counterAnchorUpdated {counterAnchorUpdated} counterAnchorDeleted {counterAnchorDeleted} counterAnchorCreated {counterAnchorCreated}");
 
-
             Assert.AreEqual(1, counterRoomUpdated, "Counter for rooms updated");
             Assert.AreEqual(0, counterRoomCreated, "Counter for rooms created");
             Assert.AreEqual(0, counterRoomDeleted, "Counter for rooms deleted");
@@ -339,7 +335,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithScene1NewRoomGUID.text);
             Debug.Log($"counterRoomUpdated {counterRoomUpdated} counterRoomDeleted {counterRoomDeleted} counterRoomCreated {counterRoomCreated} " +
                       $"counterAnchorUpdated {counterAnchorUpdated} counterAnchorDeleted {counterAnchorDeleted} counterAnchorCreated {counterAnchorCreated}");
-
 
             Assert.AreEqual(1, counterRoomUpdated, "Counter for rooms updated");
             Assert.AreEqual(0, counterRoomCreated, "Counter for rooms created");

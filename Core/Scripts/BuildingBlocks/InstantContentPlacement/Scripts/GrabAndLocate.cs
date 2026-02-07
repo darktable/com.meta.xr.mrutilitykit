@@ -39,10 +39,7 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
         private OVRCameraRig _cameraRig;
         private bool _requestMove;
 
-        protected override Transform RaycastOrigin => transform;
-        protected override float MaxRaycastDistance => 3f;
-
-        public void Awake()
+        private void Awake()
         {
             _handGrabInteractable = GetComponentInChildren<HandGrabInteractable>();
             _grabInteractable = GetComponentInChildren<GrabInteractable>();
@@ -70,6 +67,16 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
             }
         }
 #endif // META_INTERACTION_SDK_DEFINED
+
+        /// <summary>
+        /// Origin of raycast ray
+        /// </summary>
+        protected override Transform RaycastOrigin => transform;
+
+        /// <summary>
+        /// Maximum length of raycast ray
+        /// </summary>
+        protected override float MaxRaycastDistance => 3f;
 
         protected internal override Ray GetRaycastRay()
         {

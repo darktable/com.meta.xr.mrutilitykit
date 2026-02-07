@@ -31,9 +31,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     {
         public override float SampleMask(Candidate c)
         {
-            var value = Random.value;
-
-            return value;
+            return Random.value;
         }
 
         public override bool Check(Candidate c)

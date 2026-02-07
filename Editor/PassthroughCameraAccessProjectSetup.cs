@@ -25,12 +25,12 @@ using UnityEngine;
 namespace Meta.XR.Editor
 {
     [InitializeOnLoad]
-    internal static class PassthroughCameraAccessAndroidManifestRules
+    internal static class PassthroughCameraAccessProjectSetup
     {
-        private const string _permission = OVRPermissionsRequester.PassthroughCameraAccessPermission;
+        private const string Permission = OVRPermissionsRequester.PassthroughCameraAccessPermission;
         private static bool _hasPermissionInAndroidManifestCached;
 
-        static PassthroughCameraAccessAndroidManifestRules()
+        static PassthroughCameraAccessProjectSetup()
         {
             OVRProjectSetup.AddTask(OVRProjectSetup.TaskGroup.Features, static _ =>
                 {
@@ -58,8 +58,40 @@ namespace Meta.XR.Editor
                     }
                 }, OVRProjectSetup.TaskLevel.Required, null,
                 "Passthrough Camera Access requires:\n" +
-                $"1. '{_permission}' permission in AndroidManifest.xml.\n" +
+                $"1. '{Permission}' permission in AndroidManifest.xml.\n" +
                 "2. 'Passthrough Support' set to 'Supported' or 'Required'.");
+
+            OVRProjectSetup.AddTask(OVRProjectSetup.TaskGroup.Features, static _ =>
+                {
+                    var config = OVRProjectConfig.CachedProjectConfig;
+                    if (config == null)
+                    {
+                        return false;
+                    }
+                    if (!config.isPassthroughCameraAccessEnabled)
+                    {
+                        return true;
+                    }
+                    var ovrManager = Object.FindAnyObjectByType<OVRManager>(FindObjectsInactive.Include);
+                    if (ovrManager == null)
+                    {
+                        return true;
+                    }
+                    return ovrManager.requestPassthroughCameraAccessPermissionOnStartup;
+                }, BuildTargetGroup.Android, OVRProjectSetup.TaskTags.None, static _ =>
+                {
+                    var ovrManager = Object.FindAnyObjectByType<OVRManager>(FindObjectsInactive.Include);
+                    if (ovrManager == null)
+                    {
+                        return;
+                    }
+                    ovrManager.requestPassthroughCameraAccessPermissionOnStartup = true;
+                    EditorUtility.SetDirty(ovrManager);
+                }, OVRProjectSetup.TaskLevel.Optional,
+                message: "When using Passthrough Camera Access in your project, it's required to perform a runtime permission request. " +
+                "Hit Apply to have OVRManager request the permission automatically on app startup. It is " +
+                "recommended to hit Ignore and manage the runtime permission yourself.",
+                fixMessage: "OVRManager will request 'horizonos.permission.HEADSET_CAMERA' runtime permission on app startup");
         }
 
         private static bool HasPermissionInAndroidManifest()
@@ -67,7 +99,7 @@ namespace Meta.XR.Editor
             if (!_hasPermissionInAndroidManifestCached)
             {
                 const string path = "Assets/Plugins/Android/AndroidManifest.xml";
-                _hasPermissionInAndroidManifestCached = File.Exists(path) && File.ReadAllText(path).Contains(_permission);
+                _hasPermissionInAndroidManifestCached = File.Exists(path) && File.ReadAllText(path).Contains(Permission);
             }
             return _hasPermissionInAndroidManifestCached;
         }

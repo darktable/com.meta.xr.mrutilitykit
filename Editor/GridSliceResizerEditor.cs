@@ -69,7 +69,6 @@ public class GridSliceResizerEditor : Editor
         };
     }
 
-
     public override void OnInspectorGUI()
     {
         var resizable = target as GridSliceResizer;
@@ -131,7 +130,7 @@ public class GridSliceResizerEditor : Editor
                     new GUIContent("Border Y Negative",
                         "Lower bound of an asymmetrical border area that will not be stretched on this axis"));
                 EditorGUILayout.PropertyField(_borderYPositive,
-                    new GUIContent("Padding Y Positive",
+                    new GUIContent("Border Y Positive",
                         "Upper bound of an asymmetrical border area that will not be stretched on this axis"));
                 break;
             case GridSliceResizer.Method.SCALE:

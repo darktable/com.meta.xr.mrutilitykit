@@ -91,7 +91,6 @@ namespace Meta.XR.MRUtilityKit
         private Material _debugMaterial;
         private Material _checkerMeshMaterial;
 
-
         private DebugAction _isPositionInRoom;
         private DebugAction _showDebugAnchorsDebugAction;
         private DebugAction _raycastDebugger;
@@ -178,8 +177,8 @@ namespace Meta.XR.MRUtilityKit
             public bool Equals(DebugAction other)
             {
                 return _setup == other._setup &&
-                       _execute == other._execute &&
-                       _cleanup == other._cleanup;
+                        _execute == other._execute &&
+                        _cleanup == other._cleanup;
             }
             public override bool Equals(object obj)
             {
@@ -247,7 +246,6 @@ namespace Meta.XR.MRUtilityKit
             SetupCheckerMeshMaterial(_debugShader);
             CreateDebugPrimitives();
         }
-
 
         private void Update()
         {
@@ -434,7 +432,10 @@ namespace Meta.XR.MRUtilityKit
                     {
                         return;
                     }
-                    await MRUK.Instance.LoadSceneFromDevice(false);
+                    if (await MRUK.HasSceneModel())
+                    {
+                        await MRUK.Instance.LoadSceneFromDevice(false);
+                    }
                 },
                 () => { },
                 () => { }
@@ -871,7 +872,6 @@ namespace Meta.XR.MRUtilityKit
             return
                 $"Room Details: Number of rooms: {numRooms}; Current room: {currentRoomName}; Number room anchors:{numAnchors}";
         }
-
 
         /// <summary>
         ///     Creates an object to help visually debugging a specific anchor.

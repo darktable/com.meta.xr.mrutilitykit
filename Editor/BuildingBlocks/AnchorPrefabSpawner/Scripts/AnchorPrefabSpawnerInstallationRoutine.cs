@@ -23,27 +23,31 @@ using Meta.XR.BuildingBlocks.Editor;
 using UnityEditor;
 using UnityEngine;
 
-public class AnchorPrefabSpawnerInstallationRoutine : InstallationRoutine
+namespace Meta.XR.MRUtilityKit.BuildingBlocks
 {
-    internal enum PrefabSpawnerVariant
-    {
-        DefaultView,
-        LegacyRoomModelView
-    }
 
-    [SerializeField]
-    [Variant(Behavior = VariantAttribute.VariantBehavior.Parameter,
-         Description = "Initial configuration types for Anchor Prefab Spawner block.")]
-    internal PrefabSpawnerVariant AnchorPrefabSpawnerTheme = PrefabSpawnerVariant.DefaultView;
-
-    public override List<GameObject> Install(BlockData block, GameObject selectedGameObject)
+    public class AnchorPrefabSpawnerInstallationRoutine : InstallationRoutine
     {
-        var defaultPrefab = Prefab.transform.GetChild(0).gameObject;
-        var roomModelPrefab = Prefab.transform.GetChild(1).gameObject;
-        var spawnedPrefab = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView ? Instantiate(defaultPrefab) : Instantiate(roomModelPrefab);
-        var prefabName = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView ? defaultPrefab.name : roomModelPrefab.name;
-        spawnedPrefab.name = $"{Utils.BlockPublicTag} {prefabName}";
-        Undo.RegisterCreatedObjectUndo(spawnedPrefab, $"install {prefabName}");
-        return new List<GameObject> { spawnedPrefab };
+        internal enum PrefabSpawnerVariant
+        {
+            DefaultView,
+            LegacyRoomModelView
+        }
+
+        [SerializeField]
+        [Variant(Behavior = VariantAttribute.VariantBehavior.Parameter,
+             Description = "Initial configuration types for Anchor Prefab Spawner block.")]
+        internal PrefabSpawnerVariant AnchorPrefabSpawnerTheme = PrefabSpawnerVariant.DefaultView;
+
+        public override List<GameObject> Install(BlockData block, GameObject selectedGameObject)
+        {
+            var defaultPrefab = Prefab.transform.GetChild(0).gameObject;
+            var roomModelPrefab = Prefab.transform.GetChild(1).gameObject;
+            var spawnedPrefab = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView ? Instantiate(defaultPrefab) : Instantiate(roomModelPrefab);
+            var prefabName = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView ? defaultPrefab.name : roomModelPrefab.name;
+            spawnedPrefab.name = $"{Utils.BlockPublicTag} {prefabName}";
+            Undo.RegisterCreatedObjectUndo(spawnedPrefab, $"install {prefabName}");
+            return new List<GameObject> { spawnedPrefab };
+        }
     }
 }

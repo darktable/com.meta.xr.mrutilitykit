@@ -206,6 +206,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             room.AnchorRemovedEvent.AddListener(ReceiveAnchorRemoved);
             room.AnchorUpdatedEvent.AddListener(ReceiveAnchorUpdated);
         }
+
         private void ClearDecorations(MRUKAnchor anchor)
         {
             List<GameObject> decorationToRemove = new();
@@ -422,7 +423,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                 switch (modeCheck)
                 {
                     case ConstraintModeCheck.Value:
-                        if (value < constraint.min |
+                        if (value < constraint.min ||
                             value > constraint.max)
                         {
                             return false;
@@ -507,7 +508,6 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                 {
                     continue;
                 }
-
 
                 switch (flag)
                 {
@@ -624,7 +624,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                 sceneDecorator._recursionDepth = _recursionDepth + 1;
             }
 
-            if (parent != null &
+            if (parent != null &&
                 sceneDecoration.discardParentScaling)
             {
                 var scale = decorationGO.transform.localScale;

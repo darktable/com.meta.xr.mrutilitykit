@@ -53,16 +53,13 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return UnloadScene();
         }
 
-
-
         private IEnumerator RunTest(int decorationIndex, int expected)
         {
             var decorator = SetupSceneDecorator();
             var decoration = GetSceneDecoration(decorationIndex);
             decorator.sceneDecorations.Clear();
             decorator.sceneDecorations.Add(decoration);
-            MRUK.Instance.LoadSceneFromJsonString(GetJsonString());
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(GetJsonString());
             decorator.DecorateScene();
             yield return null;
             var createdDecorations = CountDecorations(decorationIndex);

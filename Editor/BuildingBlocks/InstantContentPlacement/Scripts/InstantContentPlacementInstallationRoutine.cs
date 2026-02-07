@@ -100,13 +100,17 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
                 var grabbable = selectedGameObject.GetComponentInChildren<Grabbable>();
                 var hasHandGrab = grabbable != null;
 
-                if(!hasHandGrab)
+                if (!hasHandGrab)
                 {
                     var handGrabId = Oculus.Interaction.Editor.BuildingBlocks.BlockDataIds.HandGrab;
                     await InstallBlockData(handGrabId, selectedGameObject);
                     grabbable = selectedGameObject.GetComponent<Grabbable>();
                 }
-                grabbable.InjectOptionalThrowWhenUnselected(false);
+
+                if (grabbable != null)
+                {
+                    grabbable.InjectOptionalThrowWhenUnselected(false);
+                }
 
                 TryAddComponent<GrabAndLocate>(selectedGameObject, out var grabAndLocate);
 

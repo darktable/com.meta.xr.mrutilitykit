@@ -22,95 +22,177 @@ Shader "Meta/MRUK/MixedReality/MRUKLit"
 {
     Properties
     {
-        [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
         [MainTexture] _BaseMap("Albedo", 2D) = "white" {}
+        [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
+
+        _Metallic("Metallic", Range(0.0, 1.0)) = 0.0
+        _MetallicGlossMap("Metallic Map", 2D) = "white" {}
+        _Smoothness("Smoothness", Range(0.0, 1.0)) = 0.5
+
+        [HideInInspector][ToggleUI] _SpecularHighlights("Specular Highlights", Float) = 1.0
+        [ToggleUI] _EnvironmentReflections("Environment Reflections", Float) = 1.0
+
+        [HideInInspector] _BumpScale("Scale", Float) = 1.0
         _BumpMap("Normal Map", 2D) = "bump" {}
+
+        _OcclusionStrength("Strength", Range(0.0, 1.0)) = 1.0
+        _OcclusionMap("Occlusion", 2D) = "white" {}
+
+        [HDR] _EmissionColor("Color", Color) = (0,0,0)
+        _EmissionMap("Emission", 2D) = "white" {}
+
+        _Surface("__surface", Float) = 0.0 // opaque | transparent
+        _Blend("__blend", Float) = 0.0
+        _Cull("__cull", Float) = 2.0 // both | back | front
+        _ZWrite("__zw", Float) = 1.0 // auto | force enabled | force disabled
+        _QueueOffset("Queue offset", Float) = 0.0
+
+        // unsupported but needed for URP passes
+        [HideInInspector][ToggleUI] _AlphaClip("__clip", Float) = 0.0 // toggle
+        [HideInInspector] _SrcBlend("__src", Float) = 1.0
+        [HideInInspector] _DstBlend("__dst", Float) = 0.0
+        [HideInInspector] _SrcBlendAlpha("__srcA", Float) = 1.0
+        [HideInInspector] _DstBlendAlpha("__dstA", Float) = 0.0
+        [HideInInspector] _BlendModePreserveSpecular("_BlendModePreserveSpecular", Float) = 1.0
+        [HideInInspector] _AlphaToMask("__alphaToMask", Float) = 0.0
+        [HideInInspector] [ToggleUI] _ReceiveShadows("Receive Shadows", Float) = 1.0
+
+        // no support for: alpha clipping, specular workflow, albedo-alpha-for-smoothness
+        //   parallax, detail masks, blending, deferred rendering
     }
 
     SubShader
     {
         PackageRequirements { "com.unity.render-pipelines.universal" }
-        Tags{ "RenderPipeline" = "UniversalPipeline"  "Queue" = "Geometry"}
+        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
 
-        HLSLINCLUDE
-        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
-        #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitInput.hlsl"
-        #include "Packages/com.unity.render-pipelines.universal/Shaders/SimpleLitForwardPass.hlsl"
-        ENDHLSL
-
+        UsePass "Universal Render Pipeline/Lit/ForwardLit"
+        //UsePass "Universal Render Pipeline/Lit/ShadowCaster" // This breaks in versions more chronologically recent than 6.0.58
         Pass
         {
-            Tags { "LightMode"="UniversalForward" }
+            Name "ShadowCaster"
+            Tags
+            {
+                "LightMode" = "ShadowCaster"
+            }
+
+            // -------------------------------------
+            // Render State Commands
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+            Cull[_Cull]
 
             HLSLPROGRAM
             #pragma target 2.0
 
             // -------------------------------------
-            // Use the vert/frag from Universal Render Pipeline
-            #pragma vertex LitPassVertexSimple
-            #pragma fragment LitPassFragmentSimple
+            // Shader Stages
+            #pragma vertex ShadowPassVertex
+            #pragma fragment ShadowPassFragment
 
             // -------------------------------------
-            // Universal Render Pipeline keywords
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
-            #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile _ EVALUATE_SH_MIXED
-            #pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
-            #pragma multi_compile _ SHADOWS_SHADOWMASK
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
-            #pragma multi_compile_fragment _ _SHADOWS_SOFT
-            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
-            #pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
-            #pragma multi_compile_fragment _ _LIGHT_LAYERS
-            #pragma multi_compile_fragment _ _LIGHT_COOKIES
-            #pragma multi_compile _ _FORWARD_PLUS
+            // Material Keywords
+            #pragma shader_feature_local _ALPHATEST_ON
+            #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
 
+            //--------------------------------------
+            // GPU Instancing
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+
+            // -------------------------------------
+            // Universal Pipeline keywords
+
+            // -------------------------------------
+            // Unity defined keywords
+            #pragma multi_compile _ LOD_FADE_CROSSFADE
+
+            // This is used during shadow map generation to differentiate between directional and punctual light shadows, as they use different formulas to apply Normal Bias
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
+            // -------------------------------------
+            // Includes
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/ShadowCasterPass.hlsl"
             ENDHLSL
         }
-        UsePass "Universal Render Pipeline/Lit/ShadowCaster"
         UsePass "Universal Render Pipeline/Lit/DepthOnly"
+        UsePass "Universal Render Pipeline/Lit/DepthNormals"
         UsePass "Universal Render Pipeline/Lit/Meta"
     }
 
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags { "Queue"="Geometry" "RenderType"="Opaque" }
         LOD 200
+        ZWrite[_ZWrite]
+        Cull [_Cull]
 
         CGPROGRAM
-        // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
 
-        // Use shader model 3.0 target, to get nicer looking lighting
+        // physically based Standard lighting model,
+        // enable shadows on all light types
+        #pragma surface surf Standard fullforwardshadows addshadow
+
+        // shader model 3.0 target for nicer lighting
         #pragma target 3.0
 
+        // the features we can toggle
+        #pragma shader_feature _GLOSSYREFLECTIONS_OFF
+        #pragma shader_feature _METALLICSPECGLOSSMAP
+        #pragma shader_feature _OCCLUSIONMAP
+        #pragma shader_feature _NORMALMAP
+        #pragma shader_feature _EMISSION
+
+        // accessing our properties
         sampler2D _BaseMap;
         sampler2D _BumpMap;
+        sampler2D _OcclusionMap;
+        sampler2D _EmissionMap;
+        sampler2D _MetallicGlossMap;
+        half _Smoothness;
+        half _Metallic;
+        fixed4 _BaseColor;
+        fixed4 _EmissionColor;
+        half _OcclusionStrength;
 
         struct Input
         {
             float2 uv_BaseMap;
-            float2 uv_BumpMap;
         };
-
-        fixed4 _BaseColor;
-
-        // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
-        // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
-        // #pragma instancing_options assumeuniformscaling
-        UNITY_INSTANCING_BUFFER_START(Props)
-        // put more per-instance properties here
-        UNITY_INSTANCING_BUFFER_END(Props)
 
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
-            // Albedo comes from a texture tinted by color
             fixed4 c = tex2D (_BaseMap, IN.uv_BaseMap) * _BaseColor;
             o.Albedo = c.rgb;
-            o.Alpha = c.a;
-            o.Normal = UnpackNormal(tex2D(_BumpMap, IN.uv_BumpMap));
+
+            half metallic = _Metallic;
+            half smoothness = _Smoothness;
+            #if _METALLICSPECGLOSSMAP
+            fixed4 metallicGloss = tex2D(_MetallicGlossMap, IN.uv_BaseMap);
+            metallic = metallicGloss.r;
+            smoothness *= metallicGloss.a;
+            #endif
+            o.Metallic = metallic;
+            o.Smoothness = smoothness;
+
+            #if _NORMALMAP
+            fixed4 normal = tex2D(_BumpMap, IN.uv_BaseMap);
+            o.Normal = UnpackNormal(normal);
+            #endif
+
+            #if _EMISSION
+            o.Emission = tex2D(_EmissionMap, IN.uv_BaseMap) * _EmissionColor;
+            #endif
+
+            #if _OCCLUSIONMAP
+            half ao = tex2D(_OcclusionMap, IN.uv_BaseMap).r;
+            o.Occlusion = lerp(1.0, ao, _OcclusionStrength);
+            #endif
         }
         ENDCG
     }
-    FallBack "Diffuse"
+
+    CustomEditor "Oculus.ShaderGUI.MetaLit"
 }

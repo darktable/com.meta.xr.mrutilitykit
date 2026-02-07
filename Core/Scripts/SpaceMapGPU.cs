@@ -43,7 +43,7 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
         /// <summary>
-        /// Event triggered when the space map is created for a specifc room
+        /// Event triggered when the space map is created for a specific room
         /// </summary>
         public UnityEvent<MRUKRoom> SpaceMapRoomCreatedEvent
         {
@@ -168,12 +168,12 @@ namespace Meta.XR.MRUtilityKit
         {
             if (room == null)
             {
-                //returning the default RenderTexture which can be initialized with AllRooms or CurrentRoom
+                // Returning the default RenderTexture which can be initialized with AllRooms or CurrentRoom.
                 return RenderTexture;
             }
             if (!_roomTextures.TryGetValue(room, out var rt))
             {
-                //returning specific RenderTexture if it got called for a specific room
+                // Returning specific RenderTexture if it got called for a specific room.
                 Debug.Log($"Rendertexture for room {room} not found, returning default texture. Call StartSpaceMap(room) to create a texture for a specific room.");
                 return RenderTexture;
             }
@@ -245,7 +245,7 @@ namespace Meta.XR.MRUtilityKit
         #region Monobehaviour calls
         private void Awake()
         {
-            //kernels for compute shader
+            // Kernels for compute shader.
             _csSpaceMapKernel = CSSpaceMap.FindKernel("SpaceMap");
             _csFillSpaceMapKernel = CSSpaceMap.FindKernel("FillSpaceMap");
             _csPrepareSpaceMapKernel = CSSpaceMap.FindKernel("PrepareSpaceMap");
@@ -384,11 +384,12 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var room in rooms)
             {
+                foreach (var floor in room.FloorAnchors)
                 {
-                    var mesh = Utilities.SetupAnchorMeshGeometry(room.FloorAnchor);
+                    var mesh = Utilities.SetupAnchorMeshGeometry(floor);
                     if (mesh)
                     {
-                        commandBuffer.DrawMesh(mesh, room.FloorAnchor.transform.localToWorldMatrix, _matFloor);
+                        commandBuffer.DrawMesh(mesh, floor.transform.localToWorldMatrix, _matFloor);
                     }
                 }
 
@@ -438,7 +439,7 @@ namespace Meta.XR.MRUtilityKit
                 CSSpaceMap.Dispatch(_csSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
             }
 
-            //swap indexes to get the correct one for source again
+            // Swap indexes to get the correct one for source again.
             CSSpaceMap.SetTexture(_csFillSpaceMapKernel, SourceID, _RTextures[resultIndex]);
             CSSpaceMap.SetTexture(_csFillSpaceMapKernel, ResultID, _RTextures[sourceIndex]);
             CSSpaceMap.Dispatch(_csFillSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
@@ -463,7 +464,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void ReceiveCreatedRoom(MRUKRoom room)
         {
-            //only create the effect mesh when we track room updates
+            // Only create the effect mesh when we track room updates.
             if (TrackUpdates &&
                 CreateOnStart == MRUK.RoomFilter.AllRooms)
             {
@@ -506,12 +507,11 @@ namespace Meta.XR.MRUtilityKit
             {
                 UpdateBuffer(anchor.Room);
             }
-
         }
 
         private void ReceiveAnchorRemovedCallback(MRUKAnchor anchor)
         {
-            // there is no check on ```TrackUpdates``` when removing an anchor.
+            // There is no check on TrackUpdates when removing an anchor.
             if (IsInitialized())
             {
                 UpdateBuffer(anchor.Room);
@@ -520,7 +520,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void ReceiveAnchorCreatedEvent(MRUKAnchor anchor)
         {
-            // only create the anchor when we track updates
+            // Only create the anchor when we track updates.
             if (!TrackUpdates)
             {
                 return;

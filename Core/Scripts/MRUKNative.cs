@@ -25,6 +25,11 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Provides cross-platform native library loading functionality for MRUtilityKit.
+    /// This class handles dynamic loading and unloading of the MRUtilityKit shared library
+    /// across different platforms (Windows, macOS, and Android) using platform-specific APIs.
+    /// </summary>
     internal static class MRUKNative
     {
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
@@ -39,28 +44,32 @@ namespace Meta.XR.MRUtilityKit
         private static extern IntPtr GetProcAddress(IntPtr hModule, string procedureName);
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
         [DllImport("libdl.dylib")]
-        public static extern IntPtr dlopen(string filename, int flags);
+        private static extern IntPtr dlopen(string filename, int flags);
 
         [DllImport("libdl.dylib")]
-        public static extern IntPtr dlsym(IntPtr handle, string symbol);
+        private static extern IntPtr dlsym(IntPtr handle, string symbol);
 
         [DllImport("libdl.dylib")]
-        public static extern int dlclose(IntPtr handle);
+        private static extern int dlclose(IntPtr handle);
 #elif UNITY_ANDROID
         [DllImport("libdl.so")]
-        public static extern IntPtr dlopen(string filename, int flags);
+        private static extern IntPtr dlopen(string filename, int flags);
 
         [DllImport("libdl.so")]
-        public static extern IntPtr dlsym(IntPtr handle, string symbol);
+        private static extern IntPtr dlsym(IntPtr handle, string symbol);
 
         [DllImport("libdl.so")]
-        public static extern int dlclose(IntPtr handle);
+        private static extern int dlclose(IntPtr handle);
 #else
 #warning "Unsupported platform, mr utility kit will still compile but you will get errors at runtime if you try to use it"
 #endif
         private static IntPtr _nativeLibraryPtr;
 
-        // Cross-platform abstraction for loading a DLL or shared object
+        /// <summary>
+        /// Cross-platform abstraction for loading a DLL or shared object.
+        /// </summary>
+        /// <param name="path">The file path to the native library to load.</param>
+        /// <returns>A handle to the loaded library, or IntPtr.Zero if loading failed or platform is unsupported.</returns>
         private static IntPtr GetDllHandle(string path)
         {
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
@@ -73,7 +82,12 @@ namespace Meta.XR.MRUtilityKit
 #endif
         }
 
-        // Cross-platform abstraction for accessing a symbol within a DLL or shared object
+        /// <summary>
+        /// Cross-platform abstraction for accessing a symbol within a DLL or shared object.
+        /// </summary>
+        /// <param name="dllHandle">Handle to the loaded library obtained from GetDllHandle.</param>
+        /// <param name="name">The name of the symbol/function to retrieve from the library.</param>
+        /// <returns>A pointer to the requested symbol, or IntPtr.Zero if the symbol is not found or platform is unsupported.</returns>
         private static IntPtr GetDllExport(IntPtr dllHandle, string name)
         {
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
@@ -85,18 +99,31 @@ namespace Meta.XR.MRUtilityKit
 #endif
         }
 
-        // Cross-platform abstraction for freeing/closing a DLL or shared object
+        /// <summary>
+        /// Cross-platform abstraction for freeing/closing a DLL or shared object.
+        /// </summary>
+        /// <param name="dllHandle">Handle to the loaded library to be freed.</param>
+        /// <returns>True if the library was successfully freed, false otherwise or if platform is unsupported.</returns>
         private static bool FreeDllHandle(IntPtr dllHandle)
         {
 #if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
             return FreeLibrary(dllHandle);
 #elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_ANDROID
-            return dlclose(_nativeLibraryPtr) == 0;
+            return dlclose(dllHandle) == 0;
 #else
             return false;
 #endif
         }
 
+        /// <summary>
+        /// Loads the MRUtilityKit shared library for the current platform.
+        /// This method determines the appropriate library path based on the platform and loads it into memory.
+        /// </summary>
+        /// <remarks>
+        /// The method handles different platforms (Windows, macOS, Android) and their respective library formats.
+        /// If the library is already loaded, this method returns without performing any operations.
+        /// On failure, an error is logged to the Unity console.
+        /// </remarks>
         internal static void LoadMRUKSharedLibrary()
         {
             if (_nativeLibraryPtr != IntPtr.Zero)
@@ -133,6 +160,15 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Frees the MRUtilityKit shared library and unloads all native functions.
+        /// This method should be called when the library is no longer needed to prevent memory leaks.
+        /// </summary>
+        /// <remarks>
+        /// This method first unloads all native function delegates, then attempts to free the library handle.
+        /// If the library is not currently loaded, this method returns without performing any operations.
+        /// If freeing the library fails, an error is logged to the Unity console.
+        /// </remarks>
         internal static void FreeMRUKSharedLibrary()
         {
             MRUKNativeFuncs.UnloadNativeFunctions();
@@ -150,6 +186,20 @@ namespace Meta.XR.MRUtilityKit
             _nativeLibraryPtr = IntPtr.Zero;
         }
 
+        /// <summary>
+        /// Loads a function from the MRUtilityKit shared library and returns it as a delegate of type T.
+        /// </summary>
+        /// <typeparam name="T">The delegate type that matches the signature of the native function.</typeparam>
+        /// <param name="name">The name of the function to load from the shared library.</param>
+        /// <returns>
+        /// A delegate of type T that can be used to call the native function, 
+        /// or the default value of T if loading fails.
+        /// </returns>
+        /// <remarks>
+        /// This method requires that the MRUtilityKit shared library has been successfully loaded
+        /// via LoadMRUKSharedLibrary(). If the library is not loaded or the function cannot be found,
+        /// a warning is logged and the default value is returned.
+        /// </remarks>
         internal static T LoadFunction<T>(string name)
         {
             if (_nativeLibraryPtr == IntPtr.Zero)

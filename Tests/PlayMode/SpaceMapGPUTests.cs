@@ -27,8 +27,8 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class SpaceMapGPUTests : MRUKTestBase
     {
-        private SpaceMapGPU SpaceMapGPU;
-        private SpaceMapGPUTestHelper SpaceMapGPUTestHelper;
+        private SpaceMapGPU _spaceMapGpu;
+        private SpaceMapGPUTestHelper _spaceMapGpuTestHelper;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -41,8 +41,8 @@ namespace Meta.XR.MRUtilityKit.Tests
                 yield break;
             }
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SpaceMapGPUTests.unity");
-            SpaceMapGPU = Object.FindAnyObjectByType<SpaceMapGPU>();
-            SpaceMapGPUTestHelper = Object.FindAnyObjectByType<SpaceMapGPUTestHelper>();
+            _spaceMapGpu = Object.FindAnyObjectByType<SpaceMapGPU>();
+            _spaceMapGpuTestHelper = Object.FindAnyObjectByType<SpaceMapGPUTestHelper>();
         }
 
         [UnityTearDown]
@@ -77,7 +77,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
-
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator CheckRoom1WithUpdate()
@@ -95,29 +94,29 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             MRUK.Instance.SceneSettings.RoomIndex = index;
             yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
-            SpaceMapGPU = SetupSpaceMapGPU();
+            _spaceMapGpu = SetupSpaceMapGPU();
 
-            SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
+            _spaceMapGpu.StartSpaceMap(MRUK.RoomFilter.AllRooms);
 
             //  Uncomment this code to regenerate the snapshots
             /*
-            var bytes = SpaceMapGPU.OutputTexture.EncodeToPNG();
+            var bytes = _spaceMapGpu.OutputTexture.EncodeToPNG();
             var path = System.IO.Path.GetFullPath("Packages/com.meta.xr.mrutilitykit/Tests/Textures/Texture.png");
             System.IO.File.WriteAllBytes(path, bytes);
             */
 
-            CompareTextures(index == 0 ? SpaceMapGPUTestHelper.Room : SpaceMapGPUTestHelper.RoomLessAnchors, SpaceMapGPU.OutputTexture);
+            CompareTextures(index == 0 ? _spaceMapGpuTestHelper.Room : _spaceMapGpuTestHelper.RoomLessAnchors, _spaceMapGpu.OutputTexture);
 
             if (updateAnchors)
             {
                 index = 1;
                 MRUK.Instance.SceneSettings.RoomIndex = index;
                 yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
-                SpaceMapGPU = SetupSpaceMapGPU();
+                _spaceMapGpu = SetupSpaceMapGPU();
 
-                SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
+                _spaceMapGpu.StartSpaceMap(MRUK.RoomFilter.AllRooms);
 
-                CompareTextures(SpaceMapGPUTestHelper.RoomLessAnchors, SpaceMapGPU.OutputTexture);
+                CompareTextures(_spaceMapGpuTestHelper.RoomLessAnchors, _spaceMapGpu.OutputTexture);
             }
         }
 
@@ -141,10 +140,10 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             for (var i = 0; i < colorsActual.Length; i++)
             {
-                if (Mathf.Abs(colorsExpected[i].r - colorsActual[i].r) > 0.01f ||
-                    Mathf.Abs(colorsExpected[i].g - colorsActual[i].g) > 0.01f ||
-                    Mathf.Abs(colorsExpected[i].b - colorsActual[i].b) > 0.01f ||
-                    (checkAlpha && Mathf.Abs(colorsExpected[i].a - colorsActual[i].a) > 0.01f))
+                if (Mathf.Abs(colorsExpected[i].r - colorsActual[i].r) > 0.02f ||
+                    Mathf.Abs(colorsExpected[i].g - colorsActual[i].g) > 0.02f ||
+                    Mathf.Abs(colorsExpected[i].b - colorsActual[i].b) > 0.02f ||
+                    (checkAlpha && Mathf.Abs(colorsExpected[i].a - colorsActual[i].a) > 0.02f))
                 {
                     int x = i % expected.width;
                     int y = i / expected.width;

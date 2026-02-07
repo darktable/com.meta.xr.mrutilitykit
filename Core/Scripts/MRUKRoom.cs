@@ -42,7 +42,7 @@ namespace Meta.XR.MRUtilityKit
     /// // Generate a random position on the specified surface type
     /// if (room.GenerateRandomPositionOnSurface(surfaceType, minRadius, new LabelFilter(MRUKAnchor.SceneLabels.FLOOR), out Vector3 pos, out Vector3 normal))
     /// {
-    ///     if (room.IsPositionInRoom(spawnPosition) && !room.IsPositionInSceneVolume(spawnPosition))
+    ///     if (room.IsPositionInRoom(pos) && !room.IsPositionInSceneVolume(pos))
     ///     {
     ///         // Position is valid and in the room
     ///     }
@@ -53,6 +53,48 @@ namespace Meta.XR.MRUtilityKit
     [Feature(Feature.Scene)]
     public class MRUKRoom : MonoBehaviour
     {
+        /// <summary>
+        /// Represents a face in the room mesh, containing information about its geometry and semantic classification.
+        /// </summary>
+        public struct RoomFace
+        {
+            /// <summary>
+            /// Unique identifier for this face in the room mesh.
+            /// </summary>
+            public Guid Uuid;
+
+            /// <summary>
+            /// Unique identifier of the parent object this face belongs to.
+            /// </summary>
+            public Guid ParentUuid;
+
+            /// <summary>
+            /// The semantic classification of this face (e.g., FLOOR, WALL, CEILING).
+            /// </summary>
+            public MRUKAnchor.SceneLabels SemanticLabel;
+
+            /// <summary>
+            /// List of indices into the vertices array that define this face's geometry.
+            /// Each 3 consecutive indices represent a triangle in the mesh.
+            /// </summary>
+            public List<int> Indices;
+        }
+
+        /// <summary>
+        /// Represents the complete mesh data for a room, including vertices and faces.
+        /// </summary>
+        public struct RoomMesh
+        {
+            /// <summary>
+            /// List of all vertices that make up the room mesh.
+            /// </summary>
+            public List<Vector3> Vertices;
+
+            /// <summary>
+            /// List of all faces that make up the room mesh, each containing indices into the Vertices list.
+            /// </summary>
+            public List<RoomFace> Faces;
+        }
 
         /// <summary>
         /// The primary anchor associated with the room.
@@ -110,21 +152,44 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// The floor anchor in the room.
         /// </summary>
+        [Obsolete("Use FloorAnchors property instead. With the introduction of High Fidelity scene, there may be more than 1 floor and this property only returns the first one.")]
         public MRUKAnchor FloorAnchor
-        { get; internal set; }
+            => FloorAnchors.Count == 0 ? null : FloorAnchors[0];
 
+        /// <summary>
+        /// A list of floor anchors in the room. When High Fidelity scene is enabled, there may be more than one floor anchor.
+        /// </summary>
+        public List<MRUKAnchor> FloorAnchors
+        {
+            get;
+        } = new();
 
         /// <summary>
         /// The ceiling anchor in the room.
         /// </summary>
+        [Obsolete("Use CeilingAnchors property instead. With the introduction of High Fidelity scene, there may be more than 1 ceiling and this property only returns the first one.")]
         public MRUKAnchor CeilingAnchor
-        { get; internal set; }
+                      => CeilingAnchors.Count == 0 ? null : CeilingAnchors[0];
+
+        /// <summary>
+        /// A list of ceiling anchors in the room. When High Fidelity scene is enabled, there may be more than one ceiling anchor.
+        /// </summary>
+        public List<MRUKAnchor> CeilingAnchors
+        {
+            get;
+        } = new();
 
         /// <summary>
         /// The global mesh anchor in the room. There is only one single instance of this object per room
         /// </summary>
         public MRUKAnchor GlobalMeshAnchor { get; internal set; }
 
+        /// <summary>
+        /// Contains the mesh data for the room, including vertices and faces.
+        /// This property can be used to access the geometric representation of the room.
+        /// This property will be null if EnableHighFidelityScene is false.
+        /// </summary>
+        public RoomMesh? RoomMeshData { get; internal set; }
 
 
         /// <summary>
@@ -288,6 +353,11 @@ namespace Meta.XR.MRUtilityKit
         /// <exception cref="ArgumentException">Thrown if <paramref name="groupUuid"/> is empty.</exception>
         public async OVRTask<OVRResult<OVRAnchor.ShareResult>> ShareRoomAsync(Guid groupUuid)
         {
+            if (MRUK.Instance.SceneSettings.EnableHighFidelityScene)
+            {
+                Debug.LogError(MRUK.MRUKSettings.HighFidelitySceneSharingError);
+                return OVRResult<OVRAnchor.ShareResult>.FromFailure(OVRAnchor.ShareResult.FailureUnsupported);
+            }
             if (Anchor == OVRAnchor.Null)
             {
                 throw new InvalidOperationException($"{nameof(Anchor)} must not be {nameof(OVRAnchor.Null)}");
@@ -357,14 +427,8 @@ namespace Meta.XR.MRUtilityKit
         {
             Anchors.Remove(anchor);
             WallAnchors.Remove(anchor);
-            if (CeilingAnchor == anchor)
-            {
-                CeilingAnchor = null;
-            }
-            if (FloorAnchor == anchor)
-            {
-                FloorAnchor = null;
-            }
+            CeilingAnchors.Remove(anchor);
+            FloorAnchors.Remove(anchor);
             Utilities.DestroyGameObjectAndChildren(anchor);
         }
 
@@ -498,18 +562,16 @@ namespace Meta.XR.MRUtilityKit
             MRUKAnchor keyWall = null;
             sortedWalls = SortWallsByWidth(sortedWalls);
 
-            List<Vector3> corners = GetRoomOutline();
-
             // second, find the first one with no other walls behind it
             // count down because the default sorting is from shortest to longest
             for (int i = sortedWalls.Count - 1; i >= 0; i--)
             {
                 bool noPointsBehind = true;
 
-                // loop through the other corners, making sure none is behind the wall in question
-                for (int k = 0; k < corners.Count; k++)
+                // loop through the other walls, making sure none is behind the wall in question
+                for (int k = 0; k < sortedWalls.Count; k++)
                 {
-                    Vector3 vecToCorner = corners[k] - sortedWalls[i].transform.position;
+                    Vector3 vecToCorner = sortedWalls[k].transform.position - sortedWalls[i].transform.position;
 
                     // due to anchor precision, we use a tolerance value
                     // for example, an adjacent wall edge may be just behind the wall, leading to a false result
@@ -786,7 +848,7 @@ namespace Meta.XR.MRUtilityKit
         }
         private void CalculateRoomOutlineAndBounds()
         {
-            if (!FloorAnchor || !CeilingAnchor)
+            if (FloorAnchors.Count == 0 || CeilingAnchors.Count == 0)
             {
                 Debug.LogWarning("Floor or Ceiling anchor not found");
                 return;
@@ -808,29 +870,40 @@ namespace Meta.XR.MRUtilityKit
             var zMax = Mathf.NegativeInfinity;
 
             _corners.Clear();
-            foreach (var point in FloorAnchor.PlaneBoundary2D)
+            foreach (var anchor in FloorAnchors)
             {
-                Vector3 pos = FloorAnchor.transform.TransformPoint(new Vector3(point.x, point.y, 0f));
+                foreach (var point in anchor.PlaneBoundary2D)
+                {
+                    Vector3 pos = anchor.transform.TransformPoint(new Vector3(point.x, point.y, 0f));
 
-                xMin = Mathf.Min(xMin, pos.x);
-                xMax = Mathf.Max(xMax, pos.x);
-                yMin = Mathf.Min(yMin, pos.y);
-                yMax = Mathf.Max(yMax, pos.y);
-                zMin = Mathf.Min(zMin, pos.z);
-                zMax = Mathf.Max(zMax, pos.z);
+                    xMin = Mathf.Min(xMin, pos.x);
+                    xMax = Mathf.Max(xMax, pos.x);
+                    yMin = Mathf.Min(yMin, pos.y);
+                    yMax = Mathf.Max(yMax, pos.y);
+                    zMin = Mathf.Min(zMin, pos.z);
+                    zMax = Mathf.Max(zMax, pos.z);
 
-                _corners.Add(pos);
+                    if (FloorAnchors.Count == 1)
+                    {
+                        // This is a deprecated feature which only really makes sense for Scene v1
+                        // for v2 geometry leave the list empty.
+                        _corners.Add(pos);
+                    }
+                }
             }
-            foreach (var point in CeilingAnchor.PlaneBoundary2D)
+            foreach (var anchor in CeilingAnchors)
             {
-                Vector3 pos = CeilingAnchor.transform.TransformPoint(new Vector3(point.x, point.y, 0f));
+                foreach (var point in anchor.PlaneBoundary2D)
+                {
+                    Vector3 pos = anchor.transform.TransformPoint(new Vector3(point.x, point.y, 0f));
 
-                xMin = Mathf.Min(xMin, pos.x);
-                xMax = Mathf.Max(xMax, pos.x);
-                yMin = Mathf.Min(yMin, pos.y);
-                yMax = Mathf.Max(yMax, pos.y);
-                zMin = Mathf.Min(zMin, pos.z);
-                zMax = Mathf.Max(zMax, pos.z);
+                    xMin = Mathf.Min(xMin, pos.x);
+                    xMax = Mathf.Max(xMax, pos.x);
+                    yMin = Mathf.Min(yMin, pos.y);
+                    yMax = Mathf.Max(yMax, pos.y);
+                    zMin = Mathf.Min(zMin, pos.z);
+                    zMax = Mathf.Max(zMax, pos.z);
+                }
             }
 
             _roomBounds.center = new Vector3((xMax + xMin) * 0.5f, (yMax + yMin) * 0.5f, (zMax + zMin) * 0.5f);
@@ -1187,11 +1260,6 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>A position that adhers to the constraints, null otherwise.</returns>
         public Vector3? GenerateRandomPositionInRoom(float minDistanceToSurface, bool avoidVolumes)
         {
-            if (!FloorAnchor)
-            {
-                return null;
-            }
-
             Vector3 extents = GetRoomBounds().extents;
             float minExtent = Mathf.Min(extents.x, extents.y, extents.z);
             if (minDistanceToSurface > minExtent)

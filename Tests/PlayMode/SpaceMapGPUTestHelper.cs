@@ -21,8 +21,11 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SpaceMapGPUTestHelper : MonoBehaviour
+namespace Meta.XR.MRUtilityKit.Tests
 {
-    [SerializeField] internal Texture2D Room;
-    [SerializeField] internal Texture2D RoomLessAnchors;
+    public class SpaceMapGPUTestHelper : MonoBehaviour
+    {
+        [SerializeField] internal Texture2D Room;
+        [SerializeField] internal Texture2D RoomLessAnchors;
+    }
 }

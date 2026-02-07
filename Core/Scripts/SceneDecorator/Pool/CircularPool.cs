@@ -30,7 +30,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class CircularPool<T> : Pool<T> where T : class
     {
-        private int active;
+        private int _active;
 
         /// <summary>
         /// Gets the number of objects in the pool.
@@ -45,7 +45,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// </summary>
         protected override int CountActive
         {
-            get => active;
+            get => _active;
         }
 
         /// <summary>
@@ -63,17 +63,16 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             pool = new Entry[size];
             indices = new Dictionary<T, int>(size);
             index = 0;
-            active = 0;
+            _active = 0;
             this.callbacks = callbacks;
 
             for (int i = 0; i < size; ++i)
             {
-                T t = callbacks.Create(primitive);
-                pool[i].t = t;
-                indices[t] = i;
+                T pooledItem = callbacks.Create(primitive);
+                pool[i].t = pooledItem;
+                indices[pooledItem] = i;
             }
         }
-
 
         public override T Get()
         {
@@ -82,37 +81,37 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                 index = 0;
             }
 
-            Entry e = pool[index];
-            if (e.active && callbacks.OnRelease != null)
+            Entry entry = pool[index];
+            if (entry.active && callbacks.OnRelease != null)
             {
                 //If we are reusing an object that is currently in use,
                 //release it first before reusing it
-                callbacks.OnRelease(e.t);
+                callbacks.OnRelease(entry.t);
             }
             else
             {
                 pool[index].active = true;
-                ++active;
+                ++_active;
             }
 
             if (callbacks.OnGet != null)
             {
-                callbacks.OnGet(e.t);
+                callbacks.OnGet(entry.t);
             }
 
             ++index;
 
-            return e.t;
+            return entry.t;
         }
 
-        public override void Release(T t)
+        public override void Release(T item)
         {
             //protect against fragmentation from double releasing
-            int eIndex = indices[t];
-            if (pool[eIndex].active)
+            int entryIndex = indices[item];
+            if (pool[entryIndex].active)
             {
-                pool[eIndex].active = false;
-                --active;
+                pool[entryIndex].active = false;
+                --_active;
 
                 //ensure that our released objects are first to be reused
                 --index;
@@ -121,11 +120,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                     index = pool.Length - 1;
                 }
 
-                Swap(eIndex, index);
+                Swap(entryIndex, index);
 
                 if (callbacks.OnRelease != null)
                 {
-                    callbacks.OnRelease(t);
+                    callbacks.OnRelease(item);
                 }
             }
         }

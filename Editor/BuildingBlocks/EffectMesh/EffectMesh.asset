@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 35c4ad19f06c67e44a2d7ba8d05f31b7, type: 3}
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
   m_Name: EffectMesh
   m_EditorClassIdentifier: 
   id: 65c6e778-10b3-4490-89da-008a18aa116a
@@ -21,8 +21,8 @@ MonoBehaviour:
     - name: Scene
     - name: MRUK
   thumbnail: {fileID: 2800000, guid: 0ff624bc672ccb747bc6de18bf390568, type: 3}
-  order: 5
-  prefab: {fileID: 5456522116536683071, guid: 37c47f9928e3fef4bb9a9ffaafab5526, type: 3}
+  remoteThumbnailContentId: 0
+  prefab: {fileID: 0}
   selectedGuidedSetupIndex: 0
   externalBlockDependencies: []
   dependencies:

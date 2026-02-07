@@ -60,7 +60,6 @@ namespace Meta.XR.MRUtilityKit
             ComponentTypes = componentTypes;
         }
 
-
         /// <summary>
         /// Creates a label filter that includes the specified labels. This method is obsolete.
         /// Use the enum-based 'Included' method instead for type safety and better performance.

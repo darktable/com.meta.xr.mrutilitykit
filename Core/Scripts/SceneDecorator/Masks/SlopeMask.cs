@@ -29,11 +29,21 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class SlopeMask : Mask
     {
+        /// <summary>
+        /// Returns the slope of the candidate's surface
+        /// </summary>
+        /// <param name="c">Candidate containing slope information</param>
+        /// <returns>The slope value of the surface</returns>
         public override float SampleMask(Candidate c)
         {
             return c.slope;
         }
 
+        /// <summary>
+        /// This check always returns true for slope mask
+        /// </summary>
+        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <returns>Always returns true</returns>
         public override bool Check(Candidate c)
         {
             return true;

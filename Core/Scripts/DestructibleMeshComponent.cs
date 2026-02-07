@@ -18,13 +18,13 @@
  * limitations under the License.
  */
 
-using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEditor;
+using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
 
@@ -69,7 +69,6 @@ namespace Meta.XR.MRUtilityKit
         private Task<MeshSegmentationResult> _segmentationTask;
         private readonly List<GameObject> _segments = new();
 
-
         /// <summary>
         /// Gets or sets the material used for the mesh. This material is applied to the mesh segments that are created during the segmentation process.
         /// </summary>
@@ -87,7 +86,6 @@ namespace Meta.XR.MRUtilityKit
             get => _reservedTop;
             set => _reservedTop = value;
         }
-
 
         /// <summary>
         /// Gets or sets the reserved space at the bottom of the mesh. TThis space is not included in the destructible area, allowing for controlled segmentation.
@@ -470,8 +468,11 @@ namespace Meta.XR.MRUtilityKit
                 Destroy(_segments[i]);
             }
 
-            _segmentationTask.Dispose();
-            _segmentationTask = null;
+            if (_segmentationTask != null)
+            {
+                _segmentationTask.Dispose();
+                _segmentationTask = null;
+            }
         }
 
         /// <summary>
@@ -484,7 +485,7 @@ namespace Meta.XR.MRUtilityKit
             foreach (var segment in segments)
             {
                 // Create a new material with a random color for each segment
-                var newMaterial = new Material(Shader.Find("Meta/Lit"))
+                var newMaterial = new Material(Shader.Find("Oculus/Unlit"))
                 {
                     color = UnityEngine.Random.ColorHSV()
                 };

@@ -32,7 +32,7 @@ namespace Meta.XR.MRUtilityKit
     /// </summary>
     /// <remarks>
     /// This class facilitates the transformation and alignment of prefabs.
-    /// Systems similar to the <see cref="AnchorPrefabSpawner"/> can be created by leveraging this utilites.
+    /// Systems similar to the <see cref="AnchorPrefabSpawner"/> can be created by leveraging this utilities.
     /// </remarks>
     /// <example> Custom prefab spawning system that aligns the prefab to sit in front the anchor's volume:
     /// <code><![CDATA[
@@ -446,7 +446,7 @@ namespace Meta.XR.MRUtilityKit
         ///         AnchorPrefabSpawner.AlignMode.Automatic);
         /// ]]></code></example>
         /// <remarks>
-        /// The alignment logic modes are as follows:]
+        /// The alignment logic modes are as follows:
         /// <list type="bullet">
         ///     <item>
         ///         <term>Automatic</term>
@@ -496,8 +496,8 @@ namespace Meta.XR.MRUtilityKit
                     break;
                 case AnchorPrefabSpawner.AlignMode.Custom:
                     throw new ArgumentException(
-                        "A custom volume alignment method was selected but no implementation was provided." +
-                        "To customize the alignment logic either extend the AnchorPrefabSpawner class or use the default" +
+                        "A custom volume alignment method was selected but no implementation was provided. " +
+                        "To customize the alignment logic either extend the AnchorPrefabSpawner class or use the default " +
                         "alignment mode and modify the prefab's local position afterwards.");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(alignMode), alignMode,
@@ -573,7 +573,7 @@ namespace Meta.XR.MRUtilityKit
                 case AnchorPrefabSpawner.ScalingMode.Custom:
                     throw new ArgumentException(
                         "A custom scaling method was selected but no implementation was provided. " +
-                        "To customize the scaling logic either extend the AnchorPrefabSpawner class or use the default" +
+                        "To customize the scaling logic either extend the AnchorPrefabSpawner class or use the default " +
                         "scaling mode and modify the prefab's local scale afterwards.");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(scalingMode), scalingMode, null);

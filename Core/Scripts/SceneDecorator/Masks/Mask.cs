@@ -45,9 +45,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <summary>
         /// Checks if the candidate is valid for the given mask
         /// </summary>
-        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
         /// <returns>true if valid</returns>
-        public abstract bool Check(Candidate c);
+        public abstract bool Check(Candidate candidate);
 
         /// <summary>
         /// Executes the mask on a candidate with scale and offset and returns the value.
@@ -65,11 +65,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// A mask that can be used to filter out objects from the scene.
         /// </summary>
         /// <param name="candidate">Contains the decoration prefab and the values from the distribution algorithm</param>
-        /// <param name="limitMin">Minimum to fullfill from the mask</param>
-        /// <param name="limitMax">Maximum to fullfill from the mask</param>
+        /// <param name="limitMin">Minimum to fulfill from the mask</param>
+        /// <param name="limitMax">Maximum to fulfill from the mask</param>
         /// <param name="scale">Scale the value from the mask</param>
         /// <param name="offset">Add offset from the mask</param>
-        /// <returns></returns>
+        /// <returns>A float value representing the masked result, clamped between the specified limits</returns>
         public float SampleMask(Candidate candidate, float limitMin, float limitMax, float scale = 1f, float offset = 0f)
         {
             var value = scale * SampleMask(candidate) + offset;

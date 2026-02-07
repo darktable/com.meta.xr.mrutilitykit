@@ -28,7 +28,8 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
     public class PointAndLocate : SpaceLocator
     {
         [Tooltip("Assign a Transform to use that as raycast origin")]
-        [SerializeField] internal Transform _raycastOrigin;
+        [SerializeField]
+        internal Transform _raycastOrigin;
 
         /// <summary>
         /// Transform to use that as raycast origin

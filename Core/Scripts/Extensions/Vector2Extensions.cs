@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit.Extensions
 
         internal static Vector2 Add(this Vector2 a, float b)
         {
-            return new Vector3(a.x + b, a.y + b);
+            return new Vector2(a.x + b, a.y + b);
         }
 
         internal static Vector2 Abs(this Vector2 a)

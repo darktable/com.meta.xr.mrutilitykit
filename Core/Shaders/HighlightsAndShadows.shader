@@ -62,7 +62,7 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
             // This multi_compile declaration is required for the Forward+ rendering path
-            #pragma multi_compile _ _FORWARD_PLUS
+            #pragma multi_compile _ _CLUSTER_LIGHT_LOOP
             #pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION //occl
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -126,7 +126,7 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
 #if defined(_ADDITIONAL_LIGHTS)
                 //Additional lights highlights.
                 float lightAlpha = 0;
-#if USE_FORWARD_PLUS
+#if USE_CLUSTER_LIGHT_LOOP
                 UNITY_LOOP for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
                 {
                     Light light = GetAdditionalLight(lightIndex, inputData.positionWS, half4(1,1,1,1));
@@ -263,7 +263,7 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
 
                 light.direction = dir;
                 light.color = _LightColor0;
-                UNITY_LIGHT_ATTENUATION(attenuation, 0, i.worldPos);
+                UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos);
                 light.distanceAttenuation = attenuation;
                 return light;
             }

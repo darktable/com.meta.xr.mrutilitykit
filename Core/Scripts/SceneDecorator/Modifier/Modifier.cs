@@ -23,7 +23,6 @@ using Meta.XR.Util;
 using UnityEditor;
 using UnityEngine;
 
-
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
     /// <summary>

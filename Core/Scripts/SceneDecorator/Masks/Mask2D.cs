@@ -29,38 +29,44 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public abstract class Mask2D : Mask
     {
+        /// <summary>x offset</summary>
         [SerializeField]
-        public float offsetX; /// <summary>x offset </summary>
+        public float offsetX;
 
+        /// <summary>y offset</summary>
         [SerializeField]
-        public float offsetY; /// <summary>y offset </summary>
+        public float offsetY;
 
+        /// <summary>rotation in degrees</summary>
         [SerializeField]
-        public float rotation; /// <summary>rotation in degrees </summary>
+        public float rotation;
 
+        /// <summary>scale in x direction</summary>
         [SerializeField]
-        public float scaleX = 1f; /// <summary>scale in x direction </summary>
+        public float scaleX = 1f;
 
+        /// <summary>scale in y direction</summary>
         [SerializeField]
-        public float scaleY = 1f; /// <summary>scale in y direction </summary>
+        public float scaleY = 1f;
 
+        /// <summary>shear in x direction</summary>
         [SerializeField]
-        public float shearX; /// <summary>shear in x direction </summary>
+        public float shearX;
 
+        /// <summary>shear in y direction</summary>
         [SerializeField]
-        public float shearY; /// <summary>shear in y direction </summary>
-
+        public float shearY;
 
         private static Float3X3 GenerateAffineTransform(Vector2 position, float rotation, Vector2 scale, Vector2 shear)
         {
-            var s = Mathf.Deg2Rad * rotation;
-            var c = Mathf.Cos(s);
+            var sinValue = Mathf.Deg2Rad * rotation;
+            var cosValue = Mathf.Cos(sinValue);
             var mat = new Float3X3(scale.x, 0f, 0f, 0f, scale.y, 0f, 0f, 0f, 1f);
 
             mat = Float3X3.Multiply(new Float3X3(1f, shear.x, 0f, shear.y, 1f, 0f, 0f, 0f, 1f), mat);
 
-            s = Mathf.Sin(s);
-            mat = Float3X3.Multiply(new Float3X3(c, -s, 0f, s, c, 0f, 0f, 0f, 1f), mat);
+            sinValue = Mathf.Sin(sinValue);
+            mat = Float3X3.Multiply(new Float3X3(cosValue, -sinValue, 0f, sinValue, cosValue, 0f, 0f, 0f, 1f), mat);
             mat = Float3X3.Multiply(new Float3X3(1f, 0f, position.x, 0f, 1f, position.y, 0f, 0f, 1f), mat);
 
             return mat;

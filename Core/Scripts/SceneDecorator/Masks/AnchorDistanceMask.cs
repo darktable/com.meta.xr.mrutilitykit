@@ -31,19 +31,19 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <summary>
         /// Returns the distance from the hit to the anchor
         /// </summary>
-        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
         /// <returns>the distance</returns>
-        public override float SampleMask(Candidate c)
+        public override float SampleMask(Candidate candidate)
         {
-            return c.anchorDist;
+            return candidate.anchorDist;
         }
 
         /// <summary>
         /// Not used in this mask
         /// </summary>
-        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
         /// <returns>true</returns>
-        public override bool Check(Candidate c)
+        public override bool Check(Candidate candidate)
         {
             return true;
         }

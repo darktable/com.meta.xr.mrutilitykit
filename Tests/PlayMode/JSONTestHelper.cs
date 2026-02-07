@@ -22,22 +22,30 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class JSONTestHelper : MonoBehaviour
+
+namespace Meta.XR.MRUtilityKit.Tests
 {
-    [SerializeField] internal TextAsset DefaultRoomNoAnchors;
-    [SerializeField] internal TextAsset SceneWithRoom1;
-    [SerializeField] internal TextAsset SceneWithRoom2;
-    [SerializeField] internal TextAsset SceneWithScene1NewRoomGUID;
-    [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorLabelChanged;
-    [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorPlaneRectChanged;
-    [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorVolumeBoundsChanged;
-    [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorPlaneBoundaryChanged;
-    [SerializeField] internal TextAsset SceneWithRoom1Room3;
-    [SerializeField] internal TextAsset SceneWithRoom3Room1;
-    [SerializeField] internal TextAsset SceneWithRoom1MoreAnchors;
-    [SerializeField] internal TextAsset SceneWithRoom1LessAnchors;
-    [SerializeField] internal TextAsset UnityExpectedSerializedScene;
-    [SerializeField] internal TextAsset UnrealExpectedSerializedScene;
-    [SerializeField] internal TextAsset HierarchyObjects;
+    /// <summary>
+    /// Helper class that provides test JSON data assets for MRUtilityKit testing scenarios.
+    /// Contains various scene configurations and room layouts used in play mode tests.
+    /// </summary>
+    public class JSONTestHelper : MonoBehaviour
+    {
+        [SerializeField] internal TextAsset DefaultRoomNoAnchors;
+        [SerializeField] internal TextAsset SceneWithRoom1;
+        [SerializeField] internal TextAsset SceneWithRoom2;
+        [SerializeField] internal TextAsset SceneWithScene1NewRoomGUID;
+        [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorLabelChanged;
+        [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorPlaneRectChanged;
+        [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorVolumeBoundsChanged;
+        [SerializeField] internal TextAsset SceneWithRoom1SceneAnchorPlaneBoundaryChanged;
+        [SerializeField] internal TextAsset SceneWithRoom1Room3;
+        [SerializeField] internal TextAsset SceneWithRoom3Room1;
+        [SerializeField] internal TextAsset SceneWithRoom1MoreAnchors;
+        [SerializeField] internal TextAsset SceneWithRoom1LessAnchors;
+        [SerializeField] internal TextAsset UnityExpectedSerializedScene;
+        [SerializeField] internal TextAsset UnrealExpectedSerializedScene;
+        [SerializeField] internal TextAsset HierarchyObjects;
+    }
 }
 

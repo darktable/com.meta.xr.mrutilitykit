@@ -139,8 +139,8 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// calls with Create calls when switching to using Pools.
         /// </summary>
         /// <param name="primitive">The primitive to use</param>
-        /// <param name="position">Position of the object to instatiate</param>
-        /// <param name="rotation">Rotation of the object to instatiate</param>
+        /// <param name="position">Position of the object to instantiate</param>
+        /// <param name="rotation">Rotation of the object to instantiate</param>
         /// <param name="anchor">The MRUKAnchor to associate with.</param>
         /// <param name="parent">The Parent object to attach to.</param>
         /// <returns>The instantiated gameobject</returns>
@@ -193,7 +193,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <param name="primitive">The primitive to use</param>
         /// <param name="anchor">The MRUKAnchor to associate with.</param>
         /// <param name="parent">The Parent object to attach to.</param>
-        /// <param name="instantiateInWorldSpace">Define if it should staz in worldspace</param>
+        /// <param name="instantiateInWorldSpace">Define if it should stay in worldspace</param>
         /// <returns>The instantiated gameobject</returns>
         public GameObject Create(GameObject primitive, MRUKAnchor anchor, Transform parent = null, bool instantiateInWorldSpace = false)
         {

@@ -41,7 +41,9 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
 
         [Space]
         [Tooltip("This event will trigger when a suitable space is located within user's physical environment")]
-        [Space][SerializeField] private UnityEvent<Pose, bool> _onSpaceLocateCompleted = new();
+        [Space]
+        [SerializeField]
+        private UnityEvent<Pose, bool> _onSpaceLocateCompleted = new();
 
         /// <summary>
         /// Origin of raycast ray
@@ -166,7 +168,8 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
 
 #if UNITY_EDITOR
     [CustomEditor(typeof(SpaceLocator), true)]
-    internal class SpaceLocatorEditor : UnityEditor.Editor {
+    internal class SpaceLocatorEditor : UnityEditor.Editor
+    {
         public override void OnInspectorGUI()
         {
             var targetObject = target as SpaceLocator;

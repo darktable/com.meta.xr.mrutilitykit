@@ -118,7 +118,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Gets or sets the reserved space at the bottom of the mesh. TThis space is not included in the destructible area, allowing for controlled segmentation.
+        /// Gets or sets the reserved space at the bottom of the mesh. This space is not included in the destructible area, allowing for controlled segmentation.
         /// </summary>
         public float ReservedBottom
         {
@@ -126,7 +126,7 @@ namespace Meta.XR.MRUtilityKit
             set => _reservedBottom = value;
         }
 
-        void Start()
+        private void Start()
         {
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadDestructibleGlobalMeshSpawner).Send();
             MRUK.Instance.RegisterSceneLoadedCallback(() =>
@@ -205,7 +205,8 @@ namespace Meta.XR.MRUtilityKit
             dMesh.GlobalMeshMaterial = _globalMeshMaterial;
             if (_reserveSpace == false)
             {
-                ReservedBottom = ReservedTop = -1;
+                ReservedBottom = -1;
+                ReservedTop = -1;
             }
             dMesh.ReservedBottom = ReservedBottom;
             dMesh.ReservedTop = ReservedTop;

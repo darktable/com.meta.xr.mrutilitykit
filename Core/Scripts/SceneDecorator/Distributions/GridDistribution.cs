@@ -31,8 +31,8 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class GridDistribution : SceneDecorator.IDistribution
     {
-        [SerializeField] private float spacingX = 1f;
-        [SerializeField] private float spacingY = 1f;
+        [SerializeField] private float _spacingX = 1f;
+        [SerializeField] private float _spacingY = 1f;
 
         /// <summary>
         /// Distribute in a grid pattern
@@ -45,30 +45,29 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             Vector3 anchorScale = Vector3.one;
             if (sceneAnchor.PlaneRect.HasValue)
             {
-                anchorScale = sceneAnchor.PlaneRect.HasValue
-                    ? new(sceneAnchor.PlaneRect.Value.width, sceneAnchor.PlaneRect.Value.height, 1)
-                    : Vector3.one;
+                anchorScale = new Vector3(sceneAnchor.PlaneRect.Value.width, sceneAnchor.PlaneRect.Value.height, 1);
             }
 
             if (sceneAnchor.VolumeBounds.HasValue)
             {
-                anchorScale = sceneAnchor.VolumeBounds?.size ?? Vector3.one;
+                anchorScale = sceneAnchor.VolumeBounds.Value.size;
             }
 
             Vector2 res = new Vector2(
-                Mathf.Max(Mathf.Ceil(anchorScale.x / spacingX), 1),
-                Mathf.Max(Mathf.Ceil(anchorScale.y / spacingY), 1));
+                Mathf.Max(Mathf.Ceil(anchorScale.x / _spacingX), 1),
+                Mathf.Max(Mathf.Ceil(anchorScale.y / _spacingY), 1));
 
-            Vector2 step = anchorScale / res;
-            for (int x = 0; x < res.x; ++x)
+            Vector2 gridStep = anchorScale / res;
+            for (int gridX = 0; gridX < res.x; ++gridX)
             {
-                for (int y = 0; y < res.y; ++y)
+                for (int gridY = 0; gridY < res.y; ++gridY)
                 {
-                    var pos = new Vector2((new Vector2(x, y) * step).x - anchorScale.x / 2,
-                        (new Vector2(x, y) * step).y - anchorScale.y / 2);
-                    var posNormalized = new Vector2((new Vector2(x, y) * step).x / anchorScale.x,
-                        (new Vector2(x, y) * step).y / anchorScale.y);
-                    sceneDecorator.GenerateOn(pos, posNormalized, sceneAnchor, sceneDecoration);
+                    var gridPosition = new Vector2(gridX, gridY) * gridStep;
+                    var localPosition = new Vector2(gridPosition.x - anchorScale.x / 2,
+                        gridPosition.y - anchorScale.y / 2);
+                    var normalizedPosition = new Vector2(gridPosition.x / anchorScale.x,
+                        gridPosition.y / anchorScale.y);
+                    sceneDecorator.GenerateOn(localPosition, normalizedPosition, sceneAnchor, sceneDecoration);
                 }
             }
         }

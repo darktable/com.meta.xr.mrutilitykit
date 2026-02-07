@@ -41,7 +41,11 @@ namespace Meta.XR.MRUtilityKit
             public const int LoadEnvironmentRaycastManager = 651891190;
             public const int LoadEnvironmentRaycastManagerOpenXR = 651888817;
             public const int LoadSpaceMapGPU = 651896914;
+            public const int LoadHiFiScene = 651888532;
+            public const int SetCustomWorldLockAnchor = 651891924;
             public const int LoadPassthroughCameraAccess = 651892106;
+            public const int StartMarkerTracker = 651896615;
+            public const int StartKeyboardTracker = 651896297;
         }
 
         public static class AnnotationType

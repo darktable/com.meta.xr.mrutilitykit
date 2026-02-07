@@ -31,24 +31,26 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class SpaceMapGPUMask : Mask
     {
-        private SpaceMapGPU spaceMap;
+        private SpaceMapGPU _spaceMap;
         public override float SampleMask(Candidate candidate)
         {
-            if (spaceMap == null)
+            if (_spaceMap == null)
             {
-                spaceMap = FindAnyObjectByType<SpaceMapGPU>();
-                if (spaceMap == null)
+                _spaceMap = FindAnyObjectByType<SpaceMapGPU>();
+                if (_spaceMap == null)
                 {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
                     Debug.LogWarning($"SpaceMapGPU cannot be found, does it exist in the Scene?");
+#endif
                     return 0.0f;
                 }
             }
 
-            var value = spaceMap.GetColorAtPosition(candidate.hit.point);
+            var value = _spaceMap.GetColorAtPosition(candidate.hit.point);
             return value.r;
         }
 
-        public override bool Check(Candidate c)
+        public override bool Check(Candidate candidate)
         {
             return true;
         }

@@ -45,26 +45,24 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         public void Distribute(SceneDecorator sceneDecorator, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration)
         {
             Vector3 anchorScale = Vector3.one;
+
             if (sceneAnchor.PlaneRect.HasValue)
             {
-                anchorScale = sceneAnchor.PlaneRect.HasValue
-                    ? new(sceneAnchor.PlaneRect.Value.width, sceneAnchor.PlaneRect.Value.height, 1)
-                    : Vector3.one;
+                anchorScale = new(sceneAnchor.PlaneRect.Value.width, sceneAnchor.PlaneRect.Value.height, 1);
             }
-
-            if (sceneAnchor.VolumeBounds.HasValue)
+            else if (sceneAnchor.VolumeBounds.HasValue)
             {
-                anchorScale = sceneAnchor.VolumeBounds?.size ?? Vector3.one;
+                anchorScale = sceneAnchor.VolumeBounds.Value.size;
             }
 
             var numToGenerate = Mathf.Max((int)Mathf.Ceil(anchorScale.x * anchorScale.y * numPerUnit), 1);
             for (; numToGenerate > 0; --numToGenerate)
             {
-                var rnd_x = Random.value;
-                var rnd_y = Random.value;
+                var rndX = Random.value;
+                var rndY = Random.value;
 
-                sceneDecorator.GenerateOn(new Vector2(rnd_x * anchorScale.x - anchorScale.x / 2, rnd_y * anchorScale.y - anchorScale.y / 2),
-                    new Vector2(rnd_x, rnd_y),
+                sceneDecorator.GenerateOn(new Vector2(rndX * anchorScale.x - anchorScale.x / 2, rndY * anchorScale.y - anchorScale.y / 2),
+                    new Vector2(rndX, rndY),
                     sceneAnchor,
                     sceneDecoration);
             }

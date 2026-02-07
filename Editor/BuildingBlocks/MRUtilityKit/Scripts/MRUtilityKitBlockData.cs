@@ -24,8 +24,19 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Block data implementation for MRUtilityKit building blocks that handles installation
+    /// and configuration of MRUtilityKit components in the Unity scene.
+    /// </summary>
     public class MRUtilityKitBlockData : Meta.XR.BuildingBlocks.Editor.BlockData
     {
+        /// <summary>
+        /// Installs the MRUtilityKit building block with special handling for existing MRUK instances.
+        /// If an existing MRUK instance is found, it will be reused instead of creating a new one.
+        /// In Unity 2021, prefab instances will be unpacked to allow modification.
+        /// </summary>
+        /// <param name="selectedGameObject">The currently selected GameObject in the scene.</param>
+        /// <returns>A list containing the GameObject with the MRUK component, either existing or newly created.</returns>
         protected override List<GameObject> InstallRoutine(GameObject selectedGameObject)
         {
             var existingMRUK = FindAnyObjectByType<MRUK>();

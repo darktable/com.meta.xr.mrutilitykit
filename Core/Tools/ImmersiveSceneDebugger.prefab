@@ -45,6 +45,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   ShowDebugAnchors: 0
-  visualHelperMaterial: {fileID: 2100000, guid: 6fb60ad978ac4184da102fbaf103225d,
-    type: 2}
-  _debugShader: {fileID: 4800000, guid: f2e8677bac33bbf4eb43f0f1289803a7, type: 3}
+  visualHelperMaterial: {fileID: 2100000, guid: 6fb60ad978ac4184da102fbaf103225d, type: 2}
+  _debugShader: {fileID: 10755, guid: 0000000000000000f000000000000000, type: 0}

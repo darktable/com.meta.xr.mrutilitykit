@@ -41,7 +41,7 @@ namespace Meta.XR.MRUtilityKit
         public OVRAnchor.TrackableType TrackableType { get; internal set; }
 
         /// <summary>
-        /// Whether this trackable is current considered tracked.
+        /// Whether this trackable is currently considered tracked.
         /// </summary>
         /// <remarks>
         /// A trackable may become temporarily untracked if, for example, it cannot

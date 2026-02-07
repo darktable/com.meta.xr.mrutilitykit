@@ -42,8 +42,11 @@ namespace Meta.XR.MRUtilityKit
         /// The scaling mode determines how the prefab will be resized to match the anchor's size.
         /// It is defined for each <see cref="AnchorPrefabGroup"/> and can be set to one of the following options:
         /// </summary>
-        /// <remarks> When using he <see cref="ScalingMode.Custom"/> the <see cref="CustomPrefabScaling"/> method
-        /// must be implemented in a custom class that extends this class or the <see cref="ICustomPrefabScaling"/> interface. </remarks>
+        /// <remarks>
+        /// The <see cref="ScalingMode.Custom"/> mode requires that the script attached to your GameObject is a
+        /// subclass of <see cref="AnchorPrefabSpawner"/> and overrides both
+        /// <see cref="CustomPrefabScaling(Vector2)"/> and <see cref="CustomPrefabScaling(Vector3)"/>.
+        /// </remarks>
         public enum ScalingMode
         {
             /// <summary>
@@ -71,8 +74,9 @@ namespace Meta.XR.MRUtilityKit
             NoScaling,
 
             /// <summary>
-            /// Custom logic, extend this class and override <see cref="CustomPrefabScaling"/> with your own implementation.
-            /// This mode enables developers to create custom scaling logic tailored to their specific needs.
+            /// Custom logic.
+            /// You MUST extend this class and override both <see cref="CustomPrefabScaling(Vector2)"/>
+            /// and <see cref="CustomPrefabScaling(Vector3)"/> to use this mode.
             /// </summary>
             Custom
         }
@@ -82,8 +86,11 @@ namespace Meta.XR.MRUtilityKit
         /// The alignment mode determines how the prefab will be positioned within the anchor area.
         /// It is defined for each <see cref="AnchorPrefabGroup"/> and can be set to one of the following options:
         /// </summary>
-        /// <remarks> When using he <see cref="AlignMode.Custom"/> the <see cref="CustomPrefabAlignment"/> method
-        /// must be implemented in a custom class that extends this class or the <see cref="ICustomPrefabScaling"/> interface. </remarks>
+        /// <remarks>
+        /// The <see cref="AlignMode.Custom"/> mode requires that the script attached to your GameObject is a
+        /// subclass of <see cref="AnchorPrefabSpawner"/> and overrides both
+        /// <see cref="CustomPrefabAlignment(Bounds,Bounds?)"/> and <see cref="CustomPrefabAlignment(Rect,Bounds?)"/>.
+        /// </remarks>
         public enum AlignMode
         {
             /// <summary>
@@ -111,8 +118,9 @@ namespace Meta.XR.MRUtilityKit
             NoAlignment,
 
             /// <summary>
-            /// Custom logic, extend this class and override <see cref="CustomPrefabAlignment"/> with your own implementation.
-            /// This mode enables developers to create custom alignment logic tailored to their specific needs.
+            /// Custom logic.
+            /// You MUST extend this class and override both <see cref="CustomPrefabAlignment(Bounds,Bounds?)"/>
+            /// and <see cref="CustomPrefabAlignment(Rect,Bounds?)"/> to use this mode.
             /// </summary>
             Custom
         }
@@ -122,8 +130,10 @@ namespace Meta.XR.MRUtilityKit
         /// The selection mode determines which prefab will be spawned when multiple options are available.
         /// It is defined for each <see cref="AnchorPrefabGroup"/> and can be set to one of the following options:
         /// </summary>
-        /// <remarks> When using he <see cref="SelectionMode.Custom"/> the <see cref="CustomPrefabSelection"/> method
-        /// must be implemented in a custom class that extends this class or the <see cref="ICustomPrefabScaling"/> interface. </remarks>
+        /// <remarks>
+        /// The <see cref="SelectionMode.Custom"/> mode requires that the script attached to your GameObject is a
+        /// subclass of <see cref="AnchorPrefabSpawner"/> and overrides the <see cref="CustomPrefabSelection"/> method.
+        /// </remarks>
         public enum SelectionMode
         {
             /// <summary>
@@ -139,8 +149,8 @@ namespace Meta.XR.MRUtilityKit
             ClosestSize,
 
             /// <summary>
-            /// Custom logic, extend this class and override <see cref="CustomPrefabSelection"/> with your own implementation.
-            /// This mode enables developers to create custom selection logic tailored to their specific needs.
+            /// Custom logic.
+            /// You MUST extend this class and override <see cref="CustomPrefabSelection"/> to use this mode.
             /// </summary>
             Custom
         }
@@ -149,10 +159,6 @@ namespace Meta.XR.MRUtilityKit
         /// Represents a group of prefabs associated with specific scene labels, along with settings for how they should be spawned.
         /// This struct encapsulates the necessary information for spawning prefabs based on anchor data.
         /// </summary>
-        /// <remarks> When using <see cref="ScalingMode.Custom"/>, <see cref="AlignMode.Custom"/>, or <see cref="SelectionMode.Custom"/>
-        /// the <see cref="CustomPrefabScaling"/>, <see cref="CustomPrefabAlignment"/> or <see cref="CustomPrefabAlignment"/>
-        /// methods must be implemented in a custom class that extends either the <see cref="AnchorPrfabSpawner"/>
-        /// or the <see cref="ICustomPrefabAlignment"/> interface directly. </remarks>
         [Serializable]
         public struct AnchorPrefabGroup : IEquatable<AnchorPrefabGroup>
         {
@@ -174,7 +180,9 @@ namespace Meta.XR.MRUtilityKit
             /// The logic that determines what prefab to choose when spawning the relative labels' game objects.
             /// </summary>
             [SerializeField]
-            [Tooltip("The logic that determines what prefab to chose when spawning the relative labels' game objects")]
+            [Tooltip(
+                "The logic that determines what prefab to choose when spawning the relative labels' GameObjects." +
+                "\n\nNOTE: The 'Custom' mode requires you to implement a custom override for CustomPrefabSelection(*).")]
             public SelectionMode PrefabSelection;
 
             /// <summary>
@@ -200,14 +208,17 @@ namespace Meta.XR.MRUtilityKit
             /// But in some cases, this may not be desirable and can be customized here.
             /// </summary>
             [SerializeField, Tooltip(
-                 "Set what scaling mode to apply to the prefab. By default the prefab will be stretched to fit the size of the plane/volume. But in some cases this may not be desirable and can be customized here.")]
+                 "Set what scaling mode to apply to the prefab. By default the prefab will be stretched to fit the size of the plane/volume. But in some cases this may not be desirable and can be customized here." +
+                 "\n\nNOTE: The 'Custom' mode requires you to implement custom overrides for CustomPrefabScaling(*).")]
             public ScalingMode Scaling;
 
             /// <summary>
             /// Spawn new object at the center, top, or bottom of the anchor.
             /// This setting determines the vertical alignment of the spawned prefab.
             /// </summary>
-            [SerializeField, Tooltip("Spawn new object at the center, top or bottom of the anchor.")]
+            [SerializeField, Tooltip(
+                 "Spawn new object at the center, top or bottom of the anchor." +
+                 "\n\nNOTE: The 'Custom' mode requires you to implement custom overrides for CustomPrefabAlignment(*).")]
             public AlignMode Alignment;
 
             /// <summary>
@@ -292,7 +303,8 @@ namespace Meta.XR.MRUtilityKit
         public List<AnchorPrefabGroup> PrefabsToSpawn;
 
         protected Random _random; // An instance of the Random class used to generate random numbers.
-        private MRUK.SceneTrackingSettings SceneTrackingSettings;
+        private HashSet<MRUKRoom> _unTrackedRooms = new();
+        private HashSet<MRUKAnchor> _unTrackedAnchors = new();
         private static readonly string Suffix = "(PrefabSpawner Clone)";
         private Func<Vector3, Vector3> _customPrefabScalingVolume;
         private Func<Bounds, Bounds?, (Vector3, Vector3)> _customPrefabAlignmentVolume;
@@ -307,9 +319,6 @@ namespace Meta.XR.MRUtilityKit
             {
                 return;
             }
-
-            SceneTrackingSettings.UnTrackedRooms = new();
-            SceneTrackingSettings.UnTrackedAnchors = new();
 
             MRUK.Instance.RegisterSceneLoadedCallback(() =>
             {
@@ -404,8 +413,8 @@ namespace Meta.XR.MRUtilityKit
             // only update the anchor when we track updates
             // &
             // only create when the anchor or parent room is tracked
-            if (SceneTrackingSettings.UnTrackedRooms.Contains(anchorInfo.Room) ||
-                SceneTrackingSettings.UnTrackedAnchors.Contains(anchorInfo) ||
+            if (_unTrackedRooms.Contains(anchorInfo.Room) ||
+                _unTrackedAnchors.Contains(anchorInfo) ||
                 !TrackUpdates)
             {
                 return;
@@ -434,7 +443,7 @@ namespace Meta.XR.MRUtilityKit
             // only create the anchor when we track updates
             // &
             // only create when the parent room is tracked
-            if (SceneTrackingSettings.UnTrackedRooms.Contains(anchorInfo.Room) ||
+            if (_unTrackedRooms.Contains(anchorInfo.Room) ||
                 !TrackUpdates)
             {
                 return;
@@ -483,7 +492,7 @@ namespace Meta.XR.MRUtilityKit
                 AnchorPrefabSpawnerObjects.Remove(anchor);
             }
 
-            SceneTrackingSettings.UnTrackedRooms.Add(room);
+            _unTrackedRooms.Add(room);
         }
 
         /// <summary>
@@ -510,7 +519,7 @@ namespace Meta.XR.MRUtilityKit
 
             ClearPrefab(AnchorPrefabSpawnerObjects[anchorInfo]);
             AnchorPrefabSpawnerObjects.Remove(anchorInfo);
-            SceneTrackingSettings.UnTrackedAnchors.Add(anchorInfo);
+            _unTrackedAnchors.Add(anchorInfo);
         }
 
         /// <summary>
@@ -791,6 +800,23 @@ namespace Meta.XR.MRUtilityKit
 #pragma warning disable CS0618 // Type or member is obsolete
             onPrefabSpawned.RemoveAllListeners();
 #pragma warning restore CS0618 // Type or member is obsolete
+
+            if (MRUK.Instance is null)
+            {
+                return;
+            }
+
+            // Unregister from MRUK instance callbacks
+            MRUK.Instance.RoomCreatedEvent.RemoveListener(ReceiveCreatedRoom);
+            MRUK.Instance.RoomRemovedEvent.RemoveListener(ReceiveRemovedRoom);
+
+            // Unregister from all tracked rooms' anchor callbacks
+            foreach (var room in MRUK.Instance.Rooms)
+            {
+                UnRegisterAnchorUpdates(room);
+            }
+
+            ClearPrefabs();
         }
     }
 }

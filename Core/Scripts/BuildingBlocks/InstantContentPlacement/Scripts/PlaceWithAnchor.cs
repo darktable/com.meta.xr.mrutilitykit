@@ -99,9 +99,9 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
 
         private void SetAnchor()
         {
-            _spatialAnchorTransform.transform.SetPositionAndRotation(transform.position, transform.rotation);
+            _spatialAnchorTransform.SetPositionAndRotation(transform.position, transform.rotation);
             _spatialAnchor = _spatialAnchorTransform.gameObject.AddComponent<OVRSpatialAnchor>();
-            Target.SetParent(_spatialAnchorTransform.transform);
+            Target.SetParent(_spatialAnchorTransform);
         }
     }
 }

@@ -36,11 +36,26 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         [Serializable]
         public struct MaskLayer
         {
-            public Mask mask; /// <summary> The mask to use for this layer. </summary>
-            public float outputScale; /// <summary> The scale of the mask output. </summary>
-            public float outputLimitMin; /// <summary> The minimum value of the mask output. </summary>
-            public float outputLimitMax; /// <summary> The maximum value of the mask output. </summary>
-            public float outputOffset; /// <summary> The offset of the mask output. </summary>
+            /// <summary>
+            /// The mask to use for this layer.
+            /// </summary>
+            public Mask mask;
+            /// <summary>
+            /// The scale of the mask output.
+            /// </summary>
+            public float outputScale;
+            /// <summary>
+            /// The minimum value of the mask output.
+            /// </summary>
+            public float outputLimitMin;
+            /// <summary>
+            /// The maximum value of the mask output.
+            /// </summary>
+            public float outputLimitMax;
+            /// <summary>
+            /// The offset of the mask output.
+            /// </summary>
+            public float outputOffset;
 
             /// <summary>
             /// The constructor for the mask layer.
@@ -53,6 +68,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             }
         }
 
+        /// <summary>
+        /// The layers of masks to be combined.
+        /// </summary>
         [SerializeField]
         private MaskLayer[] maskLayers;
 

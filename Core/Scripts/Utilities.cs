@@ -19,7 +19,6 @@
  */
 
 using System;
-using UnityEngine;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Meta.XR.MRUtilityKit.Extensions;
@@ -27,6 +26,7 @@ using Unity.Collections;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
+using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
@@ -36,13 +36,13 @@ namespace Meta.XR.MRUtilityKit
     /// </summary>
     public static class Utilities
     {
-        private static Dictionary<GameObject, Bounds?> prefabBoundsCache = new();
+        private static Dictionary<GameObject, Bounds?> _prefabBoundsCache = new();
 
         public static readonly float Sqrt2 = Mathf.Sqrt(2f);  // Square root of 2, commonly used in mathematical calculations.
         public static readonly float InvSqrt2 = 1f / Mathf.Sqrt(2f); // Inverse of the square root of 2.
 
         private const int
-            MAX_VERTICES_PER_MESH = 65535; // limit of vertices per mesh when using the default index format (16 bit)
+            MaxVerticesPerMesh = 65535; // limit of vertices per mesh when using the default index format (16 bit)
 
         /// <summary>
         /// Retrieves the bounds of a prefab, calculating them if not already cached.
@@ -51,17 +51,17 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>The bounds of the prefab, or null if no Renderer is found.</returns>
         public static Bounds? GetPrefabBounds(GameObject prefab)
         {
-            if (prefabBoundsCache.TryGetValue(prefab, out Bounds? cachedBounds))
+            if (_prefabBoundsCache.TryGetValue(prefab, out Bounds? cachedBounds))
             {
                 return cachedBounds;
             }
 
             Bounds? bounds = CalculateBoundsRecursively(prefab.transform);
-            prefabBoundsCache.Add(prefab, bounds);
+            _prefabBoundsCache.Add(prefab, bounds);
             return bounds;
         }
 
-        static Bounds? CalculateBoundsRecursively(Transform transform)
+        private static Bounds? CalculateBoundsRecursively(Transform transform)
         {
             Bounds? bounds = null;
             Renderer renderer = transform.GetComponent<Renderer>();
@@ -74,7 +74,7 @@ namespace Meta.XR.MRUtilityKit
             }
 
             // Recursively process children
-            foreach (Transform child in transform.transform)
+            foreach (Transform child in transform)
             {
                 Bounds? childBounds = CalculateBoundsRecursively(child);
                 if (childBounds != null)
@@ -133,10 +133,10 @@ namespace Meta.XR.MRUtilityKit
             var meshTangents = new Vector4[totalVertices];
             var meshTriangles = new int[totalIndices];
 
-            var UVChannelCount = textureCoordinateModes == null ? 0 : Math.Min(8, textureCoordinateModes.Length);
+            var uvChannelCount = textureCoordinateModes == null ? 0 : Math.Min(8, textureCoordinateModes.Length);
 
-            var meshUVs = new Vector2[UVChannelCount][];
-            for (var x = 0; x < UVChannelCount; x++)
+            var meshUVs = new Vector2[uvChannelCount][];
+            for (var x = 0; x < uvChannelCount; x++)
             {
                 meshUVs[x] = new Vector2[totalVertices];
             }
@@ -162,7 +162,7 @@ namespace Meta.XR.MRUtilityKit
                 tangents = meshTangents
             };
 
-            for (var x = 0; x < UVChannelCount; x++)
+            for (var x = 0; x < uvChannelCount; x++)
             {
                 switch (x)
                 {
@@ -196,6 +196,7 @@ namespace Meta.XR.MRUtilityKit
             newMesh.name = anchorInfo.name;
             return newMesh;
         }
+
 
         private static void CreateVolumeMesh(MRUKAnchor anchorInfo, ref Vector3[] meshVertices,
             ref Color32[] meshColors, ref Vector3[] meshNormals, ref Vector4[] meshTangents, ref int[] meshTriangles,
@@ -633,24 +634,24 @@ namespace Meta.XR.MRUtilityKit
 
     internal struct Float3X3
     {
-        private Vector3 Row0;
-        private Vector3 Row1;
-        private Vector3 Row2;
+        private Vector3 _row0;
+        private Vector3 _row1;
+        private Vector3 _row2;
 
         internal Float3X3(Vector3 row0, Vector3 row1, Vector3 row2)
         {
-            Row0 = row0;
-            Row1 = row1;
-            Row2 = row2;
+            _row0 = row0;
+            _row1 = row1;
+            _row2 = row2;
         }
 
         internal Float3X3(float m00, float m01, float m02,
             float m10, float m11, float m12,
             float m20, float m21, float m22)
         {
-            Row0 = new Vector3(m00, m01, m02);
-            Row1 = new Vector3(m10, m11, m12);
-            Row2 = new Vector3(m20, m21, m22);
+            _row0 = new Vector3(m00, m01, m02);
+            _row1 = new Vector3(m10, m11, m12);
+            _row2 = new Vector3(m20, m21, m22);
         }
 
         internal static Float3X3 Multiply(Float3X3 a, Float3X3 b)
@@ -669,9 +670,9 @@ namespace Meta.XR.MRUtilityKit
 
         internal static Vector3 Multiply(Float3X3 a, Vector3 b)
         {
-            return new Vector3(Vector3.Dot(a.Row0, b),
-                Vector3.Dot(a.Row1, b),
-                Vector3.Dot(a.Row2, b));
+            return new Vector3(Vector3.Dot(a._row0, b),
+                Vector3.Dot(a._row1, b),
+                Vector3.Dot(a._row2, b));
         }
 
         private float this[int row, int column]
@@ -680,9 +681,9 @@ namespace Meta.XR.MRUtilityKit
             {
                 switch (row)
                 {
-                    case 0: return Row0[column];
-                    case 1: return Row1[column];
-                    case 2: return Row2[column];
+                    case 0: return _row0[column];
+                    case 1: return _row1[column];
+                    case 2: return _row2[column];
                     default: throw new IndexOutOfRangeException("Row index out of range: " + row);
                 }
             }
@@ -691,13 +692,13 @@ namespace Meta.XR.MRUtilityKit
                 switch (row)
                 {
                     case 0:
-                        Row0[column] = value;
+                        _row0[column] = value;
                         break;
                     case 1:
-                        Row1[column] = value;
+                        _row1[column] = value;
                         break;
                     case 2:
-                        Row2[column] = value;
+                        _row2[column] = value;
                         break;
                     default: throw new IndexOutOfRangeException("Row index out of range: " + row);
                 }

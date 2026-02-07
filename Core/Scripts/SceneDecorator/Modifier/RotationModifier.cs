@@ -30,24 +30,31 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     public class RotationModifier : Modifier
     {
         [SerializeField]
+        [Tooltip("The mask used to determine rotation values across the decoration area")]
         public Mask mask;
 
         [SerializeField]
+        [Tooltip("Minimum limit for rotation angle in degrees")]
         public float limitMin = float.NegativeInfinity;
 
         [SerializeField]
+        [Tooltip("Maximum limit for rotation angle in degrees")]
         public float limitMax = float.PositiveInfinity;
 
         [SerializeField]
+        [Tooltip("Multiplier applied to the mask value to control rotation magnitude")]
         public float scale = 1f;
 
         [SerializeField]
+        [Tooltip("Constant offset added to the rotation angle in degrees")]
         public float offset = 0f;
 
         [SerializeField]
+        [Tooltip("Axis around which the decoration will rotate")]
         public Vector3 rotationAxis = new Vector3(0f, 1f, 0f);
 
         [SerializeField]
+        [Tooltip("When enabled, rotation axis is relative to the decoration's local space; otherwise uses world space")]
         public bool localSpace = false;
 
         public override void ApplyModifier(GameObject decorationGO, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration, Candidate candidate)

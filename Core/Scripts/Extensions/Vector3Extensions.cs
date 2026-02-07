@@ -39,7 +39,7 @@ namespace Meta.XR.MRUtilityKit.Extensions
             return new Vector3(Mathf.Floor(a.x), Mathf.Floor(a.y), Mathf.Floor(a.z));
         }
 
-        internal static Vector3 FromVector2AndZ(Vector2 xy, float z)
+        internal static Vector3 FromVector2AndZ(this Vector2 xy, float z)
         {
             return new Vector3(xy.x, xy.y, z);
         }

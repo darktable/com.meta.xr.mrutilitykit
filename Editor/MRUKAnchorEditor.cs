@@ -78,7 +78,7 @@ public class MRUKAnchorEditor : Editor
                 EditorGUILayout.LabelField("Room", "None");
             }
 
-            EditorGUILayout.PropertyField(_meshProperty, new GUIContent("Mesh "));
+            EditorGUILayout.PropertyField(_meshProperty, new GUIContent("Mesh"));
             if (anchor.ParentAnchor != null)
             {
                 EditorGUILayout.PropertyField(_parentAnchorProperty, new GUIContent("Parent Anchor"));

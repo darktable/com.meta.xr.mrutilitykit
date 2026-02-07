@@ -33,9 +33,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <summary>
         /// Gets the pool manager for GameObjects.
         /// </summary>
-        public PoolManager<GameObject, Pool<GameObject>> poolManager => poolManagerComponent.poolManager;
+        public PoolManager<GameObject, Pool<GameObject>> poolManager => _poolManagerComponent.poolManager;
 
-        private PoolManagerComponent poolManagerComponent;
+        private PoolManagerComponent _poolManagerComponent;
 
         /// <summary>
         /// Creates a new instance of the specified GameObject at the given position and rotation, attached to the provided MRUKAnchor.
@@ -49,12 +49,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <returns>The newly created GameObject instance, or null if creation failed.</returns>
         public GameObject Create(GameObject primitive, Vector3 position, Quaternion rotation, MRUKAnchor anchor, Transform parent = null)
         {
-            if (poolManagerComponent == null)
+            if (_poolManagerComponent == null)
             {
-                poolManagerComponent = GetComponent<PoolManagerComponent>();
+                _poolManagerComponent = GetComponent<PoolManagerComponent>();
             }
 
-            return poolManagerComponent.Create(primitive, position, rotation, anchor, parent);
+            return _poolManagerComponent.Create(primitive, position, rotation, anchor, parent);
         }
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <returns>The newly created GameObject instance, or null if creation failed.</returns>
         public GameObject Create(GameObject primitive, MRUKAnchor anchor, Transform parent = null, bool instantiateInWorldSpace = false)
         {
-            return poolManagerComponent.Create(primitive, anchor, parent, instantiateInWorldSpace);
+            return _poolManagerComponent.Create(primitive, anchor, parent, instantiateInWorldSpace);
         }
 
         /// <summary>
@@ -84,7 +84,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <returns>The newly created component instance, or null if creation failed.</returns>
         public T Create<T>(T primitive, Vector3 position, Quaternion rotation, MRUKAnchor anchor, Transform parent = null) where T : Component
         {
-            return poolManagerComponent.Create<T>(primitive, position, rotation, anchor, parent);
+            return _poolManagerComponent.Create<T>(primitive, position, rotation, anchor, parent);
         }
 
         /// <summary>
@@ -99,7 +99,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <returns>The newly created component instance, or null if creation failed.</returns>
         public T Create<T>(T primitive, MRUKAnchor anchor, Transform parent = null, bool instantiateInWorldSpace = false) where T : Component
         {
-            return poolManagerComponent.Create<T>(primitive, anchor, parent, instantiateInWorldSpace);
+            return _poolManagerComponent.Create<T>(primitive, anchor, parent, instantiateInWorldSpace);
         }
 
         /// <summary>
@@ -119,12 +119,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                 return;
             }
 
-            Instance.poolManagerComponent.Release(go);
+            Instance._poolManagerComponent.Release(go);
         }
 
-        void Start()
+        private void Start()
         {
-            poolManagerComponent = GetComponent<PoolManagerComponent>();
+            _poolManagerComponent = GetComponent<PoolManagerComponent>();
         }
     }
 }

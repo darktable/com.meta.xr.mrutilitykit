@@ -48,24 +48,24 @@ namespace Meta.XR.MRUtilityKit
         [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public Texture2D TextureMap;
 
-        Bounds MapBounds = new Bounds();
+        Bounds _mapBounds = new Bounds();
 
         /// <summary>
         /// The center of the texture. Note that Offset.y aligns with Unity's Z.
         /// </summary>
         [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
-        public Vector2 Offset => new Vector2(MapBounds.center.x, MapBounds.center.z);
+        public Vector2 Offset => new Vector2(_mapBounds.center.x, _mapBounds.center.z);
 
         /// <summary>
         /// The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
         /// </summary>
         [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public Vector2 Scale => new Vector2(
-            Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2,
-            Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2);
+            Mathf.Max(_mapBounds.size.x, _mapBounds.size.z) + MapBorder * 2,
+            Mathf.Max(_mapBounds.size.x, _mapBounds.size.z) + MapBorder * 2);
 
-        Color[,] Pixels;
-        int PixelDimensions = 128;
+        Color[,] _pixels;
+        int _pixelDimensions = 128;
 
         [Tooltip("The gradient of the generated map.")]
         [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
@@ -134,26 +134,30 @@ namespace Meta.XR.MRUtilityKit
             Shader.SetGlobalVector(PARAMETER_PROPERTY_NAME, new Vector4(Scale.x, Scale.y, Offset.x, Offset.y));
         }
 
+        /// <summary>
+        /// Initializes the map values including pixel dimensions, bounds, and transform positioning.
+        /// </summary>
+        /// <param name="room">The room to initialize values for. If null, calculates for all rooms.</param>
         void InitializeMapValues(MRUKRoom room)
         {
-            PixelDimensions = TextureMap.width;
-            Pixels = new Color[PixelDimensions, PixelDimensions];
+            _pixelDimensions = TextureMap.width;
+            _pixels = new Color[_pixelDimensions, _pixelDimensions];
 
             if (room != null)
             {
-                MapBounds = room.GetRoomBounds();
+                _mapBounds = room.GetRoomBounds();
             }
             else
             {
-                MapBounds = new();
+                _mapBounds = new();
                 foreach (var currentRoom in MRUK.Instance.Rooms)
                 {
-                    MapBounds.Encapsulate(currentRoom.GetRoomBounds());
+                    _mapBounds.Encapsulate(currentRoom.GetRoomBounds());
                 }
             }
 
-            transform.position = new Vector3(MapBounds.center.x, MapBounds.min.y, MapBounds.center.z);
-            transform.localScale = new Vector3(Scale.x, MapBounds.size.y, Scale.y);
+            transform.position = new Vector3(_mapBounds.center.x, _mapBounds.min.y, _mapBounds.center.z);
+            transform.localScale = new Vector3(Scale.x, _mapBounds.size.y, Scale.y);
         }
 
         /// <summary>
@@ -194,20 +198,20 @@ namespace Meta.XR.MRUtilityKit
 
         IEnumerator CalculatePixels(MRUKRoom room)
         {
-            float halfPixel = 0.5f / PixelDimensions;
-            float largestDimension = Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2;
-            for (int x = 0; x < PixelDimensions; x++)
+            float halfPixel = 0.5f / _pixelDimensions;
+            float largestDimension = Mathf.Max(_mapBounds.size.x, _mapBounds.size.z) + MapBorder * 2;
+            for (int x = 0; x < _pixelDimensions; x++)
             {
-                for (int y = 0; y < PixelDimensions; y++)
+                for (int y = 0; y < _pixelDimensions; y++)
                 {
                     // convert texel coordinate to world position
-                    float xWorld = x / (float)PixelDimensions - 0.5f + halfPixel;
-                    float yWorld = y / (float)PixelDimensions - 0.5f + halfPixel;
-                    Vector3 worldPos = new Vector3(xWorld * largestDimension + MapBounds.center.x, 0, yWorld * largestDimension + MapBounds.center.z);
+                    float xWorld = x / (float)_pixelDimensions - 0.5f + halfPixel;
+                    float yWorld = y / (float)_pixelDimensions - 0.5f + halfPixel;
+                    Vector3 worldPos = new Vector3(xWorld * largestDimension + _mapBounds.center.x, 0, yWorld * largestDimension + _mapBounds.center.z);
                     float distToSurface = -GetSurfaceDistance(room, worldPos);
                     float normalizedDist = Mathf.Clamp01((distToSurface - InnerBorder) / (OuterBorder - InnerBorder));
                     Color averageColor = MapGradient.Evaluate(normalizedDist);
-                    Pixels[x, y] = averageColor;
+                    _pixels[x, y] = averageColor;
                     TextureMap.SetPixel(x, y, averageColor);
                 }
             }
@@ -217,17 +221,17 @@ namespace Meta.XR.MRUtilityKit
             yield return null;
         }
 
-        // <summary>
+        /// <summary>
         /// Resets the pixel colors of the space map to black, effectively clearing any previously calculated data.
         /// </summary>
         [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public void ResetFreespace()
         {
-            for (int x = 0; x < PixelDimensions; x++)
+            for (int x = 0; x < _pixelDimensions; x++)
             {
-                for (int y = 0; y < PixelDimensions; y++)
+                for (int y = 0; y < _pixelDimensions; y++)
                 {
-                    Pixels[x, y] = Color.black;
+                    _pixels[x, y] = Color.black;
                 }
             }
         }
@@ -258,13 +262,19 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Converts a world position to pixel coordinates within the texture map.
+        /// </summary>
+        /// <param name="worldPosition">The world position to convert.</param>
+        /// <param name="normalizedUV">If true, returns normalized UV coordinates (0-1). If false, returns pixel coordinates.</param>
+        /// <returns>The pixel coordinates or UV coordinates depending on the normalizedUV parameter.</returns>
         Vector2 GetPixelFromWorldPosition(Vector3 worldPosition, bool normalizedUV = false)
         {
-            Vector3 localSpace = worldPosition - MapBounds.center;
-            Vector2 scaledSpace = new Vector2(localSpace.x / MapBounds.size.x + 0.5f, localSpace.z / MapBounds.size.z + 0.5f);
+            Vector3 localSpace = worldPosition - _mapBounds.center;
+            Vector2 scaledSpace = new Vector2(localSpace.x / _mapBounds.size.x + 0.5f, localSpace.z / _mapBounds.size.z + 0.5f);
             if (!normalizedUV)
             {
-                scaledSpace *= PixelDimensions;
+                scaledSpace *= _pixelDimensions;
             }
 
             return scaledSpace;

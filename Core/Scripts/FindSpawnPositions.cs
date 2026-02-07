@@ -116,12 +116,12 @@ namespace Meta.XR.MRUtilityKit
         [SerializeField, Tooltip("The clearance distance required in front of the surface in order for it to be considered a valid spawn position")]
         public float SurfaceClearanceDistance = 0.1f;
 
-        private List<GameObject> spawnedObjects = new();
+        private List<GameObject> _spawnedObjects = new();
 
         /// <summary>
         /// The list containing all the objects instantiated by this component
         /// </summary>
-        public IReadOnlyList<GameObject> SpawnedObjects => spawnedObjects;
+        public IReadOnlyList<GameObject> SpawnedObjects => _spawnedObjects;
 
         private void Start()
         {
@@ -272,7 +272,7 @@ namespace Meta.XR.MRUtilityKit
                     if (SpawnObject.gameObject.scene.path == null)
                     {
                         var item = Instantiate(SpawnObject, spawnPosition, spawnRotation, transform);
-                        spawnedObjects.Add(item);
+                        _spawnedObjects.Add(item);
                     }
                     else
                     {
@@ -297,16 +297,16 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public void ClearSpawnedPrefabs()
         {
-            for (var i = spawnedObjects.Count - 1; i >= 0; i--)
+            for (var i = _spawnedObjects.Count - 1; i >= 0; i--)
             {
-                var spawnedObject = spawnedObjects[i];
+                var spawnedObject = _spawnedObjects[i];
                 if (spawnedObject)
                 {
                     Destroy(spawnedObject);
                 }
             }
 
-            spawnedObjects.Clear();
+            _spawnedObjects.Clear();
         }
     }
 }

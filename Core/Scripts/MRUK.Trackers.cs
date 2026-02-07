@@ -28,6 +28,98 @@ namespace Meta.XR.MRUtilityKit
 {
     partial class MRUK
     {
+        /// <summary>
+        /// A unique identifier for a trackable.
+        /// Depending on the origin of the trackable either EntityId or space will be zero.
+        /// This id helps to create a unique identifier for a trackable.
+        /// </summary>
+        private readonly struct TrackableKey : IEquatable<TrackableKey>
+        {
+            /// <summary>
+            /// Set in case the trackable originated from ext_spatial_entity
+            /// </summary>
+            private readonly ulong _entityId;
+
+            /// <summary>
+            /// Set in case the trackable originated from fb_spatial_entity_query
+            /// </summary>
+            private readonly ulong _space;
+
+            /// <summary>
+            /// Creates a new TrackableKey with the specified space and entity identifiers.
+            /// </summary>
+            /// <param name="space">The tracking space identifier.</param>
+            /// <param name="entityId">The entity id.</param>
+            public TrackableKey(ulong space, ulong entityId)
+            {
+                this._space = space;
+                this._entityId = entityId;
+            }
+
+            /// <summary>
+            /// Determines whether this TrackableKey is equal to another TrackableKey.
+            /// </summary>
+            /// <param name="other">The TrackableKey to compare with this instance.</param>
+            /// <returns>True if both the Space and EntityId match; otherwise, false.</returns>
+            public bool Equals(TrackableKey other)
+            {
+                return _space == other._space && _entityId == other._entityId;
+            }
+
+            /// <summary>
+            /// Determines whether this TrackableKey is equal to another object.
+            /// </summary>
+            /// <param name="obj">The object to compare with this instance.</param>
+            /// <returns>True if the object is a TrackableKey and both the Space and EntityId match; otherwise, false.</returns>
+            public override bool Equals(object obj)
+            {
+                return obj is TrackableKey other && Equals(other);
+            }
+
+            /// <summary>
+            /// Returns a hash code for this TrackableKey.
+            /// </summary>
+            /// <returns>A hash code based on both the space and EntityId values.</returns>
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(_space, _entityId);
+            }
+
+            /// <summary>
+            /// Determines whether two TrackableKey instances are equal.
+            /// </summary>
+            /// <param name="left">The first TrackableKey to compare.</param>
+            /// <param name="right">The second TrackableKey to compare.</param>
+            /// <returns>True if both TrackableKey instances are equal; otherwise, false.</returns>
+            public static bool operator ==(TrackableKey left, TrackableKey right)
+            {
+                return left.Equals(right);
+            }
+
+            /// <summary>
+            /// Determines whether two TrackableKey instances are not equal.
+            /// </summary>
+            /// <param name="left">The first TrackableKey to compare.</param>
+            /// <param name="right">The second TrackableKey to compare.</param>
+            /// <returns>True if the TrackableKey instances are not equal; otherwise, false.</returns>
+            public static bool operator !=(TrackableKey left, TrackableKey right)
+            {
+                return !left.Equals(right);
+            }
+
+            /// <summary>
+            /// Creates a string representation of this <see cref="TrackableKey"/>.
+            /// </summary>
+            /// <remarks>
+            /// This is intended for debugging purposes.
+            /// </remarks>
+            /// <returns>Returns a string representation of this <see cref="TrackableKey"/>.</returns>
+            public override string ToString()
+            {
+                return $"Space: {_space}, EntityId: {_entityId}";
+            }
+        }
+
         partial class MRUKSettings
         {
             /// <summary>
@@ -92,6 +184,15 @@ namespace Meta.XR.MRUtilityKit
         public OVRAnchor.TrackerConfiguration TrackerConfiguration { get; private set; }
 
         /// <summary>
+        /// Whether QR code tracking is supported.
+        /// </summary>
+        /// <remarks>
+        /// If QR code tracking is supported, you can enable it by setting the <see cref="OVRAnchor.TrackerConfiguration.QRCodeTrackingEnabled"/>
+        /// property on the <see cref="TrackerConfiguration"/>.
+        /// </remarks>
+        public bool QRCodeTrackingSupported => MRUKNativeFuncs.CheckQrCodeTrackingSupported();
+
+        /// <summary>
         /// Get all the trackables that have been detected so far.
         /// </summary>
         /// <param name="trackables">The list to populate with the trackables. The list is cleared before adding any elements.</param>
@@ -113,7 +214,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private readonly Dictionary<ulong, MRUKTrackable> _trackables = new();
+        private readonly Dictionary<TrackableKey, MRUKTrackable> _trackables = new();
 
         private bool _hasScenePermission;
 
@@ -123,6 +224,11 @@ namespace Meta.XR.MRUtilityKit
 
         // 0.5 seconds because most of our trackers update at about 1 Hz
         private static readonly TimeSpan s_timeBetweenTrackerConfigurationAttempts = TimeSpan.FromSeconds(0.5);
+
+        private static TrackableKey GetTrackableKey(ref MRUKNativeFuncs.MrukTrackable trackable)
+        {
+            return new TrackableKey(trackable.space, trackable.entityId);
+        }
 
         private void UpdateTrackables()
         {
@@ -139,16 +245,12 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            var hasScenePermissionBeenGrantedSinceLastCheck = false;
             if (!_hasScenePermission && Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
             {
-                _hasScenePermission = hasScenePermissionBeenGrantedSinceLastCheck = true;
+                _hasScenePermission = true;
             }
 
-            // Keeping track of the _lastRequestedConfiguration allows us to avoid repeatedly asking for the same
-            // configuration if that configuration fails.
-            if (_lastRequestedConfiguration != desiredConfig ||
-                hasScenePermissionBeenGrantedSinceLastCheck)
+            if (_hasScenePermission && _lastRequestedConfiguration != desiredConfig)
             {
                 _lastRequestedConfiguration = desiredConfig;
                 ConfigureTrackerAndLogResult(desiredConfig);
@@ -187,6 +289,21 @@ namespace Meta.XR.MRUtilityKit
             MRUKNativeFuncs.ConfigureTrackers(trackableMask);
 
             var result = await _configureTrackersTask.Value;
+
+            if (config.QRCodeTrackingEnabled)
+            {
+                OVRTelemetry.Start(TelemetryConstants.MarkerId.StartMarkerTracker)
+                    .SetResult(result == MRUKNativeFuncs.MrukResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
+                    .Send();
+            }
+
+            if (config.KeyboardTrackingEnabled)
+            {
+                OVRTelemetry.Start(TelemetryConstants.MarkerId.StartKeyboardTracker)
+                    .SetResult(result == MRUKNativeFuncs.MrukResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
+                    .Send();
+            }
+
             if (result == MRUKNativeFuncs.MrukResult.Success)
             {
                 Debug.Log($"Configured anchor trackers: {config}");
@@ -208,16 +325,16 @@ namespace Meta.XR.MRUtilityKit
 
         private void HandleTrackableAdded(ref MRUKNativeFuncs.MrukTrackable trackable)
         {
-            if (_trackables.ContainsKey(trackable.space))
+            var trackableKey = GetTrackableKey(ref trackable);
+            if (_trackables.ContainsKey(trackableKey))
             {
-                Debug.LogWarning($"{nameof(HandleTrackableAdded)}: Trackable {trackable.uuid} of type {trackable.trackableType} was previously added. Ignoring.");
+                Debug.LogWarning($"{nameof(HandleTrackableAdded)}: Trackable {trackableKey} of type {trackable.trackableType} was previously added. Ignoring.");
                 return;
             }
 
-            var go = new GameObject($"Trackable({trackable.trackableType}) {trackable.uuid}");
-            go.transform.SetParent(OVRCameraRig.GetTrackingSpace(), worldPositionStays: false);
+            var go = new GameObject($"Trackable({trackable.trackableType}) {trackableKey}");
             var component = go.AddComponent<MRUKTrackable>();
-            _trackables.Add(trackable.space, component);
+            _trackables.Add(GetTrackableKey(ref trackable), component);
 
             UpdateTrackableProperties(component, ref trackable);
 
@@ -227,7 +344,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void HandleTrackableUpdated(ref MRUKNativeFuncs.MrukTrackable trackable)
         {
-            if (_trackables.TryGetValue(trackable.space, out var component) && component)
+            if (_trackables.TryGetValue(GetTrackableKey(ref trackable), out var component) && component)
             {
                 UpdateTrackableProperties(component, ref trackable);
             }
@@ -235,7 +352,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void HandleTrackableRemoved(ref MRUKNativeFuncs.MrukTrackable trackable)
         {
-            if (_trackables.Remove(trackable.space, out var component) && component)
+            if (_trackables.Remove(GetTrackableKey(ref trackable), out var component) && component)
             {
                 component.IsTracked = false;
                 SceneSettings.TrackableRemoved.Invoke(component);

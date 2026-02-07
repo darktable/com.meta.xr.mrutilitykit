@@ -19,10 +19,9 @@
  */
 
 using System;
-using System.Collections.Generic;
 using Meta.XR.Util;
-using UnityEngine.Events;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace Meta.XR.MRUtilityKit
 {

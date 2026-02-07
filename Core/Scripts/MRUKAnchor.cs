@@ -72,6 +72,8 @@ namespace Meta.XR.MRUtilityKit
             WALL_ART = 1 << OVRSemanticLabels.Classification.WallArt,
             GLOBAL_MESH = 1 << OVRSemanticLabels.Classification.SceneMesh,
             INVISIBLE_WALL_FACE = 1 << OVRSemanticLabels.Classification.InvisibleWallFace,
+            UNKNOWN = 1 << OVRSemanticLabels.Classification.Unknown,
+            INNER_WALL_FACE = 1 << OVRSemanticLabels.Classification.InnerWallFace,
         };
 
         /// <summary>
@@ -487,7 +489,7 @@ namespace Meta.XR.MRUtilityKit
             return returnSize;
         }
 
-        bool RaycastPlane(Ray localRay, float maxDist, out RaycastHit hitInfo)
+        private bool RaycastPlane(Ray localRay, float maxDist, out RaycastHit hitInfo)
         {
             hitInfo = new RaycastHit();
 
@@ -521,7 +523,7 @@ namespace Meta.XR.MRUtilityKit
             return false;
         }
 
-        bool RaycastVolume(Ray localRay, float maxDist, out RaycastHit hitInfo)
+        private bool RaycastVolume(Ray localRay, float maxDist, out RaycastHit hitInfo)
         {
             // Use the slab method to determine if the ray intersects with the bounding box
             // https://education.siggraph.org/static/HyperGraph/raytrace/rtinter3.htm
@@ -643,7 +645,7 @@ namespace Meta.XR.MRUtilityKit
             else
             {
                 return (localPosition.x >= bounds.min.x) && (localPosition.x <= bounds.max.x)
-                                                         && (localPosition.z >= bounds.min.z) && (localPosition.z <= bounds.max.z);
+                                                         && (localPosition.y >= bounds.min.y) && (localPosition.y <= bounds.max.y);
             }
         }
 

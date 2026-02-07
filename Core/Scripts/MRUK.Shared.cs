@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit
     {
         private OVRTask<LoadDeviceResult>? _loadSceneTask;
         private OVRTask<MRUKNativeFuncs.MrukResult>? _configureTrackersTask;
-        private static UInt64 _currentAppSpace;
+        private static ulong _currentAppSpace;
         private static bool _openXrInitialised;
 
         private static bool IsOpenXRAvailable
@@ -73,7 +73,13 @@ namespace Meta.XR.MRUtilityKit
                 MRUKNativeFuncs.SetLogPrinter(OnSharedLibLog);
             }
 
-            if (MRUKNativeFuncs.CreateGlobalContext() != MRUKNativeFuncs.MrukResult.Success)
+            var config = new MRUKNativeFuncs.MrukConfig
+            {
+                appDataPath = Application.persistentDataPath,
+                flipPcaTextureVertically = true,
+                isLinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear
+            };
+            if (MRUKNativeFuncs.CreateGlobalContext(ref config) != MRUKNativeFuncs.MrukResult.Success)
             {
                 Debug.LogError("Failed to create global context");
             }
@@ -99,6 +105,12 @@ namespace Meta.XR.MRUtilityKit
                     {
                         Debug.LogError("Failed to register OpenXR event handler");
                     }
+
+
+                    if (OVRPlugin.RegisterShutdownEventHandler(OnShutdownEvent) != OVRPlugin.Result.Success)
+                    {
+                        Debug.LogError("Failed to register Shutdown event handler");
+                    }
                 }
                 else
                 {
@@ -109,7 +121,8 @@ namespace Meta.XR.MRUtilityKit
             IntPtr unityInterfaces = OVRPlugin.GetUnityInterfaces();
             if (unityInterfaces != IntPtr.Zero)
             {
-                MRUKNativeFuncs.InitUnityInterfaces(unityInterfaces);
+                MRUKNativeFuncs.InitGraphicsFromUnity(unityInterfaces);
+                GL.IssuePluginEvent(Marshal.GetFunctionPointerForDelegate(MRUKNativeFuncs.CameraInitializeFromUnity), default);
             }
 
             MRUKNativeFuncs.MrukEventListener listener;
@@ -122,7 +135,6 @@ namespace Meta.XR.MRUtilityKit
             listener.onSceneAnchorUpdated = OnSceneAnchorUpdated;
             listener.onSceneAnchorRemoved = OnSceneAnchorRemoved;
             listener.onDiscoveryFinished = OnDiscoveryFinished;
-            listener.onEnvironmentRaycasterCreated = OnEnvironmentRaycasterCreated;
             listener.onTrackersConfigured = OnTrackersConfigured;
             listener.onTrackableAdded = OnTrackableAdded;
             listener.onTrackableUpdated = OnTrackableUpdated;
@@ -137,8 +149,14 @@ namespace Meta.XR.MRUtilityKit
             if (IsOpenXRAvailable)
             {
                 OVRPlugin.UnregisterOpenXREventHandler(OnOpenXrEvent);
+                OVRPlugin.UnregisterShutdownEventHandler(OnShutdownEvent);
             }
-            MRUKNativeFuncs.DestroyGlobalContext();
+
+            if (MRUKNativeFuncs.DestroyGlobalContext != null)
+            {
+                MRUKNativeFuncs.DestroyGlobalContext();
+            }
+
             MRUKNative.FreeMRUKSharedLibrary();
             _openXrInitialised = false;
             _currentAppSpace = 0;
@@ -163,12 +181,12 @@ namespace Meta.XR.MRUtilityKit
             if (MRUKNativeFuncs.TickGlobalContext != null)
             {
                 // Convert from seconds to nanoseconds
-                UInt64 predictedDisplayTime = OVRPlugin.initialized ? (UInt64)(OVRPlugin.GetPredictedDisplayTime() * 1e9) : 0;
+                ulong predictedDisplayTime = OVRPlugin.initialized ? (ulong)(OVRPlugin.GetPredictedDisplayTime() * 1e9) : 0;
                 MRUKNativeFuncs.TickGlobalContext(predictedDisplayTime);
             }
         }
 
-        private async Task<LoadDeviceResult> LoadSceneFromDeviceSharedLib(bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms, SharedRoomsData? sharedRoomsData = null)
+        private async Task<LoadDeviceResult> LoadSceneFromDeviceSharedLib(bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms, SceneModel sceneModel, SharedRoomsData? sharedRoomsData = null)
         {
             if (_loadSceneTask != null)
             {
@@ -180,7 +198,19 @@ namespace Meta.XR.MRUtilityKit
                 return LoadDeviceResult.NotInitialized;
             }
 
-            var sceneModel = MRUKNativeFuncs.MrukSceneModel.V1;
+            var mrukSceneModel = MRUKNativeFuncs.MrukSceneModel.V1;
+            switch (sceneModel)
+            {
+                case SceneModel.V1:
+                    mrukSceneModel = MRUKNativeFuncs.MrukSceneModel.V1;
+                    break;
+                case SceneModel.V2:
+                    mrukSceneModel = MRUKNativeFuncs.MrukSceneModel.V2;
+                    break;
+                case SceneModel.V2FallbackV1:
+                    mrukSceneModel = MRUKNativeFuncs.MrukSceneModel.V2FallbackV1;
+                    break;
+            }
             MRUKNativeFuncs.MrukResult discoverResult;
             if (sharedRoomsData is { } roomsData)
             {
@@ -200,12 +230,12 @@ namespace Meta.XR.MRUtilityKit
                         nativeSharedRoomsData.roomWorldPoseOnHost = FlipZRotateY180(roomsData.alignmentData.Value.floorWorldPoseOnHost);
                     }
 
-                    discoverResult = MRUKNativeFuncs.StartQueryByLocalGroup(nativeSharedRoomsData, removeMissingRooms, sceneModel);
+                    discoverResult = MRUKNativeFuncs.StartQueryByLocalGroup(nativeSharedRoomsData, removeMissingRooms, mrukSceneModel);
                 }
             }
             else
             {
-                discoverResult = MRUKNativeFuncs.StartDiscovery(removeMissingRooms, sceneModel);
+                discoverResult = MRUKNativeFuncs.StartDiscovery(removeMissingRooms, mrukSceneModel);
             }
             if (discoverResult != MRUKNativeFuncs.MrukResult.Success)
             {
@@ -239,7 +269,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     // Try again but this time don't request a space setup again if there are no rooms to avoid
                     // the user getting stuck in an infinite loop.
-                    return await LoadSceneFromDeviceSharedLib(false, removeMissingRooms);
+                    return await LoadSceneFromDeviceSharedLib(false, removeMissingRooms, sceneModel, sharedRoomsData);
                 }
             }
 
@@ -733,6 +763,49 @@ namespace Meta.XR.MRUtilityKit
                 room.transform.SetPositionAndRotation(convertedPose.position, convertedPose.rotation);
             }
 
+            if (roomAnchor.roomMesh.vertices != null && roomAnchor.roomMesh.faces != null)
+            {
+                MRUKRoom.RoomMesh roomMesh = new()
+                {
+                    // Create a new list with reserved capacity and copy vertices from the pointer
+                    Vertices = new List<Vector3>((int)roomAnchor.roomMesh.verticesCount),
+                    Faces = new List<MRUKRoom.RoomFace>((int)roomAnchor.roomMesh.facesCount)
+                };
+
+                for (int i = 0; i < roomAnchor.roomMesh.verticesCount; i++)
+                {
+                    // Flip the X axis to convert from OpenXR to Unity coordinate system
+                    roomMesh.Vertices.Add(FlipX(roomAnchor.roomMesh.vertices[i]));
+                }
+
+                for (int i = 0; i < roomAnchor.roomMesh.facesCount; i++)
+                {
+                    var face = roomAnchor.roomMesh.faces[i];
+                    MRUKRoom.RoomFace roomFace = new MRUKRoom.RoomFace
+                    {
+                        Uuid = face.uuid,
+                        ParentUuid = face.parentUuid,
+                        SemanticLabel = ConvertLabel(face.semanticLabel),
+                        Indices = new List<int>((int)face.indicesCount)
+                    };
+
+                    if (face.indices != null)
+                    {
+                        Assert.IsTrue(face.indicesCount % 3 == 0, "Number of indices must be a multiple of 3");
+                        for (int j = 0; j < face.indicesCount; j += 3)
+                        {
+                            // Change the winding order to account for OpenXR to Unity coordinate system
+                            roomFace.Indices.Add((int)face.indices[j + 0]);
+                            roomFace.Indices.Add((int)face.indices[j + 2]);
+                            roomFace.Indices.Add((int)face.indices[j + 1]);
+                        }
+                    }
+
+                    roomMesh.Faces.Add(roomFace);
+                }
+
+                room.RoomMeshData = roomMesh;
+            }
         }
 
         private static void SetLabels(MRUKAnchor anchor, MRUKNativeFuncs.MrukLabel semanticLabel)
@@ -901,6 +974,10 @@ namespace Meta.XR.MRUtilityKit
                 if (!bytes.SequenceEqual(anchor.MarkerPayloadBytes))
                 {
                     anchor.MarkerPayloadBytes = bytes.ToArray();
+                    if (payloadType == MRUKNativeFuncs.MrukMarkerPayloadType.StringQrcode && bytes.Length > 0 && bytes[^1] == 0)
+                    {
+                        bytes = new Span<byte>(payload, bytes.Length - 1);
+                    }
                     anchor.MarkerPayloadString = payloadType == MRUKNativeFuncs.MrukMarkerPayloadType.StringQrcode
                         ? Encoding.UTF8.GetString(bytes)
                         : null;
@@ -932,6 +1009,19 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKNativeFuncs.OnOpenXrEvent(data);
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+            }
+        }
+
+        [MonoPInvokeCallback(typeof(OVRPlugin.ShutdownEventDelegateType))]
+        private static void OnShutdownEvent(IntPtr context)
+        {
+            try
+            {
+                ReleaseSharedLibrary();
             }
             catch (Exception e)
             {
@@ -1036,12 +1126,12 @@ namespace Meta.XR.MRUtilityKit
 
                 if ((anchor.Label & MRUKAnchor.SceneLabels.CEILING) != 0)
                 {
-                    room.CeilingAnchor = anchor;
+                    room.CeilingAnchors.Add(anchor);
                 }
 
                 if ((anchor.Label & MRUKAnchor.SceneLabels.FLOOR) != 0)
                 {
-                    room.FloorAnchor = anchor;
+                    room.FloorAnchors.Add(anchor);
                 }
 
                 room.AnchorCreatedEvent.Invoke(anchor);
@@ -1105,11 +1195,6 @@ namespace Meta.XR.MRUtilityKit
             {
                 Debug.LogException(e);
             }
-        }
-
-        [MonoPInvokeCallback(typeof(MRUKNativeFuncs.MrukOnEnvironmentRaycasterCreated))]
-        private static void OnEnvironmentRaycasterCreated(MRUKNativeFuncs.MrukResult result, IntPtr userContext)
-        {
         }
 
         [MonoPInvokeCallback(typeof(MRUKNativeFuncs.MrukOnTrackersConfigured))]

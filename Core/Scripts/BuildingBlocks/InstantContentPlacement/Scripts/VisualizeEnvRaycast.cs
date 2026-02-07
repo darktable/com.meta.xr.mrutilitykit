@@ -42,7 +42,7 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
             if (_raycastManager == null)
             {
                 return;
-            };
+            }
             var ray = _spaceLocator.GetRaycastRay();
             bool hasHit = _raycastManager.Raycast(ray, out var hit) || hit.status == EnvironmentRaycastHitStatus.HitPointOccluded;
             bool hasNormal = hit.normalConfidence > 0f;

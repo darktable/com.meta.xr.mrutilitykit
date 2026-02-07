@@ -28,7 +28,7 @@ namespace Meta.XR.MRUtilityKit
     ///     This interface is intended to be implemented by a class that extends <see cref="AnchorPrefabSpawner" />, allowing
     ///     for custom logic to be applied when selecting, scaling, and aligning prefabs. Once the interface is implemented,
     ///     make sure to set the <see cref="AnchorPrefabSpawner.SelectionMode"/>, <see cref="AnchorPrefabSpawner.AlignMode"/>
-    ///     and <see cref="AnchorPrefabSpawner.ScalingMode"/>  to Custom.
+    ///     and <see cref="AnchorPrefabSpawner.ScalingMode"/> to Custom.
     ///     The prefab selected can also be modified before being returned.
     ///     <example>
     /// <code><![CDATA[
@@ -55,7 +55,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Scales a prefab based on custom logic.
-        ///     This method is intended to be overridden in a class that extends <see cref="AnchorPrefabSpawner" />  with custom logic for scaling a prefab.
+        ///     This method is intended to be overridden in a class that extends <see cref="AnchorPrefabSpawner" /> with custom logic for scaling a prefab.
         ///     If not overridden, it throws a NotImplementedException.
         /// </summary>
         /// <param name="localScale">The local scale of the prefab.</param>
@@ -64,7 +64,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Scales a prefab based on custom logic.
-        ///     This method is intended to be overridden a class that extends <see cref="AnchorPrefabSpawner" />  with custom logic for scaling a prefab.
+        ///     This method is intended to be overridden in a class that extends <see cref="AnchorPrefabSpawner" /> with custom logic for scaling a prefab.
         ///     If not overridden, it throws a NotImplementedException.
         /// </summary>
         /// <param name="localScale">The local scale of the prefab.</param>
@@ -73,7 +73,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Aligns a prefab to an anchor's volume, based on custom logic.
-        ///     This method is intended to be overridden a class that extends <see cref="AnchorPrefabSpawner" />  with custom logic for aligning a prefab.
+        ///     This method is intended to be overridden in a class that extends <see cref="AnchorPrefabSpawner" /> with custom logic for aligning a prefab.
         ///     If not overridden, it throws a NotImplementedException.
         /// </summary>
         /// <param name="anchorVolumeBounds">The volume bounds of the anchor.</param>
@@ -83,10 +83,10 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Aligns a prefab to an anchor's plane rect, based on custom logic.
-        ///     This method is intended to be overridden a class that extends <see cref="AnchorPrefabSpawner" />  with custom logic for aligning a prefab.
+        ///     This method is intended to be overridden in a class that extends <see cref="AnchorPrefabSpawner" /> with custom logic for aligning a prefab.
         ///     If not overridden, it throws a NotImplementedException.
         /// </summary>
-        /// <param name="anchorPlaneRect">The volume bounds of the anchor.</param>
+        /// <param name="anchorPlaneRect">The plane rect of the anchor.</param>
         /// <param name="prefabBounds">The bounds of the prefab.</param>
         /// <returns>The local position of the prefab defined as the difference between the anchor's pivot and the prefab's pivot.</returns>
         Vector3 CustomPrefabAlignment(Rect anchorPlaneRect, Bounds? prefabBounds);

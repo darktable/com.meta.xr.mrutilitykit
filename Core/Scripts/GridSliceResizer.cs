@@ -212,7 +212,7 @@ namespace Meta.XR.MRUtilityKit
         private float _cachedBorderYPositive;
         private float _cachedBorderZNegative;
         private float _cachedBorderZPositive;
-        private const float _minBorderSize = 0.01f;
+        private const float MinBorderSize = 0.01f;
         private MeshFilter _meshFilter;
         private Vector3 _currentSize;
         private Bounds _boundingBox; // the bounding box of the mesh to resize
@@ -349,12 +349,12 @@ namespace Meta.XR.MRUtilityKit
             var originalMesh = _currentMesh;
             var newSize = transform.lossyScale;
             // Clamp the border to avoid zero values (epsilon causes some issues)
-            BorderXNegative = Mathf.Max(BorderXNegative, _minBorderSize);
-            BorderYNegative = Mathf.Max(BorderYNegative, _minBorderSize);
-            BorderZNegative = Mathf.Max(BorderZNegative, _minBorderSize);
-            BorderXPositive = Mathf.Max(BorderXPositive, _minBorderSize);
-            BorderYPositive = Mathf.Max(BorderYPositive, _minBorderSize);
-            BorderZPositive = Mathf.Max(BorderZPositive, _minBorderSize);
+            BorderXNegative = Mathf.Max(BorderXNegative, MinBorderSize);
+            BorderYNegative = Mathf.Max(BorderYNegative, MinBorderSize);
+            BorderZNegative = Mathf.Max(BorderZNegative, MinBorderSize);
+            BorderXPositive = Mathf.Max(BorderXPositive, MinBorderSize);
+            BorderYPositive = Mathf.Max(BorderYPositive, MinBorderSize);
+            BorderZPositive = Mathf.Max(BorderZPositive, MinBorderSize);
 
             _pivotTransform.SetColumn(3, -PivotOffset);
             _scaledInvPivotTransform.SetColumn(3, Vector3.Scale(newSize, PivotOffset));
@@ -561,13 +561,13 @@ namespace Meta.XR.MRUtilityKit
             {
                 case Method.SLICE:
                     // The positive and negative borders are symmetrical, so one can be used
-                    DrawPositiveDrawBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
+                    DrawPositiveBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
                     DrawNegativeBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
                     break;
 
                 case Method.SLICE_WITH_ASYMMETRICAL_BORDER:
                     //Positive Border
-                    DrawPositiveDrawBorderForAxis(borderPositive, axis, originalScaledBounds, boundingBoxSize);
+                    DrawPositiveBorderForAxis(borderPositive, axis, originalScaledBounds, boundingBoxSize);
 
                     // Negative Border
                     DrawNegativeBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
@@ -603,7 +603,7 @@ namespace Meta.XR.MRUtilityKit
             Gizmos.DrawWireCube(center, boundingBoxSize);
         }
 
-        private void DrawPositiveDrawBorderForAxis(float borderNegative, int axis, Bounds originalScaledBounds,
+        private void DrawPositiveBorderForAxis(float borderNegative, int axis, Bounds originalScaledBounds,
             Vector3 boundingBoxSize)
         {
             boundingBoxSize[axis] = 0;

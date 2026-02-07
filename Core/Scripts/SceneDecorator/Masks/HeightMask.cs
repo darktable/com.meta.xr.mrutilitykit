@@ -29,17 +29,22 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class HeightMask : Mask
     {
-        public override float SampleMask(Candidate c)
+        /// <summary>
+        /// Returns the height (y-coordinate) of the candidate's hit point
+        /// </summary>
+        /// <param name="candidate">Candidate containing hit information</param>
+        /// <returns>The y-coordinate of the hit point</returns>
+        public override float SampleMask(Candidate candidate)
         {
-            return c.hit.point.y;
+            return candidate.hit.point.y;
         }
 
         /// <summary>
         /// This is not used in this mask
         /// </summary>
-        /// <param name="c">Candidate with the information from the distribution</param>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
         /// <returns>Not used</returns>
-        public override bool Check(Candidate c)
+        public override bool Check(Candidate candidate)
         {
             return true;
         }

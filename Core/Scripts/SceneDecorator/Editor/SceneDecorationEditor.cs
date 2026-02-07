@@ -70,46 +70,46 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
         private static readonly string[] excludedProperties = new string[] { "masks", "modifiers" };
 
-        private bool masksVisible;
-        private bool modifiersVisible;
+        private bool _masksVisible;
+        private bool _modifiersVisible;
 
-        GenericMenu maskAddMenu;
-        GenericMenu modifierAddMenu;
+        GenericMenu _maskAddMenu;
+        GenericMenu _modifierAddMenu;
 
-        ReorderableList maskList;
-        ReorderableList modifierList;
+        ReorderableList _maskList;
+        ReorderableList _modifierList;
 
         private void OnEnable()
         {
-            maskAddMenu = new GenericMenu();
+            _maskAddMenu = new GenericMenu();
             foreach (Type maskType in maskTypes)
             {
-                maskAddMenu.AddItem(new GUIContent(maskType.Name), false, CreateMask, maskType);
+                _maskAddMenu.AddItem(new GUIContent(maskType.Name), false, CreateMask, maskType);
             }
 
-            modifierAddMenu = new GenericMenu();
+            _modifierAddMenu = new GenericMenu();
             foreach (Type modifierType in modifierTypes)
             {
-                modifierAddMenu.AddItem(new GUIContent(modifierType.Name), false, CreateModifier, modifierType);
+                _modifierAddMenu.AddItem(new GUIContent(modifierType.Name), false, CreateModifier, modifierType);
             }
 
             SerializedProperty arrayProp = serializedObject.FindProperty("masks");
-            maskList = new ReorderableList(arrayProp.serializedObject, arrayProp, true, false, true, true)
+            _maskList = new ReorderableList(arrayProp.serializedObject, arrayProp, true, false, true, true)
             {
                 multiSelect = true,
                 drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
                 {
                     rect.x += 10;
                     rect.width -= 10;
-                    EditorGUI.PropertyField(rect, maskList.serializedProperty.GetArrayElementAtIndex(index));
+                    EditorGUI.PropertyField(rect, _maskList.serializedProperty.GetArrayElementAtIndex(index));
                 },
                 elementHeightCallback = (int index) =>
                 {
-                    return EditorGUI.GetPropertyHeight(maskList.serializedProperty.GetArrayElementAtIndex(index));
+                    return EditorGUI.GetPropertyHeight(_maskList.serializedProperty.GetArrayElementAtIndex(index));
                 },
                 onAddCallback = (ReorderableList list) =>
                 {
-                    maskAddMenu.ShowAsContext();
+                    _maskAddMenu.ShowAsContext();
                 },
                 onRemoveCallback = (ReorderableList list) =>
                 {
@@ -117,7 +117,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
                     foreach (int index in deleteIndices)
                     {
-                        DeleteSubAsset(maskList.serializedProperty.GetArrayElementAtIndex(index).objectReferenceValue);
+                        DeleteSubAsset(_maskList.serializedProperty.GetArrayElementAtIndex(index).objectReferenceValue);
                     }
 
                     ReorderableList.defaultBehaviours.DoRemoveButton(list);
@@ -125,22 +125,22 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             };
 
             arrayProp = serializedObject.FindProperty("modifiers");
-            modifierList = new ReorderableList(arrayProp.serializedObject, arrayProp, true, false, true, true)
+            _modifierList = new ReorderableList(arrayProp.serializedObject, arrayProp, true, false, true, true)
             {
                 multiSelect = true,
                 drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
                 {
                     rect.x += 10;
                     rect.width -= 10;
-                    EditorGUI.PropertyField(rect, modifierList.serializedProperty.GetArrayElementAtIndex(index));
+                    EditorGUI.PropertyField(rect, _modifierList.serializedProperty.GetArrayElementAtIndex(index));
                 },
                 elementHeightCallback = (int index) =>
                 {
-                    return EditorGUI.GetPropertyHeight(modifierList.serializedProperty.GetArrayElementAtIndex(index));
+                    return EditorGUI.GetPropertyHeight(_modifierList.serializedProperty.GetArrayElementAtIndex(index));
                 },
                 onAddCallback = (ReorderableList list) =>
                 {
-                    modifierAddMenu.ShowAsContext();
+                    _modifierAddMenu.ShowAsContext();
                 },
                 onRemoveCallback = (ReorderableList list) =>
                 {
@@ -148,7 +148,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
                     foreach (int index in deleteIndices)
                     {
-                        DeleteSubAsset(modifierList.serializedProperty.GetArrayElementAtIndex(index).objectReferenceValue);
+                        DeleteSubAsset(_modifierList.serializedProperty.GetArrayElementAtIndex(index).objectReferenceValue);
                     }
 
                     ReorderableList.defaultBehaviours.DoRemoveButton(list);
@@ -161,16 +161,16 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             serializedObject.Update();
             DrawPropertiesExcluding(serializedObject, excludedProperties);
 
-            masksVisible = EditorGUILayout.Foldout(masksVisible, "Masks", true);
-            if (masksVisible)
+            _masksVisible = EditorGUILayout.Foldout(_masksVisible, "Masks", true);
+            if (_masksVisible)
             {
-                maskList.DoLayoutList();
+                _maskList.DoLayoutList();
             }
 
-            modifiersVisible = EditorGUILayout.Foldout(modifiersVisible, "Modifiers", true);
-            if (modifiersVisible)
+            _modifiersVisible = EditorGUILayout.Foldout(_modifiersVisible, "Modifiers", true);
+            if (_modifiersVisible)
             {
-                modifierList.DoLayoutList();
+                _modifierList.DoLayoutList();
             }
 
             serializedObject.ApplyModifiedProperties();

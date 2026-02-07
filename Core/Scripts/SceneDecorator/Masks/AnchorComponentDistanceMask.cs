@@ -23,7 +23,6 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
-
     /// <summary>
     /// A mask that samples the distance between an anchor and a component
     /// </summary>

@@ -599,7 +599,7 @@ namespace Meta.XR
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsInBounds(Vector2Int texCoord) => texCoord.x >= 0 && texCoord.x < TextureSize && texCoord.y >= 0 && texCoord.x < TextureSize;
+        private static bool IsInBounds(Vector2Int texCoord) => texCoord.x >= 0 && texCoord.x < TextureSize && texCoord.y >= 0 && texCoord.y < TextureSize;
 
         private DepthRaycastResult RaycastInternal(Ray ray, out Vector3 position, float maxDistance, int eyeIndex, bool allowOccludedRayOrigin)
         {

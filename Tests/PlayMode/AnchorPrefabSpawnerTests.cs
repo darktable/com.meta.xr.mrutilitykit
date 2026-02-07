@@ -35,7 +35,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class AnchorPrefabSpawnerTests : MRUKTestBase
     {
-        private JSONTestHelper Helper;
+        private JSONTestHelper _helper;
 
         private MRUKRoom _currentRoom;
 
@@ -55,7 +55,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity", false);
-            Helper = Object.FindAnyObjectByType<JSONTestHelper>();
+            _helper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
@@ -131,8 +131,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator CountDifferentLabelsForSpawnedPrefab()
         {
             SetupAnchorPrefabSpawner();
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1.text);
 
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.GetCurrentRoom());
@@ -153,8 +152,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator CountSpawnedItemsRoom3Room1()
         {
             SetupAnchorPrefabSpawner();
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom3Room1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom3Room1.text);
 
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
@@ -197,8 +195,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                 }
             };
 
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1.text);
 
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
@@ -213,8 +210,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator CountSpawnedItemsRoom1ThenAddRoom3()
         {
             var anchorPrefabSpawner = SetupAnchorPrefabSpawner();
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1.text);
 
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
@@ -225,9 +221,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.AreEqual(createdTable, Room1TableCount);
             Assert.AreEqual(createdOther, Room1OtherCount);
 
-
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom3Room1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom3Room1.text);
 
             (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[1]);
@@ -247,8 +241,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             SetupAnchorPrefabSpawner();
 
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1.text);
 
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
@@ -259,8 +252,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.AreEqual(createdTable, Room1TableCount);
             Assert.AreEqual(createdOther, Room1OtherCount);
 
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1MoreAnchors.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1MoreAnchors.text);
 
             (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                  CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
@@ -280,8 +272,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var anchorPrefabSpawner = SetupAnchorPrefabSpawner();
 
-            MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1.text);
 
             foreach (var anchor in MRUK.Instance.GetCurrentRoom().Anchors)
             {
@@ -294,7 +285,15 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private bool HasSpawnedChild(MRUKAnchor anchorParent)
         {
-            return anchorParent.transform.Cast<Transform>().Any(child => child.name.Contains("(PrefabSpawner Clone)"));
+            for (int i = 0; i < anchorParent.transform.childCount; i++)
+            {
+                Transform child = anchorParent.transform.GetChild(i);
+                if (child.name.Contains("(PrefabSpawner Clone)"))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private AnchorPrefabSpawner SetupAnchorPrefabSpawner()
@@ -306,16 +305,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             }
             anchorPrefabSpawner.TrackUpdates = true;
             return anchorPrefabSpawner;
-        }
-
-        private IEnumerator DestroyAnchors()
-        {
-            var allObjects = Object.FindObjectsByType<MRUKAnchor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            foreach (var anchor in allObjects)
-            {
-                Object.DestroyImmediate(anchor);
-            }
-            yield return null;
         }
     }
 

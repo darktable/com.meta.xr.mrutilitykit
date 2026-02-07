@@ -203,15 +203,6 @@ namespace Meta.XR.MRUtilityKit
         };
 
         /// <summary>
-        /// This struct is used to manage which rooms and anchors are not being tracked.
-        /// </summary>
-        internal struct SceneTrackingSettings
-        {
-            internal HashSet<MRUKRoom> UnTrackedRooms;
-            internal HashSet<MRUKAnchor> UnTrackedAnchors;
-        }
-
-        /// <summary>
         ///  Defines flags for different types of surfaces that can be identified or used within a scene.
         ///  This is mainly used when querying for specifin anchors' surfaces, finding random positions, or  ray casting.
         /// </summary>
@@ -229,6 +220,26 @@ namespace Meta.XR.MRUtilityKit
             PLANE = 1 << 0,
             VOLUME = 1 << 1,
         }
+
+        /// <summary>
+        /// Enum to specify which scene model to load.
+        /// </summary>
+        public enum SceneModel
+        {
+            /// <summary>
+            /// The original simple scene where each room contains a single horizontal floor and ceiling
+            /// </summary>
+            V1,
+            /// <summary>
+            /// The High Fidelity scene model which can contain multiple floors and ceilings at different heights.
+            /// Slanted ceilings and inner wall faces to represent pillars for example.
+            /// </summary>
+            V2,
+            /// <summary>
+            /// When used for loading it will first try to load the v2 scene and if it is not found it will fall back to loading v1.
+            /// </summary>
+            V2FallbackV1,
+        };
 
         /// <summary>
         ///  Gets a value indicating whether the component has been initialized.
@@ -434,6 +445,13 @@ namespace Meta.XR.MRUtilityKit
             {
                 SingleComponentType = typeof(OVRRoomLayout)
             });
+            if (!result.Success || rooms.Count == 0)
+            {
+                result = await OVRAnchor.FetchAnchorsAsync(rooms, new OVRAnchor.FetchOptions
+                {
+                    SingleComponentType = typeof(OVRRoomMesh)
+                });
+            }
             return result.Success && rooms.Count > 0;
         }
 
@@ -485,6 +503,16 @@ namespace Meta.XR.MRUtilityKit
             [SerializeField, Tooltip("Trigger a scene load on startup. If set to false, you can call LoadSceneFromDevice(), LoadSceneFromPrefab() or LoadSceneFromJsonString() manually.")]
             public bool LoadSceneOnStartup = true;
 
+            [SerializeField, Tooltip("High Fidelity scene supports multiple floors, slanted ceilings, and inner walls.\n\n" +
+                                     "This property only applies to Load Scene On Startup. When calling LoadSceneFromDevice() directly, you can choose the scene model on a per call basis.")]
+            /// <summary>
+            /// High Fidelity scene supports multiple floors, slanted ceilings, and inner walls.
+            /// This property only applies to Load Scene On Startup. When calling LoadSceneFromDevice() directly, you can choose the scene model on a per call basis.
+            /// At the moment scene sharing is not supported for High Fidelity scene.
+            /// </summary>
+            public bool EnableHighFidelityScene;
+            internal const string HighFidelitySceneSharingError = "High Fidelity scene doesn't support sharing. Please disable the '" + nameof(EnableHighFidelityScene) + "' setting to be able to share rooms.";
+
             [Space]
             [Header("Other settings")]
             [SerializeField, Tooltip("The width of a seat. Used to calculate seat positions with the COUCH label.")]
@@ -492,7 +520,6 @@ namespace Meta.XR.MRUtilityKit
             /// The width of a seat. Used to calculate seat positions with the COUCH label. Default is 0.6f.
             /// </summary>
             public float SeatWidth = 0.6f;
-
 
             // SceneJson has been replaced with `TextAsset[] SceneJsons` defined above
             [SerializeField, HideInInspector, Obsolete]
@@ -685,7 +712,8 @@ namespace Meta.XR.MRUtilityKit
                 if (EnableWorldLock)
                 {
                     Pose sharedLibOffset = Pose.identity;
-                    if (MRUKNativeFuncs.GetWorldLockOffset(ref sharedLibOffset))
+                    if ((MRUKNativeFuncs.GetWorldLockOffset != null) &&
+                        (MRUKNativeFuncs.GetWorldLockOffset(ref sharedLibOffset)))
                     {
                         if (_prevTrackingSpacePose is Pose pose && (trackingSpace.position != pose.position || trackingSpace.rotation != pose.rotation))
                         {
@@ -730,7 +758,12 @@ namespace Meta.XR.MRUtilityKit
                     dataSource == SceneDataSource.DeviceWithPrefabFallback ||
                     dataSource == SceneDataSource.DeviceWithJsonFallback)
                 {
-                    await LoadSceneFromDevice();
+                    var sceneModel = SceneModel.V1;
+                    if (SceneSettings.EnableHighFidelityScene)
+                    {
+                        sceneModel = SceneModel.V2FallbackV1;
+                    }
+                    await LoadSceneFromDevice(sceneModel: sceneModel);
                 }
 
                 if (dataSource == SceneDataSource.Prefab ||
@@ -790,10 +823,8 @@ namespace Meta.XR.MRUtilityKit
             var idx = SceneSettings.RoomIndex;
             if (idx == -1)
             {
-                idx = UnityEngine.Random.Range(0,
-                    fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
-                currentRoomLoadedIndex = UnityEngine.Random.Range(0,
-                    fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
+                int length = fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length;
+                idx = UnityEngine.Random.Range(0, length);
             }
 
             return idx;
@@ -810,6 +841,35 @@ namespace Meta.XR.MRUtilityKit
             }
             IsInitialized = false;
         }
+
+        /// <summary>
+        /// When set, world locking will use the anchor provided here instead of the
+        /// computed default one. Revert to the default anchor by calling SetCustomWorldLockAnchor(null, Pose.identity).
+        /// The tracking space will be shifted by poseOffset and then every frame will subsequently be shifted to compensate for
+        /// drifting, ensuring that your virtual content stays locked to the real world IF the WorldLocking feature is enabled
+        /// on MRUK.
+        /// </summary>
+        /// <param name="anchor"> If set to null, will revert to default</param>
+        /// <param name="poseOffset"> The offset to apply in addition to what world locking applies </param>
+        public void SetCustomWorldLockAnchor(OVRSpatialAnchor anchor, Pose poseOffset)
+        {
+            bool isSetAnchorSuccessful;
+            if (anchor == null)
+            {
+                isSetAnchorSuccessful = MRUKNativeFuncs.SetCustomWorldLockAnchor(0, Pose.identity);
+            }
+            else
+            {
+                var flippedZPose = FlipZ(poseOffset);
+                isSetAnchorSuccessful = MRUKNativeFuncs.SetCustomWorldLockAnchor(anchor._anchor.Handle, flippedZPose);
+            }
+
+
+            OVRTelemetry.Start(TelemetryConstants.MarkerId.SetCustomWorldLockAnchor)
+                .SetResult(isSetAnchorSuccessful ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
+                .Send();
+        }
+
 
         /// <summary>
         /// Loads the scene based on scene data previously shared with the user via
@@ -830,7 +890,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="alignmentData">Use this parameter to correctly align local and host coordinates when using co-location.<br/>
         /// - `alignmentRoomUuid`: the UUID of the room used for alignment.<br/>
         /// - `floorWorldPoseOnHost`: world-space pose of the FloorAnchor on the host device.<br/>
-        /// Using 'null' will disable the alignment, causing the mismatch between the host and the guest. Do this only if your app has custom coordinate alignment.</param>
+        /// Using 'null' will disable the alignment, causing the mismatch between the host and the guest.</param>
         /// <param name="removeMissingRooms">
         ///     When enabled, rooms that are already loaded but are not found in the shared group will be removed.
         ///     This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
@@ -850,7 +910,7 @@ namespace Meta.XR.MRUtilityKit
                 throw new ArgumentException(nameof(alignmentData.Value.alignmentRoomUuid));
             }
 
-            return await LoadSceneFromDeviceInternal(requestSceneCaptureIfNoDataFound: false, removeMissingRooms, new SharedRoomsData { roomUuids = roomUuids, groupUuid = groupUuid, alignmentData = alignmentData });
+            return await LoadSceneFromDeviceInternal(requestSceneCaptureIfNoDataFound: false, removeMissingRooms, SceneModel.V1, new SharedRoomsData { roomUuids = roomUuids, groupUuid = groupUuid, alignmentData = alignmentData });
         }
 
         /// <summary>
@@ -867,7 +927,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="alignmentData">Use this parameter to correctly align local and host coordinates when using co-location.<br/>
         /// - `alignmentRoomUuid`: the UUID of the room used for alignment.<br/>
         /// - `floorWorldPoseOnHost`: world-space pose of the FloorAnchor on the host device.<br/>
-        /// Using 'null' will disable the alignment, causing the mismatch between the host and the guest. Do this only if your app has custom coordinate alignment.</param>
+        /// Using 'null' will disable the alignment, causing the mismatch between the host and the guest.</param>
         /// <param name="removeMissingRooms">
         ///     When enabled, rooms that are already loaded but are not found in the shared group will be removed.
         ///     This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
@@ -899,6 +959,10 @@ namespace Meta.XR.MRUtilityKit
         public async OVRTask<OVRResult<OVRAnchor.ShareResult>> ShareRoomsAsync(IEnumerable<MRUKRoom> rooms,
             Guid groupUuid)
         {
+            if (SceneSettings.EnableHighFidelityScene)
+            {
+                Debug.LogWarning(MRUKSettings.HighFidelitySceneSharingError);
+            }
 
             if (rooms == null)
             {
@@ -953,16 +1017,22 @@ namespace Meta.XR.MRUtilityKit
         ///     When enabled, rooms that are already loaded but are not found in newSceneData will be removed.
         ///     This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
         /// </param>
+        /// <param name="sceneModel">
+        ///     Select which scene model to load from the device. V2 corresponds to High Fidelity scene and captures more details of the room.
+        /// </param>
         /// <returns>An enum indicating whether loading was successful or not.</returns>
-        public async Task<LoadDeviceResult> LoadSceneFromDevice(bool requestSceneCaptureIfNoDataFound = true, bool removeMissingRooms = true)
-            => await LoadSceneFromDeviceInternal(requestSceneCaptureIfNoDataFound, removeMissingRooms);
+        public async Task<LoadDeviceResult> LoadSceneFromDevice(bool requestSceneCaptureIfNoDataFound = true, bool removeMissingRooms = true, SceneModel sceneModel = SceneModel.V1)
+            => await LoadSceneFromDeviceInternal(requestSceneCaptureIfNoDataFound, removeMissingRooms, sceneModel);
 
         private async Task<LoadDeviceResult> LoadSceneFromDeviceInternal(
-            bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms
-            , SharedRoomsData? sharedRoomsData = null
+            bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms, SceneModel sceneModel, SharedRoomsData? sharedRoomsData = null
         )
         {
-            var result = await LoadSceneFromDeviceSharedLib(requestSceneCaptureIfNoDataFound, removeMissingRooms, sharedRoomsData);
+            if (sceneModel == SceneModel.V2 || sceneModel == SceneModel.V2FallbackV1)
+            {
+                OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadHiFiScene).Send();
+            }
+            var result = await LoadSceneFromDeviceSharedLib(requestSceneCaptureIfNoDataFound, removeMissingRooms, sceneModel, sharedRoomsData);
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromDevice)
                 .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count.ToString())
                 .SetResult(result == LoadDeviceResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
@@ -978,6 +1048,7 @@ namespace Meta.XR.MRUtilityKit
 
             FindObjects(MRUKAnchor.SceneLabels.WALL_FACE.ToString(), roomPrefab.transform, ref walls);
             FindObjects(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE.ToString(), roomPrefab.transform, ref walls);
+            FindObjects(MRUKAnchor.SceneLabels.INNER_WALL_FACE.ToString(), roomPrefab.transform, ref walls);
             FindObjects(MRUKAnchor.SceneLabels.OTHER.ToString(), roomPrefab.transform, ref volumes);
             FindObjects(MRUKAnchor.SceneLabels.TABLE.ToString(), roomPrefab.transform, ref volumes);
             FindObjects(MRUKAnchor.SceneLabels.COUCH.ToString(), roomPrefab.transform, ref volumes);

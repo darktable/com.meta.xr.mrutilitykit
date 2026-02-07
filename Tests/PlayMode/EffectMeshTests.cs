@@ -36,12 +36,11 @@ namespace Meta.XR.MRUtilityKit.Tests
         private MRUKRoom _currentRoom;
         private JSONTestHelper _jsonTestHelper;
 
-        private static int Room1VertCountWall = 4;
-        private static int Room1VertCountFloor = 8;
-        private static int Room1VertCountCeiling = 8;
-        private static int Room1VertCountTable = 24;
-        private static int Room1VertCountOther = 24;
-
+        private static readonly int Room1VertCountWall = 4;
+        private static readonly int Room1VertCountFloor = 8;
+        private static readonly int Room1VertCountCeiling = 8;
+        private static readonly int Room1VertCountTable = 24;
+        private static readonly int Room1VertCountOther = 24;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -61,10 +60,10 @@ namespace Meta.XR.MRUtilityKit.Tests
         private int GetRoom1Vertices()
         {
             return 7 * Room1VertCountWall
-                + Room1VertCountFloor
-                + Room1VertCountCeiling
-                + Room1VertCountTable
-                + 2 * Room1VertCountOther;
+                   + Room1VertCountFloor
+                   + Room1VertCountCeiling
+                   + Room1VertCountTable
+                   + 2 * Room1VertCountOther;
         }
         private int GetRoom1VerticesMoreAnchors()
         {
@@ -77,12 +76,12 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private int GetRoom1Room3Vertices()
         {
-            return 7 * Room1VertCountWall //room1
+            return 7 * Room1VertCountWall // room1
                    + Room1VertCountFloor
                    + Room1VertCountCeiling
                    + Room1VertCountTable
                    + 2 * Room1VertCountOther
-                   + 7 * Room1VertCountWall //room3
+                   + 7 * Room1VertCountWall // room3
                    + Room1VertCountFloor
                    + Room1VertCountCeiling
                    + Room1VertCountTable
@@ -92,8 +91,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         private int GetDefaultRoomVertices()
         {
             return 7 * Room1VertCountWall
-                + Room1VertCountFloor
-                + Room1VertCountCeiling;
+                   + Room1VertCountFloor
+                   + Room1VertCountCeiling;
         }
 
         /// <summary>
@@ -253,7 +252,6 @@ namespace Meta.XR.MRUtilityKit.Tests
                     break;
                 }
             }
-
 
             Assert.AreEqual(1, manualCreateEffectMesh.Count);
 

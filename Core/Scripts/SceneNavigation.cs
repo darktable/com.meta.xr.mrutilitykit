@@ -205,6 +205,7 @@ namespace Meta.XR.MRUtilityKit
         private EffectMesh _effectMesh;
         private readonly List<NavMeshBuildSource> _sources = new();
         private readonly List<Mesh> _connectionMeshes = new();
+        private HashSet<MRUKRoom> _builtRooms = new();
 
         /// <summary>
         /// Event triggered when the navigation mesh has been initialized.
@@ -225,7 +226,6 @@ namespace Meta.XR.MRUtilityKit
             get;
             private set;
         } = new();
-
 
         /// <summary>
         /// Gets a dictionary mapping <see cref="MRUKAnchor"/> objects to their corresponding GameObjects that represent surfaces in the environment.
@@ -306,7 +306,7 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            BuildSceneNavMeshForRoom(room);
+            BuildSceneNavMeshForRoom(room, false);
         }
 
         private void ReceiveUpdatedRoom(MRUKRoom room)
@@ -383,33 +383,89 @@ namespace Meta.XR.MRUtilityKit
         /// </remarks>
         public void BuildSceneNavMeshForRoom(MRUKRoom room = null)
         {
+            BuildSceneNavMeshForRoom(room, true);
+        }
+
+        /// <summary>
+        ///     Creates a navigation mesh for the scene with option to preserve existing navmesh data.
+        /// </summary>
+        /// <param name="room">
+        ///     Optional parameter for the MRUKRoom to create the NavMesh for.
+        ///      If not provided, obstacles will be created for all rooms.
+        /// </param>
+        /// <param name="clearExistingNavMesh">
+        ///     If true, clears existing NavMesh data before building. If false, adds to existing NavMesh.
+        ///     Default is true to maintain backward compatibility.
+        /// </param>
+        /// <remarks>
+        ///     This method creates a navigation mesh by collecting geometry from the scene,
+        ///     building the navigation mesh data, and adding it to the NavMesh.
+        ///     When clearExistingNavMesh is false, this allows building navmesh for individual rooms
+        ///     without clearing previously built room navmeshes.
+        /// </remarks>
+        public void BuildSceneNavMeshForRoom(MRUKRoom room, bool clearExistingNavMesh)
+        {
             if (!MRUK.Instance)
             {
                 throw new NullReferenceException("MRUK instance is not initialized.");
             }
-            var rooms = room != null ? new List<MRUKRoom> { room } : MRUK.Instance.Rooms;
-            if (rooms.Count == 0)
+
+            CreateNavMeshSurface();
+
+            if (clearExistingNavMesh)
+            {
+                RemoveNavMeshData();
+            }
+
+            var roomsToProcess = new HashSet<MRUKRoom>();
+
+            if (clearExistingNavMesh)
+            {
+                if (room != null)
+                {
+                    roomsToProcess.Add(room);
+                }
+                else
+                {
+                    roomsToProcess.UnionWith(MRUK.Instance.Rooms);
+                }
+                _builtRooms.Clear();
+            }
+            else
+            {
+                // Always start with existing built rooms
+                roomsToProcess.UnionWith(_builtRooms);
+
+                if (room != null)
+                {
+                    roomsToProcess.Add(room);
+                }
+                else
+                {
+                    roomsToProcess.UnionWith(MRUK.Instance.Rooms);
+                }
+            }
+
+            if (roomsToProcess.Count == 0)
             {
                 throw new InvalidOperationException("No rooms available for NavMesh building.");
             }
 
-            CreateNavMeshSurface(); // in case no NavMeshSurface component was found, create a new one
-            RemoveNavMeshData(); // clean up previous data
-            var navMeshBounds =
-                ResizeNavMeshFromRoomBounds(ref _navMeshSurface, rooms); // resize the nav mesh to fit the room
+            var roomsList = new List<MRUKRoom>(roomsToProcess);
+            var navMeshBounds = ResizeNavMeshFromRoomBounds(ref _navMeshSurface, roomsList);
+
             _sources.Clear();
             var navMeshBuildSettings = !CustomAgent
                 ? NavMesh.GetSettingsByIndex(AgentIndex)
                 : CreateNavMeshBuildSettings(AgentRadius, AgentHeight, AgentMaxSlope, AgentClimb);
 
             _navMeshSurface.agentTypeID = navMeshBuildSettings.agentTypeID;
-
             ValidateBuildSettings(navMeshBuildSettings, navMeshBounds);
 
             if (UseSceneData)
             {
-                CreateObstacles(rooms);
-                CollectSceneSources(rooms, _sources);
+                HandleObstacleCreation(roomsToProcess, clearExistingNavMesh);
+                CollectSceneSources(roomsList, _sources);
             }
             else
             {
@@ -422,12 +478,56 @@ namespace Meta.XR.MRUtilityKit
 #endif
             }
 
-
             var data = NavMeshBuilder.BuildNavMeshData(navMeshBuildSettings, _sources, navMeshBounds,
                 Vector3.zero, Quaternion.identity);
+
+            _navMeshSurface.RemoveData();
             _navMeshSurface.navMeshData = data;
             _navMeshSurface.AddData();
+
+            _builtRooms = roomsToProcess;
+
             InitializeNavMesh(navMeshBuildSettings.agentTypeID);
+        }
+
+        /// <summary>
+        /// Handles obstacle creation for rooms, only creating obstacles for new rooms when not clearing.
+        /// </summary>
+        /// <param name="roomsToProcess">The rooms that need navmesh processing</param>
+        /// <param name="clearExistingNavMesh">Whether existing navmesh data is being cleared</param>
+        private void HandleObstacleCreation(HashSet<MRUKRoom> roomsToProcess, bool clearExistingNavMesh)
+        {
+            if (clearExistingNavMesh)
+            {
+                CreateObstaclesForRooms(roomsToProcess);
+            }
+            else
+            {
+                // Only create obstacles for rooms that don't already have them
+                var newRooms = new HashSet<MRUKRoom>(roomsToProcess);
+                newRooms.ExceptWith(_builtRooms);
+
+                if (newRooms.Count > 0)
+                {
+                    CreateObstaclesForRooms(newRooms);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates obstacles for a set of rooms efficiently.
+        /// </summary>
+        /// <param name="rooms">The rooms to create obstacles for</param>
+        private void CreateObstaclesForRooms(HashSet<MRUKRoom> rooms)
+        {
+            ObstacleRoot.transform.SetParent(transform);
+            foreach (var room in rooms)
+            {
+                foreach (var anchor in room.Anchors)
+                {
+                    CreateObstacle(anchor);
+                }
+            }
         }
 
         /// <summary>
@@ -539,6 +639,8 @@ namespace Meta.XR.MRUtilityKit
             {
                 ClearObstacles();
             }
+
+            _builtRooms.Clear();
         }
 
         /// <summary>
@@ -623,9 +725,9 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void CreateObstacles(MRUKRoom room = null)
         {
-            var rooms = room == null
+            var rooms = room != null
                 ? new List<MRUKRoom>() { room }
-                : new List<MRUKRoom>() { MRUK.Instance.GetCurrentRoom() };
+                : MRUK.Instance.Rooms;
             CreateObstacles(rooms);
         }
 
@@ -715,47 +817,6 @@ namespace Meta.XR.MRUtilityKit
             obstacle.size = obstacleSize;
             obstacle.center = obstacleCenter;
             Obstacles.Add(anchor, obstacleGO);
-        }
-
-        /// <summary>
-        ///     This method creates the bottom part of the tunnel that connects two rooms together.
-        ///     See <see cref="EffectMesh.CreateRoomConnections"/> for the full implementation.
-        ///     </summary>
-        ///     <param name="connections">The connections between the rooms.</param>
-        ///     <returns>A list containing all the meshes representing the bridges between rooms.</returns>
-        private List<Mesh> CreateRoomBridges(List<(MRUKAnchor, MRUKAnchor)> connections)
-        {
-            _connectionMeshes.Clear();
-            var vertices = new Vector3[4];
-            var triangles = new int[] { 0, 2, 1, 1, 2, 3 }; // triangulation of the bottom part is fixed
-            for (var i = 0; i < connections.Count; i++)
-            {
-                var anchor1 = connections[i].Item1;
-                var anchor2 = connections[i].Item2;
-                if (!anchor1.PlaneRect.HasValue || !anchor2.PlaneRect.HasValue)
-                {
-                    continue;
-                }
-
-                var anchor1Points = anchor1.PlaneBoundary2D;
-                var anchor2Boundary = anchor2.PlaneBoundary2D;
-
-                var newMesh = new Mesh();
-                // Define the bottom part of the tunnel
-                vertices[0] = anchor1.transform.TransformPoint(new Vector3(anchor1Points[0].x, anchor1Points[0].y, 0));
-                vertices[1] =
-                    anchor2.transform.TransformPoint(new Vector3(anchor2Boundary[1].x, anchor2Boundary[1].y, 0));
-                vertices[2] = anchor1.transform.TransformPoint(new Vector3(anchor1Points[1].x, anchor1Points[1].y, 0));
-                vertices[3] =
-                    anchor2.transform.TransformPoint(new Vector3(anchor2Boundary[0].x, anchor2Boundary[0].y, 0));
-                newMesh.vertices = vertices;
-                newMesh.triangles = triangles;
-                newMesh.RecalculateNormals();
-
-                _connectionMeshes.Add(newMesh);
-            }
-
-            return _connectionMeshes;
         }
 
         /// </summary>

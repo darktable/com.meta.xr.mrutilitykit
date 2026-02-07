@@ -47,13 +47,46 @@ namespace Meta.XR.MRUtilityKit
     {
         /// <summary>
         /// Triangulates a set of points using the ear clipping algorithm.
+        /// This method uses unsafe code to interface with native functions for optimal performance.
         /// </summary>
-        /// <param name="vertices">The list of vertices that define the outline of a polygon to triangulate.</param>
-        /// <param name="holes">The list of internal polygon holes that should not be triangulated.</param>
-        /// <param name="outVertices">The list of vertices created from the triangulation.</param>
-        /// <param name="outIndices">The list of indices created from the triangulation.</param>
+        /// <param name="vertices">The list of vertices that define the outline of a polygon to triangulate. Must not be null or empty, and should contain at least 3 vertices for a valid polygon.</param>
+        /// <param name="holes">The list of internal polygon holes that should not be triangulated. Can be null if no holes are present. If provided, must not contain null lists, and each hole should contain at least 3 vertices.</param>
+        /// <param name="outVertices">The list of vertices created from the triangulation. Will be populated with the triangulated mesh vertices.</param>
+        /// <param name="outIndices">The list of indices created from the triangulation. Will be populated with triangle indices referencing the output vertices.</param>
+        /// <exception cref="ArgumentNullException">Thrown when vertices is null, or when holes contains a null list.</exception>
+        /// <exception cref="ArgumentException">Thrown when vertices is empty, or when any hole list is empty.</exception>
+        /// <remarks>
+        /// The triangulation algorithm expects polygons to be defined in a consistent winding order.
+        /// Edge cases such as self-intersecting polygons or degenerate triangles may produce unexpected results.
+        /// The method allocates new arrays for the output parameters on each call.
+        /// </remarks>
         public static unsafe void TriangulatePoints(List<Vector2> vertices, List<List<Vector2>> holes, out Vector2[] outVertices, out int[] outIndices)
         {
+            // Input validation
+            if (vertices == null)
+                throw new ArgumentNullException(nameof(vertices), "Vertices list cannot be null.");
+
+            if (vertices.Count == 0)
+                throw new ArgumentException("Vertices list cannot be empty. At least 3 vertices are required for triangulation.", nameof(vertices));
+
+            if (vertices.Count < 3)
+                throw new ArgumentException("At least 3 vertices are required for triangulation.", nameof(vertices));
+
+            if (holes != null)
+            {
+                for (int i = 0; i < holes.Count; i++)
+                {
+                    if (holes[i] == null)
+                        throw new ArgumentNullException(nameof(holes), $"Hole at index {i} cannot be null.");
+
+                    if (holes[i].Count == 0)
+                        throw new ArgumentException($"Hole at index {i} cannot be empty. At least 3 vertices are required for each hole.", nameof(holes));
+
+                    if (holes[i].Count < 3)
+                        throw new ArgumentException($"Hole at index {i} must contain at least 3 vertices.", nameof(holes));
+                }
+            }
+
             int numPolygons = holes != null ? holes.Count + 1 : 1;
             var polygons = new MRUKNativeFuncs.MrukPolygon2f[numPolygons];
             polygons[0].numPoints = (uint)vertices.Count;

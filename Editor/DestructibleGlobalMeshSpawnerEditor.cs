@@ -137,6 +137,5 @@ namespace Meta.XR.MRUtilityKit
             serializedObject.ApplyModifiedProperties(); // Write back modified values and handle undo/redo
         }
 
-
     }
 }

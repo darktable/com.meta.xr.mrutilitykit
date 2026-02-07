@@ -38,10 +38,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// This method applies the mask to the given candidate.
         /// It first generates an affine transformation based on the provided parameters,
         /// and then applies this transformation to the local position of the candidate.
-        /// If there are no mask layers, it returns 0. Otherwise, it returns negative infinity.
+        /// The resulting position is used to sample each layer in the mask, and the maximum value
+        /// of all layers is returned. If there are no mask layers, it returns 0.
         /// </summary>
         /// <param name="c">The candidate to apply the mask to.</param>
-        /// <returns>The mask value for the given candidate.</returns>
+        /// <returns>The maximum mask value for the given candidate.</returns>
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);
@@ -49,7 +50,20 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             tuv /= tuv.z;
             c.localPos = new Vector2(tuv.x, tuv.y);
 
-            var value = maskLayers.Length <= 0 ? 0f : float.NegativeInfinity;
+            if (maskLayers.Length <= 0)
+            {
+                return 0f;
+            }
+
+            var value = float.NegativeInfinity;
+            foreach (var layer in maskLayers)
+            {
+                var layerValue = layer.SampleMask(c);
+                if (layerValue > value)
+                {
+                    value = layerValue;
+                }
+            }
 
             return value;
         }

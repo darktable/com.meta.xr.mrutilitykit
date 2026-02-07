@@ -29,12 +29,22 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class RayDistanceMask : Mask
     {
-        public override float SampleMask(Candidate c)
+        /// <summary>
+        /// Returns the distance of the raycast hit from the candidate.
+        /// </summary>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
+        /// <returns>The distance of the raycast hit</returns>
+        public override float SampleMask(Candidate candidate)
         {
-            return c.hit.distance;
+            return candidate.hit.distance;
         }
 
-        public override bool Check(Candidate c)
+        /// <summary>
+        /// Always returns true as this mask does not filter candidates.
+        /// </summary>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
+        /// <returns>Always returns true</returns>
+        public override bool Check(Candidate candidate)
         {
             return true;
         }

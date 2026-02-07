@@ -115,7 +115,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             Assert.IsNotNull(_testMesh);
             Assert.IsNotNull(_resizer);
-            var resizedMesh = SetUpGridSliceResizer(_cubeUpscaledCenterStretch);
+            var resizedMesh = SetUpGridSliceResizer(CubeUpscaledCenterStretch);
 
             Assert.That(_testMesh.vertices, Is.EqualTo(resizedMesh.Vertices).Using(Vector3EqualityComparer.Instance));
             Assert.That(_testMesh.triangles, Is.EqualTo(resizedMesh.Triangles).Using(Vector3EqualityComparer.Instance));
@@ -132,7 +132,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             Assert.IsNotNull(_testMesh);
             Assert.IsNotNull(_resizer);
-            var resizedMesh = SetUpGridSliceResizer(_cubeDownscaledCenter);
+            var resizedMesh = SetUpGridSliceResizer(CubeDownscaledCenter);
 
             Assert.That(_testMesh.vertices, Is.EqualTo(resizedMesh.Vertices).Using(Vector3EqualityComparer.Instance));
             Assert.That(_testMesh.triangles, Is.EqualTo(resizedMesh.Triangles).Using(Vector3EqualityComparer.Instance));
@@ -149,7 +149,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             Assert.IsNotNull(_testMesh);
             Assert.IsNotNull(_resizer);
-            var resizedMesh = SetUpGridSliceResizer(_cubeUpscaledOffset);
+            var resizedMesh = SetUpGridSliceResizer(CubeUpscaledOffset);
 
             Assert.That(_testMesh.vertices, Is.EqualTo(resizedMesh.Vertices).Using(Vector3EqualityComparer.Instance));
             Assert.That(_testMesh.triangles, Is.EqualTo(resizedMesh.Triangles).Using(Vector3EqualityComparer.Instance));
@@ -166,7 +166,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             Assert.IsNotNull(_testMesh);
             Assert.IsNotNull(_resizer);
-            var resizedMesh = SetUpGridSliceResizer(_cubeUpscaledOffsetOutside);
+            var resizedMesh = SetUpGridSliceResizer(CubeUpscaledOffsetOutside);
 
             Assert.That(_testMesh.vertices, Is.EqualTo(resizedMesh.Vertices).Using(Vector3EqualityComparer.Instance));
             Assert.That(_testMesh.triangles, Is.EqualTo(resizedMesh.Triangles).Using(Vector3EqualityComparer.Instance));
@@ -199,7 +199,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             return resizedMesh;
         }
 
-        private const string _cubeUpscaledCenterStretch = @"{
+        private const string CubeUpscaledCenterStretch = @"{
   ""Scale"": [2.0,2.0,2.0],
   ""Vertices"": [
     [-0.5,-0.4,0.0500000119],
@@ -2586,7 +2586,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
 ";
 
-        private const string _cubeDownscaledCenter = @"{
+        private const string CubeDownscaledCenter = @"{
   ""Scale"": [0.5,1.0,0.75],
   ""Vertices"": [
     [-0.5,-0.3,0.0500000119],
@@ -4973,7 +4973,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
 ";
 
-        private const string _cubeUpscaledOffset = @"{
+        private const string CubeUpscaledOffset = @"{
   ""Scale"": [2.0,2.0,2.0],
   ""Vertices"": [
     [-0.6999999,-0.6,-0.149999991],
@@ -7360,7 +7360,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
 ";
 
-        private const string _cubeUpscaledOffsetOutside = @"{
+        private const string CubeUpscaledOffsetOutside = @"{
   ""Scale"": [2.0,2.0,2.0],
   ""Vertices"": [
     [-1.0,-0.9,-0.45],

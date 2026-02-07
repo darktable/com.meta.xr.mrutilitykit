@@ -33,7 +33,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     {
         [SerializeField] public float stepSize;
 
-        private const float regionRadius = 0.7071067811865475244f; //sqrt(2f*0.5f*0.5f)
+        private const float RegionRadius = 0.7071067811865475244f; //sqrt(2f*0.5f*0.5f)
 
         public void Distribute(SceneDecorator sceneDecorator, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration)
         {
@@ -48,11 +48,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             var circle0RegionDist = circle0Pos.sqrMagnitude;
             var circle1RegionDist = circle1Pos.sqrMagnitude;
 
-            var circle0End = (int)Mathf.Floor((circle0RegionDist + regionRadius) / stepSize);
-            var circle1End = (int)Mathf.Floor((circle1RegionDist + regionRadius) / stepSize);
-            circle1RegionDist -= regionRadius;
+            var circle0End = (int)Mathf.Floor((circle0RegionDist + RegionRadius) / stepSize);
+            var circle1End = (int)Mathf.Floor((circle1RegionDist + RegionRadius) / stepSize);
+            circle1RegionDist -= RegionRadius;
 
-            for (int circle0Step = (int)Mathf.Ceil((circle0RegionDist - regionRadius) / stepSize);
+            for (int circle0Step = (int)Mathf.Ceil((circle0RegionDist - RegionRadius) / stepSize);
                  circle0Step < circle0End;
                  ++circle0Step)
             {
