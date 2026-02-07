@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 8168381574322655306}
   - component: {fileID: 7401765639848168596}
   - component: {fileID: 8168381574322655305}
-  - component: {fileID: 7401765639848168597}
   m_Layer: 0
   m_Name: Spawner_VirtualHomeFurniture
   m_TagString: Untagged
@@ -59,6 +58,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3d607ba0c0320e446ba9d62671d9d7a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  SpawnOnStart: 2
   PrefabsToSpawn:
   - Labels: 4
     Prefabs:
@@ -164,30 +164,3 @@ MonoBehaviour:
   onPrefabSpawned:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &7401765639848168597
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8168381574322655308}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c55c994d76dd43da9cfea6b3e8f32b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneLoadedEvent:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 8168381574322655305}
-        m_TargetAssemblyTypeName: Meta.XR.SceneToolkit.AnchorPrefabSpawner, meta.xr.scenetoolkit
-        m_MethodName: SpawnPrefabs
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2

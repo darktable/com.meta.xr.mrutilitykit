@@ -39,6 +39,34 @@ namespace Meta.XR.MRUtilityKit
             Unreal,
         }
 
+        private class GuidConverter : JsonConverter<Guid>
+        {
+            public override void WriteJson(JsonWriter writer, Guid value, JsonSerializer serializer)
+            {
+                writer.WriteValue(value.ToString("N").ToUpper());
+            }
+
+            public override Guid ReadJson(JsonReader reader, Type objectType, Guid existingValue, bool hasExistingValue, JsonSerializer serializer)
+            {
+                var uuidStr = (string)reader.Value;
+                return uuidStr != null ? Guid.Parse(uuidStr) : Guid.Empty;
+            }
+        }
+
+        private class OVRAnchorConverter : JsonConverter<OVRAnchor>
+        {
+            public override void WriteJson(JsonWriter writer, OVRAnchor value, JsonSerializer serializer)
+            {
+                writer.WriteValue(value.Uuid.ToString("N").ToUpper());
+            }
+
+            public override OVRAnchor ReadJson(JsonReader reader, Type objectType, OVRAnchor existingValue, bool hasExistingValue, JsonSerializer serializer)
+            {
+                var uuidStr = (string)reader.Value;
+                return new OVRAnchor(0, uuidStr != null ? Guid.Parse(uuidStr) : Guid.Empty);
+            }
+        }
+
         private class Vector2Converter : JsonConverter<Vector2>
         {
             public override void WriteJson(JsonWriter writer, Vector2 value, JsonSerializer serializer)
@@ -55,9 +83,11 @@ namespace Meta.XR.MRUtilityKit
 
             public override Vector2 ReadJson(JsonReader reader, Type objectType, Vector2 existingValue, bool hasExistingValue, JsonSerializer serializer)
             {
-                Vector2 result = new();
-                result.x = (float)reader.ReadAsDouble();
-                result.y = (float)reader.ReadAsDouble();
+                Vector2 result = new()
+                {
+                    x = (float)reader.ReadAsDouble(),
+                    y = (float)reader.ReadAsDouble()
+                };
                 reader.Read();
                 if (reader.TokenType != JsonToken.EndArray)
                 {
@@ -84,10 +114,12 @@ namespace Meta.XR.MRUtilityKit
 
             public override Vector3 ReadJson(JsonReader reader, Type objectType, Vector3 existingValue, bool hasExistingValue, JsonSerializer serializer)
             {
-                Vector3 result = new();
-                result.x = (float)reader.ReadAsDouble();
-                result.y = (float)reader.ReadAsDouble();
-                result.z = (float)reader.ReadAsDouble();
+                Vector3 result = new()
+                {
+                    x = (float)reader.ReadAsDouble(),
+                    y = (float)reader.ReadAsDouble(),
+                    z = (float)reader.ReadAsDouble()
+                };
                 reader.Read();
                 if (reader.TokenType != JsonToken.EndArray)
                 {
@@ -182,6 +214,16 @@ namespace Meta.XR.MRUtilityKit
 
         public const float UnrealWorldToMeters = 100f;
 
+        private static List<JsonConverter> _converters = new()
+        {
+            new GuidConverter(),
+            new OVRAnchorConverter(),
+            new Vector2Converter(),
+            new Vector3Converter(),
+            new IntArrayConverter(),
+            new Vector3ArrayConverter()
+        };
+
         /// <summary>
         /// Serializes the scene data into a JSON string. The scene data includes rooms, anchors, and their associated properties.
         /// The method allows for the specification of the coordinate system (Unity or Unreal) and whether to include the global mesh data.
@@ -191,50 +233,40 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>A JSON string representing the serialized scene data.</returns>
         public static string Serialize(CoordinateSystem coordinateSystem, bool includeGlobalMesh = true)
         {
-            Data.SceneData sceneData = new();
-            sceneData.CoordinateSystem = coordinateSystem;
-            sceneData.Rooms = new();
-
-            foreach (var room in MRUK.Instance.GetRooms())
+            Data.SceneData sceneData = new()
             {
-                Data.RoomData roomData = new();
-                if (room.Anchor != OVRAnchor.Null)
+                CoordinateSystem = coordinateSystem,
+                Rooms = new()
+            };
+
+            foreach (var room in MRUK.Instance.Rooms)
+            {
+                Data.RoomData roomData = new()
                 {
-                    roomData.UUID = room.Anchor.Uuid.ToString("N").ToUpper();
-                }
-                else
+                    Anchor = room.Anchor,
+                    RoomLayout = new()
+                    {
+                        WallsUuid = new()
+                    },
+                    Anchors = new(),
+                };
+                foreach (var anchor in room.Anchors)
                 {
-                    roomData.UUID = Guid.NewGuid().ToString("N").ToUpper();
-                }
-                roomData.RoomLayout = new();
-                roomData.RoomLayout.WallsUUid = new();
-                roomData.Anchors = new();
-                foreach (var anchor in room.GetRoomAnchors())
-                {
-                    Data.AnchorData anchorData = new();
-                    if (anchor.Anchor != OVRAnchor.Null)
+                    Data.AnchorData anchorData = new()
                     {
-                        anchorData.UUID = anchor.Anchor.Uuid.ToString("N").ToUpper();
+                        Anchor = anchor.Anchor
+                    };
+                    if (anchor == room.CeilingAnchor)
+                    {
+                        roomData.RoomLayout.CeilingUuid = anchorData.Anchor.Uuid;
                     }
-                    else
+                    if (anchor == room.FloorAnchor)
                     {
-                        anchorData.UUID = Guid.NewGuid().ToString("N").ToUpper();
+                        roomData.RoomLayout.FloorUuid = anchorData.Anchor.Uuid;
                     }
-                    if (anchor == room.GetCeilingAnchor())
+                    if (room.WallAnchors.Contains(anchor))
                     {
-                        roomData.RoomLayout.CeilingUuid = anchorData.UUID;
-                    }
-                    if (anchor == room.GetFloorAnchor())
-                    {
-                        roomData.RoomLayout.FloorUuid = anchorData.UUID;
-                    }
-                    if (anchor == room.GetGlobalMeshAnchor())
-                    {
-                        roomData.RoomLayout.GlobalMeshUuid = anchorData.UUID;
-                    }
-                    if (room.GetWallAnchors().Contains(anchor))
-                    {
-                        roomData.RoomLayout.WallsUUid.Add(anchorData.UUID);
+                        roomData.RoomLayout.WallsUuid.Add(anchorData.Anchor.Uuid);
                     }
                     anchorData.SemanticClassifications = anchor.AnchorLabels;
                     anchorData.Transform = new();
@@ -248,7 +280,7 @@ namespace Meta.XR.MRUtilityKit
                     anchorData.Transform.Translation = localPosition;
                     anchorData.Transform.Rotation = localRotation;
                     anchorData.Transform.Scale = anchor.transform.localScale;
-                    if (anchor.HasPlane)
+                    if (anchor.PlaneRect.HasValue)
                     {
                         var min = anchor.PlaneRect.Value.min;
                         var max = anchor.PlaneRect.Value.max;
@@ -286,7 +318,7 @@ namespace Meta.XR.MRUtilityKit
                             anchorData.PlaneBoundary2D = anchor.PlaneBoundary2D;
                         }
                     }
-                    if (anchor.HasVolume)
+                    if (anchor.VolumeBounds.HasValue)
                     {
                         var min = anchor.VolumeBounds.Value.min;
                         var max = anchor.VolumeBounds.Value.max;
@@ -340,13 +372,7 @@ namespace Meta.XR.MRUtilityKit
             JsonSerializerSettings settings = new JsonSerializerSettings();
             settings.NullValueHandling = NullValueHandling.Ignore;
             settings.Formatting = Formatting.Indented;
-            settings.Converters = new List<JsonConverter>
-            {
-                new Vector2Converter(),
-                new Vector3Converter(),
-                new IntArrayConverter(),
-                new Vector3ArrayConverter()
-            };
+            settings.Converters = _converters;
             string json = JsonConvert.SerializeObject(sceneData, settings);
 
             return json;
@@ -361,22 +387,14 @@ namespace Meta.XR.MRUtilityKit
         {
             JsonSerializerSettings settings = new JsonSerializerSettings();
             settings.NullValueHandling = NullValueHandling.Ignore;
-            settings.Converters = new List<JsonConverter>()
-            {
-                new Vector2Converter(),
-                new Vector3Converter(),
-                new IntArrayConverter(),
-                new Vector3ArrayConverter()
-            };
+            settings.Converters = _converters;
             var sceneData = JsonConvert.DeserializeObject<Data.SceneData>(json, settings);
             for (int i = 0; i < sceneData.Rooms.Count; ++i)
             {
                 var room = sceneData.Rooms[i];
-                room.Anchor = new OVRAnchor(0, Guid.Parse(room.UUID));
                 for (int j = 0; j < room.Anchors.Count; ++j)
                 {
                     var anchor = room.Anchors[j];
-                    anchor.Anchor = new OVRAnchor(0, Guid.Parse(anchor.UUID));
                     // If the JSON is encoded using the Unreal coordinate system then we should convert it to Unity
                     // to avoid needing to deal with it differently when it is being used.
                     if (sceneData.CoordinateSystem == CoordinateSystem.Unreal)

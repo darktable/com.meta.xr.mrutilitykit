@@ -67,7 +67,7 @@ public class DebugPanel : MonoBehaviour
 
     public void ToggleGeometryDropDown()
     {
-        bool globalMeshExists = MRUK.Instance && MRUK.Instance.GetCurrentRoom() && MRUK.Instance.GetCurrentRoom().GetGlobalMeshAnchor();
+        bool globalMeshExists = MRUK.Instance && MRUK.Instance.GetCurrentRoom() && MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
         _geometryDropDown.interactable = globalMeshExists;
     }
 

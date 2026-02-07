@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1332286313770493969}
   - component: {fileID: 111856189736293626}
-  - component: {fileID: 6698300475451127908}
   m_Layer: 0
   m_Name: SpaceMap
   m_TagString: Untagged
@@ -46,6 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf84073447bff4bcaa0069c8684fb680, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  CreateOnStart: 2
   TextureMap: {fileID: 2800000, guid: 739e6dc1c3321437396cc061e4b2e2bd, type: 3}
   MapGradient:
     serializedVersion: 2
@@ -79,42 +79,6 @@ MonoBehaviour:
   InnerBorder: -0.5
   OuterBorder: 0
   MapBorder: 0
---- !u!114 &6698300475451127908
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2246511367250463413}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c55c994d76dd43da9cfea6b3e8f32b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneLoadedEvent:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 111856189736293626}
-        m_TargetAssemblyTypeName: SpaceMap, meta.xr.sdk.scenetoolkit
-        m_MethodName: CalculateMap
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  roomCreatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreUpdatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreRemovedEvent:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &3879753300273758712
 GameObject:
   m_ObjectHideFlags: 0

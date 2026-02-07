@@ -26,6 +26,9 @@ namespace Meta.XR.MRUtilityKit
 {
     public class SpaceMap : MonoBehaviour
     {
+        [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
+        public MRUK.RoomFilter CreateOnStart = MRUK.RoomFilter.AllRooms;
+
         // Instead of creating a texture all in code, we prefer an external texture
         // (this is so you can more easily link to the texture from the inspector, for example to use it in a material)
         // The trade-off for this simplicity is that the texture must have certain import settings, shown here
@@ -50,7 +53,26 @@ namespace Meta.XR.MRUtilityKit
         const string MATERIAL_PROPERTY_NAME = "_SpaceMap";
         const string PARAMETER_PROPERTY_NAME = "_SpaceMapParams";
 
-        public void CalculateMap()
+        private void Start()
+        {
+            if (MRUK.Instance && CreateOnStart != MRUK.RoomFilter.None)
+            {
+                MRUK.Instance.RegisterSceneLoadedCallback(() =>
+                {
+                    switch (CreateOnStart)
+                    {
+                        case MRUK.RoomFilter.AllRooms:
+                            CalculateMap();
+                            break;
+                        case MRUK.RoomFilter.CurrentRoomOnly:
+                            CalculateMap(MRUK.Instance.GetCurrentRoom());
+                            break;
+                    }
+                });
+            }
+        }
+
+        public void CalculateMap(MRUKRoom room = null)
         {
             if (TextureMap == null)
             {
@@ -59,11 +81,11 @@ namespace Meta.XR.MRUtilityKit
             }
 
             // one-time startup behavior
-            InitializeMapValues();
+            InitializeMapValues(room);
 
             // We may want to do this in chunks, to avoid a loading hitch as this gets more complex
             // TODO: send event when texture is done being calculated
-            StartCoroutine(CalculatePixels());
+            StartCoroutine(CalculatePixels(room));
 
             float textureScale = Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2;
             Shader.SetGlobalTexture(MATERIAL_PROPERTY_NAME, TextureMap);
@@ -71,12 +93,24 @@ namespace Meta.XR.MRUtilityKit
             Shader.SetGlobalVector(PARAMETER_PROPERTY_NAME, textureParams);
         }
 
-        void InitializeMapValues()
+        void InitializeMapValues(MRUKRoom room)
         {
             PixelDimensions = TextureMap.width;
             Pixels = new Color[PixelDimensions, PixelDimensions];
 
-            MapBounds = MRUK.Instance.GetCurrentRoom().GetRoomBounds();
+            if (room != null)
+            {
+                MapBounds = room.GetRoomBounds();
+            }
+            else
+            {
+                MapBounds = new();
+                foreach (var currentRoom in MRUK.Instance.Rooms)
+                {
+                    MapBounds.Encapsulate(currentRoom.GetRoomBounds());
+                }
+            }
+
             MapCenter = new Vector3(MapBounds.center.x, MapBounds.min.y, MapBounds.center.z);
             transform.position = MapCenter;
 
@@ -92,18 +126,33 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public float GetSurfaceDistance(MRUKRoom room, Vector3 worldPosition)
         {
-            float closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
-            float sign = room.IsPositionInRoom(worldPosition, false) ? 1 : -1;
+            float closestDist = Mathf.Infinity;
+            float sign = 1f;
+            if (room != null)
+            {
+                closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
+                sign = room.IsPositionInRoom(worldPosition, false) ? 1 : -1;
+            }
+            else
+            {
+                foreach (var currentRoom in MRUK.Instance.Rooms)
+                {
+                    var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
+                    if (dist < closestDist)
+                    {
+                        closestDist = dist;
+                        sign = currentRoom.IsPositionInRoom(worldPosition) ? 1 : -1;
+                    }
+                }
+            }
             float surfaceDistance = closestDist * sign;
-
             return surfaceDistance;
         }
 
-        IEnumerator CalculatePixels()
+        IEnumerator CalculatePixels(MRUKRoom room)
         {
             float halfPixel = 0.5f / PixelDimensions;
             float largestDimension = Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2;
-            var room = MRUK.Instance.GetCurrentRoom();
             for (int x = 0; x < PixelDimensions; x++)
             {
                 for (int y = 0; y < PixelDimensions; y++)

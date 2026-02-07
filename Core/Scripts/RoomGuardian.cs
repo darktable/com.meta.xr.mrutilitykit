@@ -25,9 +25,11 @@ namespace Meta.XR.MRUtilityKit
 {
     public class RoomGuardian : MonoBehaviour
     {
-        Material guardianMaterial;
         [Tooltip("How far the camera should be from a Scene API object before the grid appears.")]
-        public float guardianDistance = 1.0f;
+        public Material GuardianMaterial;
+
+        [Tooltip("How far the camera should be from a Scene API object before the grid appears.")]
+        public float GuardianDistance = 1.0f;
 
         private void Start()
         {
@@ -40,40 +42,28 @@ namespace Meta.XR.MRUtilityKit
 
         void Update()
         {
-            if (guardianMaterial != null)
-            {
-                // get the closest distance of all the surfaces
-                // should avoid raycasting if possible
-                var room = MRUK.Instance?.GetCurrentRoom();
-                if (!room)
-                {
-                    return;
-                }
-                bool insideRoom = room.IsPositionInRoom(Camera.main.transform.position);
+            if (GuardianMaterial == null) return;
 
-                // instead of using the head position, we actually want a position near the feet
-                // (to catch short volumes like a bed, which are a tripping hazard)
-                Vector3 testPosition = new Vector3(Camera.main.transform.position.x, 0.2f, Camera.main.transform.position.z);
+            // get the closest distance of all the surfaces
+            // should avoid raycasting if possible
+            var room = MRUK.Instance?.GetCurrentRoom();
+            if (!room) return;
 
-                float closestDistance = room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
+            bool insideRoom = room.IsPositionInRoom(Camera.main.transform.position);
 
-                bool outsideVolume = !room.IsPositionInSceneVolume(testPosition);
+            // instead of using the head position, we actually want a position near the feet
+            // (to catch short volumes like a bed, which are a tripping hazard)
+            Vector3 testPosition = new Vector3(Camera.main.transform.position.x, 0.2f, Camera.main.transform.position.z);
 
-                float guardianFade = insideRoom && outsideVolume ? Mathf.Clamp01(1 - (closestDistance / guardianDistance)) : 1.0f;
-                guardianMaterial.SetFloat("_GuardianFade", guardianFade);
+            float closestDistance = room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
 
-                Color lineColor = insideRoom ? Color.green : Color.red;
-                Debug.DrawLine(testPosition, closestPoint, lineColor);
-            }
-        }
+            bool outsideVolume = !room.IsPositionInSceneVolume(testPosition);
 
-        public void GetEffectMeshMaterial()
-        {
-            MeshRenderer msh = GetComponentInChildren<MeshRenderer>();
-            if (msh)
-            {
-                guardianMaterial = msh.sharedMaterial;
-            }
+            float guardianFade = insideRoom && outsideVolume ? Mathf.Clamp01(1 - (closestDistance / GuardianDistance)) : 1.0f;
+            GuardianMaterial.SetFloat("_GuardianFade", guardianFade);
+
+            Color lineColor = insideRoom ? Color.green : Color.red;
+            Debug.DrawLine(testPosition, closestPoint, lineColor);
         }
     }
 }

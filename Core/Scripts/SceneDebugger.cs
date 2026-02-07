@@ -115,9 +115,9 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (ShowDebugAnchors)
                 {
-                    foreach (var room in MRUK.Instance.GetRooms())
+                    foreach (var room in MRUK.Instance.Rooms)
                     {
-                        foreach (var anchor in room.GetRoomAnchors())
+                        foreach (var anchor in room.Anchors)
                         {
                             GameObject anchorVisual = GenerateDebugAnchor(anchor);
                             debugAnchors.Add(anchorVisual);
@@ -165,7 +165,7 @@ namespace Meta.XR.MRUtilityKit
                     debugAction = () =>
                     {
                         var currentRoomName = MRUK.Instance?.GetCurrentRoom().name ?? "N/A";
-                        var numRooms = MRUK.Instance?.GetRooms().Count ?? 0;
+                        var numRooms = MRUK.Instance?.Rooms.Count ?? 0;
                         SetLogsText("\n[{0}]\nNumber of rooms: {1}\nCurrent room: {2}",
                             nameof(ShowRoomDetailsDebugger),
                             numRooms,
@@ -243,7 +243,12 @@ namespace Meta.XR.MRUtilityKit
                     {
                         if (debugCube != null)
                         {
-                            debugCube.transform.localScale = new Vector3(largestSurface.GetAnchorSize().x, largestSurface.GetAnchorSize().y, 0.01f);
+                            Vector3 anchorSize = largestSurface.VolumeBounds.HasValue ? largestSurface.VolumeBounds.Value.size : new Vector3(0,0,0.01f);
+                            if (largestSurface.PlaneRect.HasValue)
+                            {
+                                anchorSize = new Vector3(largestSurface.PlaneRect.Value.x, largestSurface.PlaneRect.Value.y, 0.01f);
+                            }
+                            debugCube.transform.localScale = anchorSize;
                             debugCube.transform.localPosition = largestSurface.transform.position;
                             debugCube.transform.localRotation = largestSurface.transform.rotation;
                         }
@@ -578,7 +583,7 @@ namespace Meta.XR.MRUtilityKit
                 LabelFilter filter = LabelFilter.Included(new System.Collections.Generic.List<string>() { OVRSceneManager.Classification.GlobalMesh });
                 if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !globalMeshAnchor)
                 {
-                    globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GetGlobalMeshAnchor();
+                    globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
                 }
                 if (!globalMeshAnchor)
                 {
@@ -629,7 +634,7 @@ namespace Meta.XR.MRUtilityKit
                 LabelFilter filter = LabelFilter.Included(new System.Collections.Generic.List<string>() { OVRSceneManager.Classification.GlobalMesh });
                 if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !globalMeshAnchor)
                 {
-                    globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GetGlobalMeshAnchor();
+                    globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
                 }
                 if (!globalMeshAnchor)
                 {
@@ -749,11 +754,11 @@ namespace Meta.XR.MRUtilityKit
             GameObject debugVolumePrefab = CreateDebugPrefabSource(false);
 
             Vector3 anchorScale;
-            if (anchor.HasVolume)
+            if (anchor.VolumeBounds.HasValue)
             {
                 // Volumes
                 debugAnchor = CloneObject(debugVolumePrefab, anchor.transform);
-                anchorScale = anchor.GetAnchorSize();
+                anchorScale = anchor.VolumeBounds.Value.size;
             }
             else
             {
@@ -1032,9 +1037,11 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         void NavigateUI(MoveDirection direction)
         {
-            AxisEventData data = new AxisEventData(eventSystem);
-            data.moveDir = direction;
-            data.selectedObject = eventSystem.currentSelectedGameObject;
+            AxisEventData data = new AxisEventData(eventSystem)
+            {
+                moveDir = direction,
+                selectedObject = eventSystem.currentSelectedGameObject
+            };
             ExecuteEvents.Execute(data.selectedObject, data, ExecuteEvents.moveHandler);
         }
 

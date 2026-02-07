@@ -25,6 +25,7 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Obsolete("This class is now obsolete, please register events directly with the MRUK class", true)]
     public class MRUKStart : MonoBehaviour
     {
         public UnityEvent sceneLoadedEvent = new();

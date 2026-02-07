@@ -20,10 +20,10 @@
 
 using System;
 using System.Collections.Generic;
-using UnityEngine.Events;
 using UnityEngine;
-using Random = System.Random;
+using UnityEngine.Events;
 using UnityEngine.Serialization;
+using Random = System.Random;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -54,7 +54,7 @@ namespace Meta.XR.MRUtilityKit
             NoAlignment
         }
 
-        [System.Serializable]
+        [Serializable]
         public struct AnchorPrefabGroup
         {
             [FormerlySerializedAs("_include")]
@@ -74,13 +74,19 @@ namespace Meta.XR.MRUtilityKit
             public bool IgnorePrefabSize;
         }
 
+        [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
+        public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.AllRooms;
+
         public List<AnchorPrefabGroup> PrefabsToSpawn;
         List<GameObject> _spawnedPrefabs = new();
 
+        [Tooltip("Specify a seed value for consistent prefab selection (0 = Random).")]
+        public int SeedValue;
+
         public List<GameObject> SpawnedPrefabs
         {
-            get { return _spawnedPrefabs; }
-            private set { _spawnedPrefabs = value; }
+            get => _spawnedPrefabs;
+            private set => _spawnedPrefabs = value;
         }
 
         public UnityEvent onPrefabSpawned;
@@ -89,15 +95,29 @@ namespace Meta.XR.MRUtilityKit
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadAnchorPrefabSpawner).Send();
 #endif
+            if (MRUK.Instance && SpawnOnStart != MRUK.RoomFilter.None)
+            {
+                MRUK.Instance.RegisterSceneLoadedCallback(() =>
+                {
+                    switch (SpawnOnStart)
+                    {
+                        case MRUK.RoomFilter.AllRooms:
+                            SpawnPrefabs();
+                            break;
+                        case MRUK.RoomFilter.CurrentRoomOnly:
+                            SpawnPrefabs(MRUK.Instance.GetCurrentRoom());
+                            break;
+                    }
+                });
+            }
         }
 
-        void ClearPrefabs()
+        public void ClearPrefabs()
         {
             foreach (GameObject prefab in _spawnedPrefabs)
                 Destroy(prefab);
 
             _spawnedPrefabs.Clear();
-            Debug.Log("Cleared anchor prefab spawned objects");
         }
 
         private Bounds RotateVolumeBounds(Bounds bounds, int rotation)
@@ -117,162 +137,189 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        public void SpawnPrefabs()
+        public void SpawnPrefabs(bool clearPrefabs = true)
         {
             // Perform a cleanup if necessary
-            ClearPrefabs();
-
-            foreach (var room in MRUK.Instance.GetRooms())
+            if (clearPrefabs)
             {
-                foreach (var anchor in room.GetRoomAnchors())
-                {
-                    var prefabToCreate = LabelToPrefab(anchor.GetLabelsAsEnum(), out AnchorPrefabGroup prefabGroup);
-
-                    if (prefabToCreate == null)
-                        continue;
-
-                    Bounds? prefabBounds = prefabGroup.IgnorePrefabSize ? null : Utilities.GetPrefabBounds(prefabToCreate);
-                    Vector3 prefabSize = prefabBounds?.size ?? Vector3.one;
-
-                    // Create a new instance of the prefab
-                    // We will translate location and scale differently depending on the label.
-                    var prefab = Instantiate(prefabToCreate);
-                    prefab.name = prefabToCreate.name + "(PrefabSpawner Clone)";
-                    prefab.transform.parent = anchor.transform;
-
-                    if (anchor.HasVolume)
-                    {
-                        int cardinalAxisIndex = 0;
-                        if (prefabGroup.CalculateFacingDirection && !prefabGroup.MatchAspectRatio)
-                        {
-                            room.GetDirectionAwayFromClosestWall(anchor, out cardinalAxisIndex);
-                        }
-                        Bounds volumeBounds = RotateVolumeBounds(anchor.VolumeBounds.Value, cardinalAxisIndex);
-
-                        Vector3 volumeSize = volumeBounds.size;
-                        Vector3 scale = new Vector3(volumeSize.x / prefabSize.x, volumeSize.z / prefabSize.y, volumeSize.y / prefabSize.z);  // flipped z and y to correct orientation
-
-                        if (prefabGroup.MatchAspectRatio)
-                        {
-                            Vector3 prefabSizeRotated = new Vector3(prefabSize.z, prefabSize.y, prefabSize.x);
-                            Vector3 scaleRotated = new Vector3(volumeSize.x / prefabSizeRotated.x, volumeSize.z / prefabSizeRotated.y, volumeSize.y / prefabSizeRotated.z);
-
-                            float distortion = Mathf.Max(scale.x, scale.z) / Mathf.Min(scale.x, scale.z);
-                            float distortionRotated = Mathf.Max(scaleRotated.x, scaleRotated.z) / Mathf.Min(scaleRotated.x, scaleRotated.z);
-
-                            bool rotateToMatchAspectRatio = distortion > distortionRotated;
-                            if (rotateToMatchAspectRatio)
-                            {
-                                cardinalAxisIndex = 1;
-                            }
-                            if (prefabGroup.CalculateFacingDirection)
-                            {
-                                room.GetDirectionAwayFromClosestWall(anchor, out cardinalAxisIndex, rotateToMatchAspectRatio ? new List<int> { 0, 2 } : new List<int> { 1, 3 });
-                            }
-                            if (cardinalAxisIndex != 0)
-                            {
-                                // Update the volume bounds if necessary
-                                volumeBounds = RotateVolumeBounds(anchor.VolumeBounds.Value, cardinalAxisIndex);
-                                volumeSize = volumeBounds.size;
-                                scale = new Vector3(volumeSize.x / prefabSize.x, volumeSize.z / prefabSize.y, volumeSize.y / prefabSize.z);  // flipped z and y to correct orientation
-                            }
-                        }
-
-                        switch (prefabGroup.Scaling)
-                        {
-                            case ScalingMode.UniformScaling:
-                                scale.x = scale.y = scale.z = Mathf.Min(scale.x, scale.y, scale.z);
-                                break;
-                            case ScalingMode.UniformXZScale:
-                                scale.x = scale.z = Mathf.Min(scale.x, scale.z);
-                                break;
-                            case ScalingMode.NoScaling:
-                                scale = Vector3.one;
-                                break;
-                        }
-
-                        Vector3 prefabPivot = new();
-                        Vector3 volumePivot = new();
-
-                        switch (prefabGroup.Alignment)
-                        {
-                            case AlignMode.Automatic:
-                            case AlignMode.Bottom:
-                                if (prefabBounds.HasValue)
-                                {
-                                    var center = prefabBounds.Value.center;
-                                    var min = prefabBounds.Value.min;
-                                    prefabPivot = new Vector3(center.x, center.z, min.y);
-                                }
-                                volumePivot = volumeBounds.center;
-                                volumePivot.z = volumeBounds.min.z;
-                                break;
-                            case AlignMode.Center:
-                                if (prefabBounds.HasValue)
-                                {
-                                    var center = prefabBounds.Value.center;
-                                    prefabPivot = new Vector3(center.x, center.z, center.y);
-                                }
-                                volumePivot = volumeBounds.center;
-                                break;
-                            case AlignMode.NoAlignment:
-                                break;
-                        }
-                        prefabPivot.x *= scale.x;
-                        prefabPivot.y *= scale.z;
-                        prefabPivot.z *= scale.y;
-                        prefab.transform.localPosition = volumePivot - prefabPivot;
-                        prefab.transform.localRotation = Quaternion.Euler((cardinalAxisIndex - 1) * 90, -90, -90);// scene geometry is unusual, we need to swap Y/Z for a more standard prefab structure
-                        prefab.transform.localScale = scale;
-                    }
-                    else if (anchor.HasPlane)
-                    {
-                        Vector2 planeSize = anchor.PlaneRect.Value.size;
-                        Vector2 scale = new Vector2(planeSize.x / prefabSize.x, planeSize.y / prefabSize.y);
-
-                        switch (prefabGroup.Scaling)
-                        {
-                            case ScalingMode.UniformScaling:
-                            case ScalingMode.UniformXZScale:
-                                scale.x = scale.y = Mathf.Min(scale.x, scale.y);
-                                break;
-                            case ScalingMode.NoScaling:
-                                scale = Vector2.one;
-                                break;
-                        }
-
-                        Vector2 planePivot = new();
-                        Vector2 prefabPivot = new();
-                        switch (prefabGroup.Alignment)
-                        {
-                            case AlignMode.Automatic:
-                            case AlignMode.Center:
-                                prefabPivot = prefabBounds?.center ?? Vector3.zero;
-                                planePivot = anchor.PlaneRect.Value.center;
-                                break;
-                            case AlignMode.Bottom:
-                                if (prefabBounds.HasValue)
-                                {
-                                    var center = prefabBounds.Value.center;
-                                    var min = prefabBounds.Value.min;
-                                    prefabPivot = new Vector3(center.x, min.y);
-                                }
-                                planePivot = anchor.PlaneRect.Value.center;
-                                planePivot.y = anchor.PlaneRect.Value.min.y;
-                                break;
-                            case AlignMode.NoAlignment:
-                                break;
-                        }
-                        prefabPivot.Scale(scale);
-                        prefab.transform.localPosition = new Vector3(planePivot.x - prefabPivot.x, planePivot.y - prefabPivot.y, 0);
-                        prefab.transform.localRotation = Quaternion.identity;
-                        prefab.transform.localScale = new Vector3(scale.x, scale.y, 0.5f * (scale.x + scale.y));
-                    }
-
-                    _spawnedPrefabs.Add(prefab);
-                }
+                ClearPrefabs();
             }
+
+            foreach (var room in MRUK.Instance.Rooms)
+            {
+                SpawnPrefabsInternal(room);
+            }
+
             onPrefabSpawned?.Invoke();
+        }
+
+        public void SpawnPrefabs(MRUKRoom room, bool clearPrefabs = true)
+        {
+            // Perform a cleanup if necessary
+            if (clearPrefabs)
+            {
+                ClearPrefabs();
+            }
+
+            SpawnPrefabsInternal(room);
+
+            onPrefabSpawned?.Invoke();
+        }
+
+        private void SpawnPrefabsInternal(MRUKRoom room)
+        {
+            foreach (var anchor in room.Anchors)
+            {
+                var prefabToCreate = LabelToPrefab(anchor.GetLabelsAsEnum(), out AnchorPrefabGroup prefabGroup);
+
+                if (prefabToCreate == null)
+                    continue;
+
+                Bounds? prefabBounds = prefabGroup.IgnorePrefabSize ? null : Utilities.GetPrefabBounds(prefabToCreate);
+
+                // Create a new instance of the prefab
+                // We will translate location and scale differently depending on the label.
+                var prefab = Instantiate(prefabToCreate, anchor.transform);
+                prefab.name = prefabToCreate.name + "(PrefabSpawner Clone)";
+                prefab.transform.parent = anchor.transform;
+
+                GridSliceResizer resizer = prefab.GetComponentInChildren<GridSliceResizer>(true);
+                if (!prefabBounds.HasValue && resizer)
+                {
+                    prefabBounds = resizer.OriginalMesh.bounds;
+                }
+                Vector3 prefabSize = prefabBounds?.size ?? Vector3.one;
+
+                if (anchor.VolumeBounds.HasValue)
+                {
+                    int cardinalAxisIndex = 0;
+                    if (prefabGroup.CalculateFacingDirection && !prefabGroup.MatchAspectRatio)
+                    {
+                        room.GetDirectionAwayFromClosestWall(anchor, out cardinalAxisIndex);
+                    }
+                    Bounds volumeBounds = RotateVolumeBounds(anchor.VolumeBounds.Value, cardinalAxisIndex);
+
+                    Vector3 volumeSize = volumeBounds.size;
+                    Vector3 scale = new Vector3(volumeSize.x / prefabSize.x, volumeSize.z / prefabSize.y, volumeSize.y / prefabSize.z);  // flipped z and y to correct orientation
+                    if (prefabGroup.MatchAspectRatio)
+                    {
+                        Vector3 prefabSizeRotated = new Vector3(prefabSize.z, prefabSize.y, prefabSize.x);
+                        Vector3 scaleRotated = new Vector3(volumeSize.x / prefabSizeRotated.x, volumeSize.z / prefabSizeRotated.y, volumeSize.y / prefabSizeRotated.z);
+
+                        float distortion = Mathf.Max(scale.x, scale.z) / Mathf.Min(scale.x, scale.z);
+                        float distortionRotated = Mathf.Max(scaleRotated.x, scaleRotated.z) / Mathf.Min(scaleRotated.x, scaleRotated.z);
+
+                        bool rotateToMatchAspectRatio = distortion > distortionRotated;
+                        if (rotateToMatchAspectRatio)
+                        {
+                            cardinalAxisIndex = 1;
+                        }
+                        if (prefabGroup.CalculateFacingDirection)
+                        {
+                            room.GetDirectionAwayFromClosestWall(anchor, out cardinalAxisIndex, rotateToMatchAspectRatio ? new List<int> { 0, 2 } : new List<int> { 1, 3 });
+                        }
+                        if (cardinalAxisIndex != 0)
+                        {
+                            // Update the volume bounds if necessary
+                            volumeBounds = RotateVolumeBounds(anchor.VolumeBounds.Value, cardinalAxisIndex);
+                            volumeSize = volumeBounds.size;
+                            scale = new Vector3(volumeSize.x / prefabSize.x, volumeSize.z / prefabSize.y, volumeSize.y / prefabSize.z);  // flipped z and y to correct orientation
+                        }
+                    }
+
+                    switch (prefabGroup.Scaling)
+                    {
+                        case ScalingMode.UniformScaling:
+                            scale.x = scale.y = scale.z = Mathf.Min(scale.x, scale.y, scale.z);
+                            break;
+                        case ScalingMode.UniformXZScale:
+                            scale.x = scale.z = Mathf.Min(scale.x, scale.z);
+                            break;
+                        case ScalingMode.NoScaling:
+                            scale = Vector3.one;
+                            break;
+                    }
+
+                    Vector3 prefabPivot = new();
+                    Vector3 volumePivot = new();
+
+                    switch (prefabGroup.Alignment)
+                    {
+                        case AlignMode.Automatic:
+                        case AlignMode.Bottom:
+                            if (prefabBounds.HasValue)
+                            {
+                                var center = prefabBounds.Value.center;
+                                var min = prefabBounds.Value.min;
+                                prefabPivot = new Vector3(center.x, center.z, min.y);
+                            }
+                            volumePivot = volumeBounds.center;
+                            volumePivot.z = volumeBounds.min.z;
+                            break;
+                        case AlignMode.Center:
+                            if (prefabBounds.HasValue)
+                            {
+                                var center = prefabBounds.Value.center;
+                                prefabPivot = new Vector3(center.x, center.z, center.y);
+                            }
+                            volumePivot = volumeBounds.center;
+                            break;
+                        case AlignMode.NoAlignment:
+                            break;
+                    }
+                    prefabPivot.x *= scale.x;
+                    prefabPivot.y *= scale.z;
+                    prefabPivot.z *= scale.y;
+                    prefab.transform.localPosition = volumePivot - prefabPivot;
+                    prefab.transform.localRotation = Quaternion.Euler((cardinalAxisIndex - 1) * 90, -90, -90);// scene geometry is unusual, we need to swap Y/Z for a more standard prefab structure
+                    prefab.transform.localScale = scale;
+                }
+                else if (anchor.PlaneRect.HasValue)
+                {
+                    Vector2 planeSize = anchor.PlaneRect.Value.size;
+                    Vector2 scale = new Vector2(planeSize.x / prefabSize.x, planeSize.y / prefabSize.y);
+
+                    switch (prefabGroup.Scaling)
+                    {
+                        case ScalingMode.UniformScaling:
+                        case ScalingMode.UniformXZScale:
+                            scale.x = scale.y = Mathf.Min(scale.x, scale.y);
+                            break;
+                        case ScalingMode.NoScaling:
+                            scale = Vector2.one;
+                            break;
+                    }
+
+                    Vector2 planePivot = new();
+                    Vector2 prefabPivot = new();
+                    switch (prefabGroup.Alignment)
+                    {
+                        case AlignMode.Automatic:
+                        case AlignMode.Center:
+                            prefabPivot = prefabBounds?.center ?? Vector3.zero;
+                            planePivot = anchor.PlaneRect.Value.center;
+                            break;
+                        case AlignMode.Bottom:
+                            if (prefabBounds.HasValue)
+                            {
+                                var center = prefabBounds.Value.center;
+                                var min = prefabBounds.Value.min;
+                                prefabPivot = new Vector3(center.x, min.y);
+                            }
+                            planePivot = anchor.PlaneRect.Value.center;
+                            planePivot.y = anchor.PlaneRect.Value.min.y;
+                            break;
+                        case AlignMode.NoAlignment:
+                            break;
+                    }
+                    prefabPivot.Scale(scale);
+                    prefab.transform.localPosition = new Vector3(planePivot.x - prefabPivot.x, planePivot.y - prefabPivot.y, 0);
+                    prefab.transform.localRotation = Quaternion.identity;
+                    prefab.transform.localScale = new Vector3(scale.x, scale.y, 0.5f * (scale.x + scale.y));
+                }
+
+                _spawnedPrefabs.Add(prefab);
+            }
         }
 
         GameObject LabelToPrefab(MRUKAnchor.SceneLabels labels, out AnchorPrefabGroup prefabGroup)
@@ -281,9 +328,13 @@ namespace Meta.XR.MRUtilityKit
             {
                 if ((item.Labels & labels) != 0)
                 {
-                    int randomIndex; // randomly chooses one from the list, even if list contains a single object
-                    Random random = new Random();
-                    randomIndex = random.Next(0, item.Prefabs.Count);
+                    if (SeedValue == 0)
+                        SeedValue = Environment.TickCount;
+                    var random = new Random(SeedValue);
+                    var randomIndex =
+                        random.Next(0,
+                            item.Prefabs
+                                .Count); // randomly chooses one from the list, even if list contains a single object
                     GameObject randomSelection = item.Prefabs[randomIndex];
 
                     prefabGroup = item;
@@ -293,6 +344,11 @@ namespace Meta.XR.MRUtilityKit
             }
             prefabGroup = new();
             return null;
+        }
+
+        private void OnDestroy()
+        {
+            onPrefabSpawned.RemoveAllListeners();
         }
     }
 }

@@ -45,6 +45,7 @@ namespace Meta.XR.MRUtilityKit
             PLANT = 1 << 12,
             WALL_ART = 1 << 13,
             GLOBAL_MESH = 1 << 14,
+            INVISIBLE_WALL_FACE = 1 << 15,
         };
 
         public List<string> AnchorLabels = new();
@@ -53,18 +54,21 @@ namespace Meta.XR.MRUtilityKit
         public Bounds? VolumeBounds;
         public List<Vector2> PlaneBoundary2D;
 
-        public Collider anchorCollider;
-
         // Link to the tracked object
         public OVRAnchor Anchor = OVRAnchor.Null;
+
+        // Link to the parent room object. Gets set on construction.
+        public MRUKRoom Room;
 
         // these are populated via MRUKRoom.CalculateHierarchyReferences
         // (shouldn't be manually set in Inspector)
         public MRUKAnchor ParentAnchor;
         public List<MRUKAnchor> ChildAnchors = new List<MRUKAnchor>();
 
-        public bool HasPlane { get { return PlaneRect != null; } }
-        public bool HasVolume { get { return VolumeBounds != null; } }
+        [Obsolete("Use PlaneRect.HasValue instead.")]
+        public bool HasPlane => PlaneRect != null;
+        [Obsolete("Use VolumeBounds.HasValue instead.")]
+        public bool HasVolume => VolumeBounds != null;
 
         public Mesh GlobalMesh
         {
@@ -76,7 +80,7 @@ namespace Meta.XR.MRUtilityKit
                 }
                 return _globalMesh;
             }
-            set { _globalMesh = value; }
+            set => _globalMesh = value;
         }
         Mesh _globalMesh;
 
@@ -180,7 +184,7 @@ namespace Meta.XR.MRUtilityKit
             closestPosition = Vector3.zero;
             normal = Vector3.zero;
 
-            if (HasVolume)
+            if (VolumeBounds.HasValue)
             {
                 Vector3 localPosition = transform.InverseTransformPoint(testPosition);
                 if (VolumeBounds.Value.Contains(localPosition))
@@ -196,25 +200,11 @@ namespace Meta.XR.MRUtilityKit
                     float closestZ = localPosition.z + minZdist * Mathf.Sign(localPosition.z);
                     if (minXdist < minYdist)
                     {
-                        if (minXdist < minZdist)
-                        {
-                            closestPosition = new Vector3(closestX, localPosition.y, localPosition.z);
-                        }
-                        else
-                        {
-                            closestPosition = new Vector3(localPosition.x, localPosition.y, closestZ);
-                        }
+                        closestPosition = minXdist < minZdist ? new Vector3(closestX, localPosition.y, localPosition.z) : new Vector3(localPosition.x, localPosition.y, closestZ);
                     }
                     else
                     {
-                        if (minYdist < minZdist)
-                        {
-                            closestPosition = new Vector3(localPosition.x, closestY, localPosition.z);
-                        }
-                        else
-                        {
-                            closestPosition = new Vector3(localPosition.x, localPosition.y, closestZ);
-                        }
+                        closestPosition = minYdist < minZdist ? new Vector3(localPosition.x, closestY, localPosition.z) : new Vector3(localPosition.x, localPosition.y, closestZ);
                     }
 
                     closestPosition = transform.TransformPoint(closestPosition - Vector3.forward * halfScale.z);
@@ -228,7 +218,7 @@ namespace Meta.XR.MRUtilityKit
                     candidateDistance = Vector3.Distance(closestPosition, testPosition);
                 }
             }
-            else if (HasPlane)
+            else if (PlaneRect.HasValue)
             {
                 Vector2 planeScale = PlaneRect.Value.size;
 
@@ -246,7 +236,7 @@ namespace Meta.XR.MRUtilityKit
 
         public Vector3 GetAnchorCenter()
         {
-            if (HasVolume)
+            if (VolumeBounds.HasValue)
             {
                 return transform.TransformPoint(VolumeBounds.Value.center);
             }
@@ -257,6 +247,7 @@ namespace Meta.XR.MRUtilityKit
         /// A convenience function to get a transform-friendly Vector3 size of an anchor.
         /// If you'd like the size of the quad or volume instead, use <seealso cref="MRUKAnchor.PlaneRect"/> or <seealso cref="MRUKAnchor.VolumeBounds"/>
         /// </summary>
+        [Obsolete("Use PlaneRect and VolumeBounds properties instead")]
         public Vector3 GetAnchorSize()
         {
             Vector3 returnSize = Vector3.one;
@@ -278,7 +269,7 @@ namespace Meta.XR.MRUtilityKit
         {
             hitInfo = new RaycastHit();
 
-            if (!HasPlane)
+            if (!PlaneRect.HasValue)
             {
                 return false;
             }
@@ -311,7 +302,7 @@ namespace Meta.XR.MRUtilityKit
             // Use the slab method to determine if the ray intersects with the bounding box
             // https://education.siggraph.org/static/HyperGraph/raytrace/rtinter3.htm
             hitInfo = new RaycastHit();
-            if (!HasVolume)
+            if (!VolumeBounds.HasValue)
             {
                 return false;
             }
@@ -369,7 +360,7 @@ namespace Meta.XR.MRUtilityKit
 
         public Vector3[] GetBoundsFaceCenters()
         {
-            if (HasVolume)
+            if (VolumeBounds.HasValue)
             {
                 Vector3[] centers = new Vector3[6];
                 Vector3 scale = VolumeBounds.Value.size;
@@ -385,7 +376,7 @@ namespace Meta.XR.MRUtilityKit
                 return centers;
             }
 
-            if (HasPlane)
+            if (PlaneRect.HasValue)
             {
                 Vector3[] centers = new Vector3[1];
                 centers[0] = transform.position;
@@ -400,7 +391,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public bool IsPositionInVolume(Vector3 worldPosition, bool testVerticalBounds, float distanceBuffer = 0.0f)
         {
-            if (!HasVolume) return false;
+            if (!VolumeBounds.HasValue) return false;
 
             Vector3 localPosition = transform.InverseTransformPoint(worldPosition);
             var bounds = VolumeBounds.Value;
@@ -421,8 +412,10 @@ namespace Meta.XR.MRUtilityKit
             if (!AnchorLabels.Contains(OVRSceneManager.Classification.GlobalMesh))
                 return null; // for now only global mesh is supported
             Anchor.TryGetComponent(out OVRTriangleMesh mesh);
-            var trimesh = new Mesh();
-            trimesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            var trimesh = new Mesh
+            {
+                indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
+            };
             if (!mesh.TryGetCounts(out var vcount, out var tcount)) return trimesh;
             using var vs = new NativeArray<Vector3>(vcount, Allocator.Temp);
             using var ts = new NativeArray<int>(tcount * 3, Allocator.Temp);
@@ -457,8 +450,7 @@ namespace Meta.XR.MRUtilityKit
             SceneLabels enumLabels = 0;
             foreach (var label in AnchorLabels)
             {
-                SceneLabels enumLabel;
-                if (Enum.TryParse(label, out enumLabel))
+                if (Enum.TryParse(label, out SceneLabels enumLabel))
                 {
                     enumLabels |= enumLabel;
                 }

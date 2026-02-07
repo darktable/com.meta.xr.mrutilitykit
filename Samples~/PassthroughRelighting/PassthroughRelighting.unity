@@ -134,6 +134,58 @@ PrefabInstance:
       propertyPath: m_Name
       value: MRUK
       objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[1].m_Mode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 1676643476}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[1].m_Target
+      value: 
+      objectReference: {fileID: 2624990573324286191}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[0].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[1].m_CallState
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: Respawn
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[1].m_MethodName
+      value: ToggleGeometryDropDown
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: OppyCharacterController, meta.xr.mrutilitykit
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[1].m_TargetAssemblyTypeName
+      value: DebugPanel, meta.xr.mrutilitykit
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneLoadedEvent.m_PersistentCalls.m_Calls.Array.data[1].m_Arguments.m_ObjectArgumentAssemblyTypeName
+      value: UnityEngine.Object, UnityEngine
+      objectReference: {fileID: 0}
     - target: {fileID: 8047981335285221976, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
       propertyPath: m_RootOrder
       value: 7
@@ -851,7 +903,6 @@ GameObject:
   m_Component:
   - component: {fileID: 890787315}
   - component: {fileID: 890787314}
-  - component: {fileID: 890787316}
   m_Layer: 0
   m_Name: EffectMesh
   m_TagString: Untagged
@@ -871,6 +922,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e76943ac7e7394f3e969f0c048b26639, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  SpawnOnStart: 2
   MeshMaterial: {fileID: 2100000, guid: 69e54be2e702f984683fa4816dc4b0f8, type: 2}
   BorderSize: 0.1
   Colliders: 1
@@ -895,42 +947,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 8
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &890787316
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 890787313}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c55c994d76dd43da9cfea6b3e8f32b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneLoadedEvent:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 890787314}
-        m_TargetAssemblyTypeName: Meta.XR.MRUtilityKit.EffectMesh, meta.xr.mrutilitykit
-        m_MethodName: CreateMesh
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  roomCreatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreUpdatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreRemovedEvent:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!114 &898070299 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 11400010, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
@@ -952,7 +968,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1281328726}
   - component: {fileID: 1281328725}
-  - component: {fileID: 1281328724}
   m_Layer: 0
   m_Name: EffectMeshGlobalMesh
   m_TagString: Untagged
@@ -960,42 +975,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1281328724
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1281328723}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c55c994d76dd43da9cfea6b3e8f32b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneLoadedEvent:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1281328725}
-        m_TargetAssemblyTypeName: Meta.XR.MRUtilityKit.EffectMesh, meta.xr.mrutilitykit
-        m_MethodName: CreateMesh
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  roomCreatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreUpdatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreRemovedEvent:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!114 &1281328725
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1008,6 +987,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e76943ac7e7394f3e969f0c048b26639, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  SpawnOnStart: 2
   MeshMaterial: {fileID: 2100000, guid: 69e54be2e702f984683fa4816dc4b0f8, type: 2}
   BorderSize: 0.1
   Colliders: 1
@@ -1258,7 +1238,8 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 1863129030, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
   m_SourcePrefab: {fileID: 100100000, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
 --- !u!114 &1676643475 stripped
 MonoBehaviour:
@@ -2161,3 +2142,14 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 6959df8b2bb5b6f418b16708262cbcf2, type: 3}
+--- !u!114 &2624990573324286191 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2624990573474107923, guid: 6959df8b2bb5b6f418b16708262cbcf2, type: 3}
+  m_PrefabInstance: {fileID: 2624990573324286190}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf02afcd4dfd8e84e806ad178b3d64a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

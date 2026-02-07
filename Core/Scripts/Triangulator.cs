@@ -49,7 +49,7 @@ namespace Meta.XR.MRUtilityKit
             float crossProductZ2 = bc.x * bp.y - bc.y * bp.x;
             float crossProductZ3 = ca.x * cp.y - ca.y * cp.x;
 
-            return (crossProductZ1 >= 0) && (crossProductZ2 >= 0) && (crossProductZ3 >= 0);
+            return (crossProductZ1 >= 0 && crossProductZ2 >= 0 && crossProductZ3 >= 0) || (crossProductZ1 <= 0 && crossProductZ2 <= 0 && crossProductZ3 <= 0);
         }
 
         static bool IsEar(List<Vector2> vertices, List<int> indices, int prevIndex, int currIndex, int nextIndex)
@@ -77,19 +77,137 @@ namespace Meta.XR.MRUtilityKit
             return true;
         }
 
+        public struct Outline
+        {
+            public List<Vector2> vertices;
+            public List<int> indices;
+        }
+
+        public static Outline CreateOutline(List<Vector2> vertices, List<List<Vector2>> holes)
+        {
+            Outline outline = new();
+            outline.vertices = new List<Vector2>(vertices);
+            outline.indices = new();
+            int totalVertices = vertices.Count;
+            foreach (var hole in holes)
+            {
+                totalVertices += hole.Count;
+            }
+            outline.vertices.Capacity = totalVertices;
+            outline.indices.Capacity = totalVertices + 2 * holes.Count;
+            for (int i = 0; i < vertices.Count; ++i)
+            {
+                outline.indices.Add(i);
+            }
+            while (holes.Count > 0)
+            {
+                float maxX = Mathf.NegativeInfinity;
+                int holeToMerge = -1;
+                int vertexToMerge = -1;
+                for (int i = 0; i < holes.Count; ++i)
+                {
+                    var hole = holes[i];
+                    for (int j = 0; j < hole.Count; ++j)
+                    {
+                        var vertex = hole[j];
+                        if (vertex.x > maxX)
+                        {
+                            maxX = vertex.x;
+                            holeToMerge = i;
+                            vertexToMerge = j;
+                        }
+                    }
+                }
+                Vector2 holePos = holes[holeToMerge][vertexToMerge];
+                float closestXIntersection = Mathf.Infinity;
+                int mergeWithIndex = -1;
+                Vector2 mergeWith = new();
+                for (int i = 0; i < outline.indices.Count; ++i)
+                {
+                    int i1 = outline.indices[i];
+                    int i2 = outline.indices[(i + 1) % outline.indices.Count];
+                    Vector2 p1 = outline.vertices[i1];
+                    Vector2 p2 = outline.vertices[i2];
+                    if ((p1.y != p2.y) &&
+                        ((p1.y >= holePos.y && p2.y <= holePos.y) ||
+                        (p2.y >= holePos.y && p1.y <= holePos.y)))
+                    {
+                        float frac = (holePos.y - p1.y) / (p2.y - p1.y);
+                        float xIntersection = p1.x + frac * (p2.x - p1.x);
+                        if (xIntersection >= holePos.x && xIntersection < closestXIntersection)
+                        {
+                            closestXIntersection = xIntersection;
+                            mergeWithIndex = i;
+                            mergeWith = p1;
+                        }
+                    }
+                }
+                if (mergeWithIndex != -1)
+                {
+                    Vector2 intersection = new Vector2(closestXIntersection, holePos.y);
+                    int mergeWithVertexIndex = outline.indices[mergeWithIndex];
+                    for (int i = 0; i < outline.indices.Count; ++i)
+                    {
+                        int prevVertexIndex = outline.indices[(i + outline.indices.Count - 1) % outline.indices.Count];
+                        int vertexIndex = outline.indices[i];
+                        int nextVertexIndex = outline.indices[(i + 1) % outline.indices.Count];
+                        Vector2 prevVertex = outline.vertices[prevVertexIndex];
+                        Vector2 candidateVertex = outline.vertices[vertexIndex];
+                        Vector2 nextVertex = outline.vertices[nextVertexIndex];
+                        if (mergeWithVertexIndex != vertexIndex && !IsConvex(prevVertex, candidateVertex, nextVertex))
+                        {
+                            if (candidateVertex.x < mergeWith.x && candidateVertex.x > holePos.x &&
+                                PointInTriangle(holePos, mergeWith, intersection, candidateVertex))
+                            {
+                                mergeWith = candidateVertex;
+                                mergeWithIndex = i;
+                            }
+                        }
+                    }
+
+                    int startIndex = outline.vertices.Count;
+                    int holeVertexCount = holes[holeToMerge].Count;
+                    List<int> insertedIndices = new();
+                    insertedIndices.Capacity = holeVertexCount + 2;
+                    outline.vertices.AddRange(holes[holeToMerge]);
+                    for (int j = 0; j < holeVertexCount; ++j)
+                    {
+                        insertedIndices.Add(startIndex + (j + vertexToMerge) % holeVertexCount);
+                    }
+                    insertedIndices.Add(startIndex + vertexToMerge);
+                    insertedIndices.Add(outline.indices[mergeWithIndex]);
+                    outline.indices.InsertRange(mergeWithIndex + 1, insertedIndices);
+                }
+                holes.RemoveAt(holeToMerge);
+            }
+
+            return outline;
+        }
+
         // Ear clipping algorithm to triangulate the boundary
         public static List<int> TriangulatePoints(List<Vector2> vertices)
         {
-            List<int> indices = new();
-            List<int> triangles = new();
-            int numTriangles = Mathf.Max(vertices.Count - 2, 0);
-            triangles.Capacity = 3 * numTriangles;
+            Outline outline = new();
+            outline.vertices = vertices;
+            outline.indices = new();
 
-            indices.Capacity = vertices.Count;
+            outline.indices.Capacity = vertices.Count;
             for (int i = 0; i < vertices.Count; ++i)
             {
-                indices.Add(i);
+                outline.indices.Add(i);
             }
+
+            return TriangulateMesh(outline);
+        }
+
+        // Ear clipping algorithm to triangulate the boundary
+        public static List<int> TriangulateMesh(Outline outline)
+        {
+            List<Vector2> vertices = outline.vertices;
+            List<int> indices = outline.indices;
+            List<int> triangles = new();
+            int numTriangles = Mathf.Max(outline.indices.Count - 2, 0);
+            triangles.Capacity = 3 * numTriangles;
 
             while (indices.Count > 3)
             {

@@ -56,7 +56,7 @@ namespace Meta.XR.MRUtilityKit
         public LayerMask Layers;
 
         [Space(10)]
-        public UnityEvent OnNavMeshInitialized = new UnityEvent();
+        public UnityEvent OnNavMeshInitialized = new();
         private NavMeshSurface _navMeshSurface;
         private float _minimumNavMeshSurfaceArea = 0;
         private EffectMesh _effectMesh;
@@ -75,7 +75,7 @@ namespace Meta.XR.MRUtilityKit
         /// if not specified, a new agent will be created.</param>
         public void ToggleGlobalMeshNavigation(bool useGlobalMesh, int agentTypeID = -1)
         {
-            if (MRUK.Instance.GetCurrentRoom().GetGlobalMeshAnchor() == null)
+            if (MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor == null)
             {
                 Debug.LogWarning("[MRUK] No Global Mesh anchor was found in the scene.");
                 return;
@@ -264,6 +264,11 @@ namespace Meta.XR.MRUtilityKit
         static Vector3 Abs(Vector3 v)
         {
             return new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
+        }
+
+        private void OnDestroy()
+        {
+            OnNavMeshInitialized.RemoveAllListeners();
         }
     }
 }

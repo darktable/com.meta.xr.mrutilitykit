@@ -64,7 +64,6 @@ GameObject:
   - component: {fileID: 1304366414772974178}
   - component: {fileID: 6826210472939149144}
   - component: {fileID: 5484065886996321823}
-  - component: {fileID: 1863129030}
   m_Layer: 6
   m_Name: Oppy
   m_TagString: Untagged
@@ -160,33 +159,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   oppyMaterial: {fileID: 2100000, guid: 41b0900396a54ad4a81e1cd8d638b1b3, type: 2}
---- !u!114 &1863129030
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7107983976591372239}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c55c994d76dd43da9cfea6b3e8f32b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneLoadedEvent:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 6826210472939149144}
-        m_TargetAssemblyTypeName: OppyCharacterController, meta.xr.mrutilitykit
-        m_MethodName: Respawn
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
 --- !u!1001 &485879770877214258
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -194,34 +166,6 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 5224702894496734085}
     m_Modifications:
-    - target: {fileID: -9041454682160946857, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_Layer
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: -8741530462471963069, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_Layer
-      value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_RootOrder
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.03
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.03
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_LocalScale.z
-      value: 0.03
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: -8932445939577140841, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_CastShadows
       value: 0
@@ -701,6 +645,34 @@ PrefabInstance:
     - target: {fileID: 9193487477993477609, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_Layer
       value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -9041454682160946857, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8741530462471963069, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_Layer
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_RootOrder
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.03
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.03
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.03
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 5866666021909216657, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}

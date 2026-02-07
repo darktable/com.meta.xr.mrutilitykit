@@ -3693,7 +3693,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2624990573474107925}
   - component: {fileID: 2624990573474107923}
-  - component: {fileID: 2624990573474107922}
   m_Layer: 0
   m_Name: DebugPanel
   m_TagString: Untagged
@@ -3742,42 +3741,6 @@ MonoBehaviour:
   _oppyController: {fileID: 0}
   _oppyLightGlow: {fileID: 0}
   _passthroughLayer: {fileID: 0}
---- !u!114 &2624990573474107922
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2624990573474107924}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0c55c994d76dd43da9cfea6b3e8f32b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sceneLoadedEvent:
-    m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 2624990573474107923}
-        m_TargetAssemblyTypeName: DebugPanel, meta.xr.mrutilitykit
-        m_MethodName: ToggleGeometryDropDown
-        m_Mode: 1
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
-  roomCreatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreUpdatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
-  roomPreRemovedEvent:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &2624990573485148703
 GameObject:
   m_ObjectHideFlags: 0

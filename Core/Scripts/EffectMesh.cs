@@ -28,6 +28,9 @@ namespace Meta.XR.MRUtilityKit
 {
     public class EffectMesh : MonoBehaviour
     {
+        [Tooltip("When the scene data is loaded, this controls what room(s) the effect mesh is applied to.")]
+        public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.AllRooms;
+
         [Tooltip("The material applied to the generated mesh.")]
         [FormerlySerializedAs("_MeshMaterial")]
         public Material MeshMaterial;
@@ -40,6 +43,9 @@ namespace Meta.XR.MRUtilityKit
         [FormerlySerializedAs("addColliders")]
         public bool Colliders = false;
 
+        [Tooltip("Cut holes in the mesh for door frames and/or window frames. NOTE: This does not apply if border size is non-zero.")]
+        public MRUKAnchor.SceneLabels CutHoles;
+
         [Tooltip("Whether the effect mesh objects will cast a shadow.")]
         [SerializeField]
         private bool castShadows = true;
@@ -50,13 +56,13 @@ namespace Meta.XR.MRUtilityKit
 
         public bool CastShadow
         {
-            get { return castShadows; }
+            get => castShadows;
             set { ToggleShadowCasting(value); castShadows = value; }
         }
 
         public bool HideMesh
         {
-            get { return hideMesh; }
+            get => hideMesh;
             set { ToggleEffectMeshVisibility(!value); hideMesh = value; }
         }
 
@@ -67,6 +73,7 @@ namespace Meta.XR.MRUtilityKit
             MAINTAIN_ASPECT_RATIO,          // The texture coordinates are adjusted to the other dimensions to ensure the aspect ratio is maintained.
             MAINTAIN_ASPECT_RATIO_SEAMLESS, // The texture coordinates are adjusted to the other dimensions to ensure the aspect ratio is maintained but are adjusted to end on a whole number to avoid seams.
             STRETCH,                        // The texture coordinates range from 0 to 1.
+            STRETCH_SECTION,                // The texture coordinates start at 0 and increase to 1 for each individual wall section.
         };
         public enum WallTextureCoordinateModeV
         {
@@ -74,11 +81,20 @@ namespace Meta.XR.MRUtilityKit
             MAINTAIN_ASPECT_RATIO,          // The texture coordinates are adjusted to the other dimensions to ensure the aspect ratio is maintained.
             STRETCH,                        // The texture coordinates range from 0 to 1.
         };
+        public enum AnchorTextureCoordinateMode
+        {
+            METRIC,                         // The texture coordinates start at 0 and increase by 1 unit every meter.
+            STRETCH,                        // The texture coordinates range from 0 to 1 across the anchor surface.
+        };
+
         [System.Serializable]
         public class TextureCoordinateModes
         {
-            public WallTextureCoordinateModeU U = WallTextureCoordinateModeU.METRIC;
-            public WallTextureCoordinateModeV V = WallTextureCoordinateModeV.METRIC;
+            [FormerlySerializedAs("U")]
+            public WallTextureCoordinateModeU WallU = WallTextureCoordinateModeU.METRIC;
+            [FormerlySerializedAs("V")]
+            public WallTextureCoordinateModeV WallV = WallTextureCoordinateModeV.METRIC;
+            public AnchorTextureCoordinateMode AnchorUV = AnchorTextureCoordinateMode.METRIC;
         };
         [Tooltip("Can not exceed 8.")]
         public TextureCoordinateModes[] textureCoordinateModes = new TextureCoordinateModes[1] { new TextureCoordinateModes() };
@@ -101,6 +117,21 @@ namespace Meta.XR.MRUtilityKit
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadEffectMesh).Send();
 #endif
+            if (MRUK.Instance && SpawnOnStart != MRUK.RoomFilter.None)
+            {
+                MRUK.Instance.RegisterSceneLoadedCallback(() =>
+                {
+                    switch (SpawnOnStart)
+                    {
+                        case MRUK.RoomFilter.AllRooms:
+                            CreateMesh();
+                            break;
+                        case MRUK.RoomFilter.CurrentRoomOnly:
+                            CreateMesh(MRUK.Instance.GetCurrentRoom());
+                            break;
+                    }
+                });
+            }
         }
 
         /// <summary>
@@ -187,7 +218,7 @@ namespace Meta.XR.MRUtilityKit
 
         public void CreateMesh()
         {
-            foreach (var room in MRUK.Instance.GetRooms())
+            foreach (var room in MRUK.Instance.Rooms)
             {
                 CreateMesh(room);
             }
@@ -309,18 +340,23 @@ namespace Meta.XR.MRUtilityKit
         public void CreateMesh(MRUKRoom tkRoom)
         {
             // To get all the anchors in the space:
-            var sceneAnchors = tkRoom.GetRoomAnchors();
+            var sceneAnchors = tkRoom.Anchors;
 
             List<MRUKAnchor> walls = new List<MRUKAnchor>();
             MRUKAnchor floor = null;
             MRUKAnchor ceiling = null;
             MRUKAnchor globalMesh = null;
 
+            if (CutHoles != 0 && BorderSize > 0.0f)
+            {
+                Debug.LogWarning("CutHoles property does not have any effect when BorderSize is non-zero");
+            }
+
             float shortestWallDimension = Mathf.Infinity;
             for (int i = 0; i < sceneAnchors.Count; i++)
             {
                 MRUKAnchor anchorInfo = sceneAnchors[i];
-                if (anchorInfo && IncludesLabel(anchorInfo.AnchorLabels[0]))
+                if (anchorInfo && IncludesAnyLabels(anchorInfo.AnchorLabels))
                 {
                     if (sceneAnchors[i].HasLabel(OVRSceneManager.Classification.WallFace))
                     {
@@ -355,7 +391,18 @@ namespace Meta.XR.MRUtilityKit
             float polyBorderSize = Mathf.Min(shortestWallDimension * 0.5f, BorderSize);
             for (int i = 0; i < sortedWalls.Count; i++)
             {
-                CreateEffectMeshWall(sortedWalls[i], totalWallLength, ref uSpacing, polyBorderSize);
+                // sortedWalls contains ALL walls in the room, both WALL_FACE and INVISIBLE_WALL_FACE
+                // however, we only want to create the mesh for walls in this EffectMesh's label list
+                // this requires custom behavior because every INVISIBLE wall is also tagged as a WALL
+                bool includeMesh = IncludesLabel(OVRSceneManager.Classification.InvisibleWallFace) &&
+                    sortedWalls[i].HasLabel(OVRSceneManager.Classification.InvisibleWallFace);
+                includeMesh |= IncludesLabel(OVRSceneManager.Classification.WallFace) &&
+                    !sortedWalls[i].HasLabel(OVRSceneManager.Classification.InvisibleWallFace);
+
+                if (includeMesh)
+                {
+                    CreateEffectMeshWall(sortedWalls[i], totalWallLength, ref uSpacing, polyBorderSize);
+                }
             }
             if (floor)
             {
@@ -371,10 +418,21 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        private bool IncludesAnyLabels(List<string> labelsToCheck)
+        {
+            foreach (string label in labelsToCheck)
+            {
+                if (IncludesLabel(label))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private bool IncludesLabel(string labelToCheck)
         {
-            MRUKAnchor.SceneLabels enumLabel;
-            if (Enum.TryParse(labelToCheck, out enumLabel))
+            if (Enum.TryParse(labelToCheck, out MRUKAnchor.SceneLabels enumLabel))
             {
                 if (Labels.HasFlag(enumLabel))
                 {
@@ -437,7 +495,7 @@ namespace Meta.XR.MRUtilityKit
             int totalVertices;
             int totalIndices;
             bool createBorder = border > 0.0f;
-            if (anchorInfo.HasVolume)
+            if (anchorInfo.VolumeBounds.HasValue)
             {
                 totalVertices = 24;
                 totalIndices = 36;
@@ -447,7 +505,7 @@ namespace Meta.XR.MRUtilityKit
                     totalIndices += 144;
                 }
             }
-            else if (anchorInfo.HasPlane)
+            else if (anchorInfo.PlaneRect.HasValue)
             {
                 totalVertices = anchorInfo.PlaneBoundary2D.Count;
                 totalIndices = (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
@@ -480,9 +538,13 @@ namespace Meta.XR.MRUtilityKit
                 newRenderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
                 newRenderer.enabled = !hideMesh;
             }
-
+            int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
+            Vector2[][] MeshUVs = new Vector2[UVChannelCount][];
+            for (int x = 0; x < UVChannelCount; x++)
+            {
+                MeshUVs[x] = new Vector2[totalVertices];
+            }
             Vector3[] MeshVertices = new Vector3[totalVertices];
-            Vector2[] MeshUVs = new Vector2[totalVertices];
             Color32[] MeshColors = new Color32[totalVertices];
             Vector3[] MeshNormals = new Vector3[totalVertices];
             Vector4[] MeshTangents = new Vector4[totalVertices];
@@ -493,7 +555,7 @@ namespace Meta.XR.MRUtilityKit
             int triCounter = 0;
             int baseVert = 0;
 
-            if (anchorInfo.HasVolume)
+            if (anchorInfo.VolumeBounds.HasValue)
             {
                 Vector3 dim = anchorInfo.VolumeBounds.Value.size;
                 // if the object is thin, the border size needs to adjust
@@ -565,8 +627,23 @@ namespace Meta.XR.MRUtilityKit
                         basePoint += up * rotatedDim.y * UVy - right * rotatedDim.x * UVx;
                         Vector2 quadUV = new Vector2(UVx, UVy);
 
+                        for (int x = 0; x < UVChannelCount; x++)
+                        {
+                            Vector2 uvScaleFactor = Vector2.one;
+                            switch (textureCoordinateModes[x].AnchorUV)
+                            {
+                                case AnchorTextureCoordinateMode.METRIC:
+                                    uvScaleFactor = new Vector2(UVxDim, UVyDim);
+                                    break;
+                            }
+                            MeshUVs[x][vertCounter] = Vector2.Scale(quadUV, uvScaleFactor);
+                            if (createBorder)
+                            {
+                                Vector2 UVoffset = new Vector2(-xDir * border / UVxDim, -yDir * border / UVyDim);
+                                MeshUVs[x][vertCounter + 4] = Vector2.Scale(quadUV + UVoffset, uvScaleFactor);
+                            }
+                        }
                         MeshVertices[vertCounter] = basePoint - Vector3.forward * dim.z * 0.5f;
-                        MeshUVs[vertCounter] = Vector2.Scale(quadUV, new Vector2(UVxDim, UVyDim));
                         MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
                         MeshNormals[vertCounter] = fwd;
                         MeshTangents[vertCounter] = new Vector4(-right.x, -right.y, -right.z, -1);
@@ -574,10 +651,8 @@ namespace Meta.XR.MRUtilityKit
                         if (createBorder)
                         {
                             Vector3 offset = up * -yDir * border + right * xDir * border;
-                            Vector2 UVoffset = new Vector2(-xDir * border / UVxDim, -yDir * border / UVyDim);
 
                             MeshVertices[vertCounter + 4] = MeshVertices[vertCounter] + offset;
-                            MeshUVs[vertCounter + 4] = Vector2.Scale(quadUV + UVoffset, new Vector2(UVxDim, UVyDim));
                             MeshColors[vertCounter + 4] = Color.white;
                             MeshNormals[vertCounter + 4] = fwd;
                             MeshTangents[vertCounter + 4] = new Vector4(-right.x, -right.y, -right.z, -1);
@@ -597,47 +672,58 @@ namespace Meta.XR.MRUtilityKit
             }
             else
             {
-                Vector2 size = anchorInfo.PlaneRect.Value.size;
+                Rect rect = anchorInfo.PlaneRect.Value;
                 // if the object is thin, the border size needs to adjust
-                border = Mathf.Min(border, size.x * 0.5f, size.y * 0.5f);
+                border = Mathf.Min(border, rect.size.x * 0.5f, rect.size.y * 0.5f);
+
                 List<Vector2> localPoints = anchorInfo.PlaneBoundary2D;
+                List<Vector2> localInnerPoints = new List<Vector2>(localPoints.Count);
+
                 for (int i = 0; i < localPoints.Count; i++)
                 {
                     Vector2 thisCorner = localPoints[i];
+                    Vector2 nextCorner = (i == localPoints.Count - 1) ? localPoints[0] : localPoints[i + 1];
+                    Vector2 lastCorner = (i == 0) ? localPoints[localPoints.Count - 1] : localPoints[i - 1];
+                    Vector2 insetPosOffset = GetInsetPositionOffset(lastCorner, thisCorner, nextCorner, border);
+                    Vector2 innerVertex = thisCorner + insetPosOffset;
+                    localInnerPoints.Add(innerVertex);
+
+                    for (int x = 0; x < UVChannelCount; x++)
+                    {
+                        Vector2 uvScaleFactor = Vector2.one;
+                        switch (textureCoordinateModes[x].AnchorUV)
+                        {
+                            case AnchorTextureCoordinateMode.STRETCH:
+                                uvScaleFactor = new Vector2(1 / (rect.xMax - rect.xMin), 1 / (rect.yMax - rect.yMin));
+                                break;
+                        }
+
+                        MeshUVs[x][vertCounter] = Vector2.Scale(new Vector2(rect.xMax - thisCorner.x, thisCorner.y - rect.yMin), uvScaleFactor);
+                        if (createBorder)
+                        {
+                            MeshUVs[x][vertCounter + localPoints.Count] = Vector2.Scale(new Vector2(rect.xMax - innerVertex.x, innerVertex.y - rect.yMin), uvScaleFactor);
+                        }
+                    }
 
                     MeshVertices[vertCounter] = new Vector3(thisCorner.x, thisCorner.y, 0);
-                    MeshUVs[vertCounter] = new Vector2(-thisCorner.x, thisCorner.y);
                     MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
                     MeshNormals[vertCounter] = Vector3.forward;
                     MeshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
+
+                    if (createBorder)
+                    {
+                        MeshVertices[vertCounter + localPoints.Count] = new Vector3(innerVertex.x, innerVertex.y, 0);
+                        MeshColors[vertCounter + localPoints.Count] = Color.white;
+                        MeshNormals[vertCounter + localPoints.Count] = Vector3.forward;
+                        MeshTangents[vertCounter + localPoints.Count] = new Vector4(1, 0, 0, 1);
+                    }
 
                     vertCounter++;
                 }
 
                 if (createBorder)
                 {
-                    List<Vector2> localInnerPoints = new List<Vector2>(localPoints.Count);
-
-                    for (int i = 0; i < localPoints.Count; i++)
-                    {
-                        Vector2 thisCorner = localPoints[i];
-                        Vector2 nextCorner = (i == localPoints.Count - 1) ? localPoints[0] : localPoints[i + 1];
-                        Vector2 lastCorner = (i == 0) ? localPoints[localPoints.Count - 1] : localPoints[i - 1];
-                        Vector2 insetPosOffset = GetInsetPositionOffset(lastCorner, thisCorner, nextCorner, border);
-
-                        Vector2 innerVertex = thisCorner + insetPosOffset;
-                        localInnerPoints.Add(innerVertex);
-                        MeshVertices[vertCounter] = new Vector3(innerVertex.x, innerVertex.y, 0);
-                        MeshUVs[vertCounter] = new Vector2(-innerVertex.x, innerVertex.y);
-                        MeshColors[vertCounter] = Color.white;
-                        MeshNormals[vertCounter] = Vector3.forward;
-                        MeshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
-
-                        vertCounter++;
-                    }
-
                     localPoints = localInnerPoints;
-
                     CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, localPoints.Count);
                     baseVert += localPoints.Count;
                 }
@@ -648,7 +734,36 @@ namespace Meta.XR.MRUtilityKit
             newMesh.Clear();
             newMesh.name = anchorInfo.name;
             newMesh.vertices = MeshVertices;
-            newMesh.uv = MeshUVs;
+            for (int x = 0; x < UVChannelCount; x++)
+            {
+                switch (x)
+                {
+                    case 0:
+                        newMesh.uv = MeshUVs[x];
+                        break;
+                    case 1:
+                        newMesh.uv2 = MeshUVs[x];
+                        break;
+                    case 2:
+                        newMesh.uv3 = MeshUVs[x];
+                        break;
+                    case 3:
+                        newMesh.uv4 = MeshUVs[x];
+                        break;
+                    case 4:
+                        newMesh.uv5 = MeshUVs[x];
+                        break;
+                    case 5:
+                        newMesh.uv6 = MeshUVs[x];
+                        break;
+                    case 6:
+                        newMesh.uv7 = MeshUVs[x];
+                        break;
+                    case 7:
+                        newMesh.uv8 = MeshUVs[x];
+                        break;
+                }
+            }
             newMesh.colors32 = MeshColors;
             newMesh.triangles = MeshTriangles;
             newMesh.normals = MeshNormals;
@@ -666,7 +781,7 @@ namespace Meta.XR.MRUtilityKit
 
         private Collider AddCollider(EffectMeshObject effectMeshObject)
         {
-            if (effectMeshObject.anchorInfo.HasVolume)
+            if (effectMeshObject.anchorInfo.VolumeBounds.HasValue)
             {
                 var boxCollider = effectMeshObject.effectMeshGO.AddComponent<BoxCollider>();
                 boxCollider.size = effectMeshObject.anchorInfo.VolumeBounds.Value.size;
@@ -691,8 +806,10 @@ namespace Meta.XR.MRUtilityKit
 
         EffectMeshObject CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, float border)
         {
-            EffectMeshObject effectMeshObject = new EffectMeshObject();
-            effectMeshObject.anchorInfo = anchorInfo;
+            EffectMeshObject effectMeshObject = new EffectMeshObject
+            {
+                anchorInfo = anchorInfo
+            };
 
             GameObject newGameObject = new GameObject(anchorInfo.name + "_EffectMesh");
             newGameObject.transform.SetParent(anchorInfo.transform, false);
@@ -717,13 +834,60 @@ namespace Meta.XR.MRUtilityKit
 
             bool createBorder = border > 0.0f;
 
-            int totalVertices = 4;
-            int totalIndices = 6;
+            List<List<Vector2>> holes = new();
+
+            Rect wallRect = anchorInfo.PlaneRect.Value;
+
+            List<Vector2> wallQuad = new()
+            {
+                new Vector2(wallRect.xMax, wallRect.yMax),
+                new Vector2(wallRect.xMin, wallRect.yMax),
+                new Vector2(wallRect.xMin, wallRect.yMin),
+                new Vector2(wallRect.xMax, wallRect.yMin)
+            };
+
+            // Holes are not supported if a border is created, supporting this combination adds a lot of complexity
+            // in dealing with the edge cases.
+            if (!createBorder)
+            {
+                foreach (var child in anchorInfo.ChildAnchors)
+                {
+                    if (child.PlaneRect.HasValue)
+                    {
+                        if ((child.GetLabelsAsEnum() & CutHoles) == 0)
+                        {
+                            continue;
+                        }
+                        Vector3 relativePos = anchorInfo.transform.InverseTransformPoint(child.transform.position);
+
+                        var childRect = child.PlaneRect.Value;
+                        childRect.position += new Vector2(relativePos.x, relativePos.y);
+                        // Keep a minimum gap away from the edge to make sure triangulation works properly
+                        const float tolerance = 0.01f;
+                        childRect.xMin = Mathf.Max(childRect.xMin, wallRect.xMin + tolerance);
+                        childRect.xMax = Mathf.Min(childRect.xMax, wallRect.xMax - tolerance);
+                        childRect.yMin = Mathf.Max(childRect.yMin, wallRect.yMin + tolerance);
+                        childRect.yMax = Mathf.Min(childRect.yMax, wallRect.yMax - tolerance);
+                        List<Vector2> childOutline = new()
+                        {
+                            new Vector2(childRect.xMin, childRect.yMax),
+                            new Vector2(childRect.xMax, childRect.yMax),
+                            new Vector2(childRect.xMax, childRect.yMin),
+                            new Vector2(childRect.xMin, childRect.yMin)
+                        };
+                        holes.Add(childOutline);
+                    }
+                }
+            }
+
+            var outline = Triangulator.CreateOutline(wallQuad, holes);
+
+            int totalVertices = outline.vertices.Count;
             if (createBorder)
             {
                 totalVertices += 4;
-                totalIndices += 24;
             }
+
             int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
 
             Vector3[] MeshVertices = new Vector3[totalVertices];
@@ -736,10 +900,7 @@ namespace Meta.XR.MRUtilityKit
             Vector3[] MeshNormals = new Vector3[totalVertices];
             Vector4[] MeshTangents = new Vector4[totalVertices];
 
-            int[] MeshTriangles = new int[totalIndices];
-
             int vertCounter = 0;
-            int triCounter = 0;
 
             float seamlessScaleFactor = GetSeamlessFactor(totalWallLength, 1);
 
@@ -749,23 +910,25 @@ namespace Meta.XR.MRUtilityKit
             Vector3 wallNorm = Vector3.forward;
             Vector4 wallTan = new Vector4(1, 0, 0, 1);
 
-            for (int j = 0; j < 4; j++)
-            {
-                bool leftVert = (j / 2 == 0);
-                bool bottomVert = (j == 1 || j == 2);
+            var wallCenter = wallRect.center;
 
-                float u = leftVert ? 0 : thisSegmentLength;
-                float v = bottomVert ? 0 : ceilingHeight;
-                float innerU = leftVert ? border : thisSegmentLength - border;
-                float innerV = bottomVert ? border : ceilingHeight - border;
+            for (int j = 0; j < outline.vertices.Count; j++)
+            {
+                var vert = outline.vertices[j];
+
+                float u = vert.x - wallRect.xMin;
+                float v = vert.y - wallRect.yMin;
+                float innerU = vert.x < wallCenter.x ? u + border : u - border;
+                float innerV = vert.y < wallCenter.y ? v + border : v - border;
 
                 for (int x = 0; x < UVChannelCount; x++)
                 {
                     float denominatorX;
                     float denominatorY;
+                    float defaultSpacing = uSpacing;
                     // Determine the scaling in the V direction first, if this is set to maintain aspect
                     // ratio we need to come back to it after U scaling has been determined.
-                    switch (textureCoordinateModes[x].V)
+                    switch (textureCoordinateModes[x].WallV)
                     {
                         // Default to stretch in case maintain aspect ratio is set for both axes
                         default:
@@ -776,7 +939,7 @@ namespace Meta.XR.MRUtilityKit
                             denominatorY = 1;
                             break;
                     }
-                    switch (textureCoordinateModes[x].U)
+                    switch (textureCoordinateModes[x].WallU)
                     {
                         default:
                         case WallTextureCoordinateModeU.STRETCH:
@@ -794,17 +957,21 @@ namespace Meta.XR.MRUtilityKit
                         case WallTextureCoordinateModeU.MAINTAIN_ASPECT_RATIO_SEAMLESS:
                             denominatorX = GetSeamlessFactor(totalWallLength, denominatorY);
                             break;
+                        case WallTextureCoordinateModeU.STRETCH_SECTION:
+                            denominatorX = thisSegmentLength;
+                            defaultSpacing = 0;
+                            break;
                     }
                     // Do another pass on V in case it has maintain aspect ratio set
-                    if (textureCoordinateModes[x].V == WallTextureCoordinateModeV.MAINTAIN_ASPECT_RATIO)
+                    if (textureCoordinateModes[x].WallV == WallTextureCoordinateModeV.MAINTAIN_ASPECT_RATIO)
                     {
                         denominatorY = denominatorX;
                     }
 
-                    MeshUVs[x][vertCounter] = new Vector2((uSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
+                    MeshUVs[x][vertCounter] = new Vector2((defaultSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
                     if (createBorder)
                     {
-                        MeshUVs[x][vertCounter + 4] = new Vector2((uSpacing + thisSegmentLength - innerU) / denominatorX, innerV / denominatorY);
+                        MeshUVs[x][vertCounter + 4] = new Vector2((defaultSpacing + thisSegmentLength - innerU) / denominatorX, innerV / denominatorY);
                     }
                 }
 
@@ -825,13 +992,19 @@ namespace Meta.XR.MRUtilityKit
 
             uSpacing += thisSegmentLength;
 
-            int baseVert = 0;
+            int[] MeshTriangles;
             if (createBorder)
             {
-                CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, 4);
-                baseVert += 4;
+                MeshTriangles = new int[30];
+                int triCounter = 0;
+                CreateBorderPolygon(ref MeshTriangles, ref triCounter, 0, 4);
+                CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, 4, 4);
             }
-            CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, baseVert, 4);
+            else
+            {
+                var triangles = Triangulator.TriangulateMesh(outline);
+                MeshTriangles = triangles.ToArray();
+            }
 
             newMesh.Clear();
             newMesh.name = anchorInfo.name;
@@ -888,8 +1061,10 @@ namespace Meta.XR.MRUtilityKit
                 Debug.LogWarning("No global mesh was found in the current room");
                 return;
             }
-            var effectMeshObject = new EffectMeshObject();
-            effectMeshObject.anchorInfo = globalMeshAnchor;
+            var effectMeshObject = new EffectMeshObject
+            {
+                anchorInfo = globalMeshAnchor
+            };
 
             var globalMeshGO = new GameObject(globalMeshAnchor.name + "_EffectMesh", typeof(MeshFilter), typeof(MeshRenderer));
             globalMeshGO.transform.SetParent(globalMeshAnchor.transform, false);
@@ -898,7 +1073,7 @@ namespace Meta.XR.MRUtilityKit
             if (globalMeshAnchor.GlobalMesh == null)
             {
                 globalMeshAnchor.Anchor.TryGetComponent(out OVRLocatable locatable);
-                await locatable.SetEnabledSafeAsync(true);
+                await locatable.SetEnabledAsync(true);
 
                 if (!locatable.TryGetSceneAnchorPose(out var pose))
                     return;

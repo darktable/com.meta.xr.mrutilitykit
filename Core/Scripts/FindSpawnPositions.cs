@@ -28,9 +28,11 @@ using UnityEngine.Serialization;
 // Optional method to pin directly to surfaces
 public class FindSpawnPositions : MonoBehaviour
 {
+    [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
+    public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.AllRooms;
     [SerializeField, Tooltip("Prefab to be placed into the scene, or object in the scene to be moved around.")]
     public GameObject SpawnObject;
-    [SerializeField, Tooltip("Number of SpawnObject(s) to place into the scene, only applies to Prefabs.")]
+    [SerializeField, Tooltip("Number of SpawnObject(s) to place into the scene per room, only applies to Prefabs.")]
     public int SpawnAmount = 8;
     [SerializeField, Tooltip("Maximum number of times to attempt spawning/moving an object before giving up.")]
     public int MaxIterations = 1000;
@@ -69,11 +71,33 @@ public class FindSpawnPositions : MonoBehaviour
 #if UNITY_EDITOR
         OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadFindSpawnPositions).Send();
 #endif
+        if (MRUK.Instance && SpawnOnStart != MRUK.RoomFilter.None)
+        {
+            MRUK.Instance.RegisterSceneLoadedCallback(() =>
+            {
+                switch (SpawnOnStart)
+                {
+                    case MRUK.RoomFilter.AllRooms:
+                        StartSpawn();
+                        break;
+                    case MRUK.RoomFilter.CurrentRoomOnly:
+                        StartSpawn(MRUK.Instance.GetCurrentRoom());
+                        break;
+                }
+            });
+        }
     }
 
     public void StartSpawn()
     {
-        var room = MRUK.Instance.GetCurrentRoom();
+        foreach (var room in MRUK.Instance.Rooms)
+        {
+            StartSpawn(room);
+        }
+    }
+
+    public void StartSpawn(MRUKRoom room)
+    {
         var prefabBounds = Utilities.GetPrefabBounds(SpawnObject);
         float minRadius = 0.0f;
         const float clearanceDistance = 0.01f;

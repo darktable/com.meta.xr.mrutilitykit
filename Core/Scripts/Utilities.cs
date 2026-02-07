@@ -116,8 +116,8 @@ namespace Meta.XR.MRUtilityKit
         {
             if (gameObject == null) return;
             foreach (Transform child in gameObject.transform)
-                UnityEngine.Object.Destroy(child.gameObject);
-            UnityEngine.Object.Destroy(gameObject.gameObject);
+                UnityEngine.Object.DestroyImmediate(child.gameObject);
+            UnityEngine.Object.DestroyImmediate(gameObject.gameObject);
         }
 
         /// <summary>

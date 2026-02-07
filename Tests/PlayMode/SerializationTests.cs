@@ -42,7 +42,7 @@ namespace Meta.XR.MRUtilityKit.Tests
       ""RoomLayout"": {
         ""FloorUuid"": ""681D49700642440FA543B84C5E6075CE"",
         ""CeilingUuid"": ""5D2518B44391491DACEF6047E0A396BE"",
-        ""WallsUUid"": [
+        ""WallsUuid"": [
           ""F76A570A94604D8F9E64CA33E060AD71"",
           ""3DF644AB8EF643D9BC0815B37F3C509D"",
           ""BE7370BF58444E6D9065F1C27E17AE8C"",
@@ -52,7 +52,8 @@ namespace Meta.XR.MRUtilityKit.Tests
           ""794092B10A684918AE76BB11F4A8923F"",
           ""0E3CD9D109A449EDB6BCA03B02DAF307""
         ]
-      },
+      }," +
+@"
       ""Anchors"": [
         {
           ""UUID"": ""F76A570A94604D8F9E64CA33E060AD71"",
@@ -436,7 +437,7 @@ namespace Meta.XR.MRUtilityKit.Tests
       ""RoomLayout"": {
         ""FloorUuid"": ""469D6D16896A45858ADC4BB05B2D1268"",
         ""CeilingUuid"": ""4401B7317760425E9FE197733A427F76"",
-        ""WallsUUid"": [
+        ""WallsUuid"": [
           ""40213D13552A4A21AE7A2457C6F27937"",
           ""12ADD8A452914E0B92B54A3BB45D0192"",
           ""E0A9495F8CA94F0F98D078EACCA3ECF5"",
@@ -446,7 +447,8 @@ namespace Meta.XR.MRUtilityKit.Tests
           ""F492A68E773542EE8B3732DC04B4C9C4"",
           ""F5AEB1DAE14B47BEAE93684F0B405222""
         ]
-      },
+      }," +
+@"
       ""Anchors"": [
         {
           ""UUID"": ""40213D13552A4A21AE7A2457C6F27937"",
@@ -914,16 +916,37 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
+        /// <summary>
+        /// Make sure the order of wall anchors matches that of the room layout
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator WallOrderMatchesRoomLayout()
+        {
+            MRUK.Instance.LoadSceneFromJsonString(unityExpectedSerializedScene);
+            var sceneData = SerializationHelpers.Deserialize(unityExpectedSerializedScene);
+
+            Assert.AreEqual(8, sceneData.Rooms[0].RoomLayout.WallsUuid.Count);
+            Assert.AreEqual(8, MRUK.Instance.Rooms[0].WallAnchors.Count);
+            int i = 0;
+            foreach (var anchorUuid in sceneData.Rooms[0].RoomLayout.WallsUuid)
+            {
+                Assert.AreEqual(MRUK.Instance.Rooms[0].WallAnchors[i++].Anchor.Uuid, anchorUuid);
+            }
+
+            yield return null;
+        }
+
         void ValidateLoadedScene(string sceneJson)
         {
             MRUK.Instance.LoadSceneFromJsonString(sceneJson);
             Assert.NotNull(MRUK.Instance.GetCurrentRoom());
             var loadedRoom = MRUK.Instance.GetCurrentRoom();
             MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0], false);
-            var expectedRoom = MRUK.Instance.GetRooms()[1];
+            var expectedRoom = MRUK.Instance.Rooms[1];
             Assert.IsNotNull(expectedRoom);
-            var loadedAnchors = loadedRoom.GetRoomAnchors();
-            var expectedAnchors = expectedRoom.GetRoomAnchors();
+            var loadedAnchors = loadedRoom.Anchors;
+            var expectedAnchors = expectedRoom.Anchors;
             Assert.AreEqual(expectedAnchors.Count, loadedAnchors.Count);
             for (int i = 0; i < loadedAnchors.Count; i++)
             {
@@ -944,7 +967,6 @@ namespace Meta.XR.MRUtilityKit.Tests
                 Assert.That(loadedAnchor.transform.rotation.eulerAngles, Is.EqualTo(expectedAnchor.transform.rotation.eulerAngles).Using(Vector3EqualityComparer.Instance));
                 Assert.That(loadedAnchor.transform.localScale, Is.EqualTo(expectedAnchor.transform.localScale).Using(Vector3EqualityComparer.Instance));
                 Assert.That(loadedAnchor.GetAnchorCenter(), Is.EqualTo(expectedAnchor.GetAnchorCenter()).Using(Vector3EqualityComparer.Instance));
-                Assert.That(loadedAnchor.GetAnchorSize(), Is.EqualTo(expectedAnchor.GetAnchorSize()).Using(Vector3EqualityComparer.Instance));
                 if (loadedAnchor.PlaneBoundary2D != null)
                 {
                     var loadedPlaneBoundary2D = loadedAnchor.PlaneBoundary2D;

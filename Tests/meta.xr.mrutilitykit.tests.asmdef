@@ -5,7 +5,11 @@
         "Oculus.VR",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "meta.xr.mrutilitykit"
+        "Meta.XR.BuildingBlocks.Editor",
+        "Meta.XR.BuildingBlocks",
+        "PlayModeTests",
+        "meta.xr.mrutilitykit",
+        "meta.xr.mrutilitykit.editor"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

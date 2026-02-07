@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit
 
         public static class AnnotationType
         {
-            public const string RoomName = "RoomName";
+            public const string SceneName = "SceneName";
             public const string NumRooms = "NumRooms";
         }
     }
