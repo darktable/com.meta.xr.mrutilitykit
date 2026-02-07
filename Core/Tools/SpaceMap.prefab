@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf84073447bff4bcaa0069c8684fb680, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CreateOnStart: 2
+  CreateOnStart: 1
   TextureMap: {fileID: 2800000, guid: 739e6dc1c3321437396cc061e4b2e2bd, type: 3}
   MapGradient:
     serializedVersion: 2

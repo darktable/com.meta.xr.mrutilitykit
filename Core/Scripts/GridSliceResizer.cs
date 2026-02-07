@@ -137,12 +137,11 @@ namespace Meta.XR.MRUtilityKit
         private Matrix4x4 _pivotTransform = Matrix4x4.identity;
         private Matrix4x4 _scaledInvPivotTransform = Matrix4x4.identity;
         private Mesh _currentMesh;
-        private Vector3 _originalScale = Vector3.one;
+        private MeshCollider _meshCollider;
 
         private void Awake()
         {
             _meshFilter = GetComponent<MeshFilter>();
-            _originalScale = transform.localScale;
             if (OriginalMesh != null)
             {
                 _currentMesh = OriginalMesh;
@@ -160,6 +159,14 @@ namespace Meta.XR.MRUtilityKit
             _cachedBorderXPositive = BorderXPositive;
             _cachedBorderYPositive = BorderYPositive;
             _cachedBorderZPositive = BorderZPositive;
+            _meshCollider = GetComponent<MeshCollider>();
+        }
+
+        private void Start()
+        {
+#if UNITY_EDITOR
+            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadGridSliceResizer).Send();
+#endif
         }
 
         public void Update()
@@ -169,18 +176,30 @@ namespace Meta.XR.MRUtilityKit
                 || !ShouldResize())
                 return;
             var resizedMesh = ProcessVertices();
+            resizedMesh.RecalculateBounds();
+            resizedMesh.RecalculateNormals();
+            resizedMesh.RecalculateTangents();
+            resizedMesh.Optimize();
+
             _meshFilter.sharedMesh = resizedMesh;
             _currentSize = transform.lossyScale;
             UpdateCachedValues();
+            if (!_meshCollider)
+            {
+                TryGetComponent(out _meshCollider);
+                if (!_meshCollider) return;
+            }
+
+            _meshCollider.sharedMesh = null;
+            _meshCollider.sharedMesh = resizedMesh;
         }
 
-        private void OnDisable()
+        private void OnDestroy()
         {
-            // Reset the mesh to the original values,
-            // so prefabs don't break when removing this script after the mesh has been modified
-            transform.localScale = _originalScale;
             if (OriginalMesh)
+            {
                 _meshFilter.mesh = OriginalMesh;
+            }
         }
 
         private void OnDrawGizmos()
@@ -445,43 +464,17 @@ namespace Meta.XR.MRUtilityKit
             switch (scalingMethod)
             {
                 case Method.SLICE:
-                    boundingBoxSize[axis] = 2 * (_boundingBox.max[axis] -
-                                                 (originalScaledBounds.max[axis] -
-                                                  (Mathf.Abs(originalScaledBounds.max[axis] - PivotOffset[axis]) *
-                                                   borderNegative +
-                                                   PivotOffset[axis]
-                                                  )
-                                                 ));
-                    Gizmos.DrawWireCube(_boundingBox.center, boundingBoxSize);
+                    // The positive and negative borders are symmetrical, so one can be used
+                    DrawPositiveDrawBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
+                    DrawNegativeBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
                     break;
 
                 case Method.SLICE_WITH_ASYMMETRICAL_BORDER:
-                    boundingBoxSize[axis] = 0;
-                    var center = _boundingBox.center;
-
                     //Positive Border
-                    center[axis] = _boundingBox.max[axis] - (originalScaledBounds.max[axis] -
-                                                             (Mathf.Abs(originalScaledBounds.max[axis] -
-                                                                        PivotOffset[axis]) *
-                                                                 borderPositive + PivotOffset[axis]));
-                    if (center[axis] + PivotOffset[axis] < 0.0f)
-                        center[axis] = _boundingBox.max[axis];
-                    if (PivotOffset[axis] > _boundingBox.max[axis])
-                        center[axis] = Mathf.Min(PivotOffset[axis] * transform.lossyScale[axis], center[axis]);
-                    Gizmos.DrawWireCube(center, boundingBoxSize);
+                    DrawPositiveDrawBorderForAxis(borderPositive, axis, originalScaledBounds, boundingBoxSize);
 
                     // Negative Border
-                    center = _boundingBox.center;
-                    center[axis] = _boundingBox.min[axis] - (originalScaledBounds.min[axis] -
-                                                             (-Mathf.Abs(originalScaledBounds.min[axis] -
-                                                                         PivotOffset[axis]) * borderNegative +
-                                                              PivotOffset[axis])
-                        );
-                    if (center[axis] - PivotOffset[axis] > 0.0f)
-                        center[axis] = _boundingBox.min[axis];
-                    if (PivotOffset[axis] < _boundingBox.min[axis])
-                        center[axis] = Mathf.Max(PivotOffset[axis] * transform.lossyScale[axis], center[axis]);
-                    Gizmos.DrawWireCube(center, boundingBoxSize);
+                    DrawNegativeBorderForAxis(borderNegative, axis, originalScaledBounds, boundingBoxSize);
                     break;
 
                 case Method.SCALE:
@@ -489,6 +482,51 @@ namespace Meta.XR.MRUtilityKit
                     // Unity default scaling method, silently fall through.
                     break;
             }
+        }
+
+        private void DrawNegativeBorderForAxis(float borderNegative, int axis, Bounds originalScaledBounds,
+            Vector3 boundingBoxSize)
+        {
+            boundingBoxSize[axis] = 0;
+            var center = _boundingBox.center;
+            center[axis] = _boundingBox.min[axis] - (originalScaledBounds.min[axis] -
+                                                     (-Mathf.Abs(originalScaledBounds.min[axis] -
+                                                                 PivotOffset[axis]) * borderNegative +
+                                                      PivotOffset[axis])
+                );
+            if (center[axis] - PivotOffset[axis] > 0.0f)
+            {
+                center[axis] = _boundingBox.min[axis];
+            }
+
+            if (PivotOffset[axis] < _boundingBox.min[axis])
+            {
+                center[axis] = Mathf.Max(PivotOffset[axis] * transform.lossyScale[axis], center[axis]);
+            }
+
+            Gizmos.DrawWireCube(center, boundingBoxSize);
+        }
+
+        private void DrawPositiveDrawBorderForAxis(float borderNegative, int axis, Bounds originalScaledBounds,
+            Vector3 boundingBoxSize)
+        {
+            boundingBoxSize[axis] = 0;
+            var center = _boundingBox.center;
+            center[axis] = _boundingBox.max[axis] - (originalScaledBounds.max[axis] -
+                                                     (Mathf.Abs(originalScaledBounds.max[axis] -
+                                                                PivotOffset[axis]) *
+                                                         borderNegative + PivotOffset[axis]));
+            if (center[axis] + PivotOffset[axis] < 0.0f)
+            {
+                center[axis] = _boundingBox.max[axis];
+            }
+
+            if (PivotOffset[axis] > _boundingBox.max[axis])
+            {
+                center[axis] = Mathf.Min(PivotOffset[axis] * transform.lossyScale[axis], center[axis]);
+            }
+
+            Gizmos.DrawWireCube(center, boundingBoxSize);
         }
 
         private Bounds ScaleBounds(Bounds originalBounds, Vector3 scale)

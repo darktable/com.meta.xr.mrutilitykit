@@ -25,6 +25,7 @@ using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -99,6 +100,13 @@ namespace Meta.XR.MRUtilityKit
             NoRoomsFound,
         };
 
+        [Serializable]
+        public struct SceneTrackingSettings
+        {
+            internal HashSet<MRUKRoom> UnTrackedRooms;
+            internal HashSet<MRUKAnchor> UnTrackedAnchors;
+        }
+
         [Flags]
         public enum SurfaceType
         {
@@ -119,22 +127,26 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// Event that is triggered when the scene is loaded.
         /// </summary>
-        public UnityEvent SceneLoadedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(SceneLoadedEvent))]
+        public UnityEvent SceneLoadedEvent { get; private set; } = new();
 
         /// <summary>
         /// Event that is triggered when a room is created.
         /// </summary>
-        public UnityEvent<MRUKRoom> RoomCreatedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(RoomCreatedEvent))]
+        public UnityEvent<MRUKRoom> RoomCreatedEvent { get; private set; } = new();
 
         /// <summary>
         /// Event that is triggered when a room is updated.
         /// </summary>
-        public UnityEvent<MRUKRoom> RoomUpdatedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(RoomUpdatedEvent))]
+        public UnityEvent<MRUKRoom> RoomUpdatedEvent { get; private set; } = new();
 
         /// <summary>
         /// Event that is triggered when a room is removed.
         /// </summary>
-        public UnityEvent<MRUKRoom> RoomRemovedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(RoomRemovedEvent))]
+        public UnityEvent<MRUKRoom> RoomRemovedEvent { get; private set; } = new();
         /// <summary>
         /// When world locking is enabled the position of the camera rig will be adjusted each frame to ensure
         /// the room anchors are where they should be relative to the camera position.This is necessary to
@@ -185,6 +197,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="callback">
         /// - `MRUKRoom` The created room object.
         /// </param>
+        [Obsolete("Use UnityEvent RoomCreatedEvent directly instead")]
         public void RegisterRoomCreatedCallback(UnityAction<MRUKRoom> callback)
         {
             RoomCreatedEvent.AddListener(callback);
@@ -196,6 +209,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="callback">
         /// - `MRUKRoom` The updated room object.
         /// </param>
+        [Obsolete("Use UnityEvent RoomUpdatedEvent directly instead")]
         public void RegisterRoomUpdatedCallback(UnityAction<MRUKRoom> callback)
         {
             RoomUpdatedEvent.AddListener(callback);
@@ -206,6 +220,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="callback">The function to be called when the room is removed. It takes one parameter:
         /// - `MRUKRoom` The removed room object.
         ///</param>
+        [Obsolete("Use UnityEvent RoomRemovedEvent directly instead")]
         public void RegisterRoomRemovedCallback(UnityAction<MRUKRoom> callback)
         {
             RoomRemovedEvent.AddListener(callback);
@@ -273,9 +288,11 @@ namespace Meta.XR.MRUtilityKit
         public static async Task<bool> HasSceneModel()
         {
             var rooms = new List<OVRAnchor>();
-            if (!await OVRAnchor.FetchAnchorsAsync<OVRRoomLayout>(rooms))
-                return false;
-            return rooms.Count > 0;
+            var result = await OVRAnchor.FetchAnchorsAsync(rooms, new OVRAnchor.FetchOptions
+            {
+                SingleComponentType = typeof(OVRRoomLayout)
+            });
+            return result.Success && rooms.Count > 0;
         }
 
         [Serializable]
@@ -515,6 +532,7 @@ namespace Meta.XR.MRUtilityKit
             _cachedCurrentRoom = null;
         }
 
+
         /// <summary>
         /// Loads the scene from the data stored on the device.
         /// </summary>
@@ -531,8 +549,15 @@ namespace Meta.XR.MRUtilityKit
         /// the request space setup flow will be started.</param>
         /// <returns>An enum indicating whether loading was successful or not.</returns>
         public async Task<LoadDeviceResult> LoadSceneFromDevice(bool requestSceneCaptureIfNoDataFound = true)
+            => await LoadSceneFromDevice(new OVRAnchor.FetchOptions
+            {
+                SingleComponentType = typeof(OVRRoomLayout)
+            }, requestSceneCaptureIfNoDataFound);
+
+        private async Task<LoadDeviceResult> LoadSceneFromDevice(OVRAnchor.FetchOptions fetchOptions,
+            bool requestSceneCaptureIfNoDataFound)
         {
-            var newSceneData = await CreateSceneDataFromDevice();
+            var newSceneData = await CreateSceneDataFromDevice(fetchOptions);
 
             if (newSceneData.Rooms.Count == 0)
             {
@@ -543,6 +568,16 @@ namespace Meta.XR.MRUtilityKit
                 {
                     Debug.LogWarning($"MRUK couldn't load any scene data. The app does not have permissions for {OVRPermissionsRequester.ScenePermission}.");
                     return LoadDeviceResult.NoScenePermission;
+                }
+#elif UNITY_EDITOR
+                if (OVRManager.isHmdPresent)
+                {
+                    // If in the editor and an HMD is present, assume either Link or XR Sim is being used.
+                    Debug.LogWarning("MRUK couldn't load any scene data. Scene capture does not work over Link or XR Sim.\n" +
+                                     "If using Link please capture a scene with the HMD in standalone mode, then access the scene model over Link.\n" +
+                                     "If a scene model has already been captured, make sure the spatial data feature has been enabled in Meta Quest Link " +
+                                     "(Settings > Beta > Spatial Data over Meta Quest Link).\n" +
+                                     "If using XR Sim, make sure you have a synthetic environment loaded that has scene data associated with it.");
                 }
 #endif
                 // There could be 0 rooms because the user has not setup their space on the device.
@@ -570,7 +605,7 @@ namespace Meta.XR.MRUtilityKit
         /// Attempts to create scene data from the device.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the operation was successful, the created scene data, and a list of OVRAnchors.</returns>
-        private async Task<Data.SceneData> CreateSceneDataFromDevice()
+        private async Task<Data.SceneData> CreateSceneDataFromDevice(OVRAnchor.FetchOptions fetchOptions)
         {
             var sceneData = new Data.SceneData()
             {
@@ -579,13 +614,12 @@ namespace Meta.XR.MRUtilityKit
             };
 
             var rooms = new List<OVRAnchor>();
-            bool success = await OVRAnchor.FetchAnchorsAsync<OVRRoomLayout>(rooms);
-
+            var result = await OVRAnchor.FetchAnchorsAsync(rooms, fetchOptions);
 
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromDevice)
                 .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, rooms.Count.ToString())
-                .SetResult(success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
+                .SetResult(result.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
                 .Send();
 #endif
 
@@ -599,7 +633,10 @@ namespace Meta.XR.MRUtilityKit
 
                 var room = roomAnchor.GetComponent<OVRAnchorContainer>();
                 var childAnchors = new List<OVRAnchor>();
-                await room.FetchChildrenAsync(childAnchors);
+                await OVRAnchor.FetchAnchorsAsync(childAnchors, new OVRAnchor.FetchOptions
+                {
+                    Uuids = room.Uuids
+                });
 
                 var roomData = new Data.RoomData()
                 {
@@ -642,7 +679,9 @@ namespace Meta.XR.MRUtilityKit
                     var splitLabels = new List<string>();
                     if (child.TryGetComponent(out OVRSemanticLabels labels) && labels.IsEnabled)
                     {
+#pragma warning disable CS0618 // Type or member is obsolete
                         splitLabels.AddRange(labels.Labels.Split(','));
+#pragma warning restore CS0618 // Type or member is obsolete
                     }
                     anchorData.SemanticClassifications = splitLabels;
                     if (child.TryGetComponent(out OVRBounded2D bounds2) && bounds2.IsEnabled)
@@ -1070,6 +1109,10 @@ namespace Meta.XR.MRUtilityKit
             newRoomsToCreate.AddRange(newSceneData.Rooms);
 
             List<MRUKRoom> roomsToRemove = new();
+            List<MRUKRoom> roomsToNotifyUpdated = new();
+            List<MRUKRoom> roomsToNotifyRemoved = new();
+            List<MRUKRoom> roomsToNotifyCreated = new();
+
 
             //check old rooms to see if a new received room match and then perform update on room,
             //update,delete or create on anchors.
@@ -1196,7 +1239,7 @@ namespace Meta.XR.MRUtilityKit
                 }
 
                 Rooms.Remove(oldRoom);
-                RoomRemovedEvent?.Invoke(oldRoom);
+                roomsToNotifyRemoved.Add(oldRoom);
 
                 Utilities.DestroyGameObjectAndChildren(oldRoom.gameObject);
 
@@ -1207,7 +1250,7 @@ namespace Meta.XR.MRUtilityKit
                 //create room and throw events for room and anchors
                 var room = CreateRoom(newRoomData);
                 rooms.Add(room);
-                RoomCreatedEvent?.Invoke(room);
+                roomsToNotifyCreated.Add(room);
             }
 
             Rooms.Clear();
@@ -1217,6 +1260,20 @@ namespace Meta.XR.MRUtilityKit
             {
                 // after everything, we need to let the room computation run
                 room.ComputeRoomInfo();
+            }
+
+            //finally - send messages
+            foreach (var room in roomsToNotifyUpdated)
+            {
+                RoomUpdatedEvent?.Invoke(room);
+            }
+            foreach (var room in roomsToNotifyRemoved)
+            {
+                RoomRemovedEvent?.Invoke(room);
+            }
+            foreach (var room in roomsToNotifyCreated)
+            {
+                RoomCreatedEvent?.Invoke(room);
             }
         }
 

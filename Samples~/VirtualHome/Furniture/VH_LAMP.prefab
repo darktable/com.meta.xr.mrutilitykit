@@ -133,7 +133,7 @@ PrefabInstance:
     - target: {fileID: -5754084199372789682, guid: 065aa245a47ca5e4aae67836229323eb, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 3468755486377148355, guid: 065aa245a47ca5e4aae67836229323eb, type: 3}
     - target: {fileID: 919132149155446097, guid: 065aa245a47ca5e4aae67836229323eb, type: 3}
       propertyPath: m_Name
       value: Lamp
@@ -170,7 +170,7 @@ MonoBehaviour:
   BorderYNegative: 0.01
   BorderYPositive: 1
   ScalingZ: 1
-  BorderZNegative: 0.001
+  BorderZNegative: 0.01
   BorderZPositive: 0.01
+  StretchCenter: 0
   UpdateInPlayMode: 1
-  OriginalMesh: {fileID: 3468755486377148355, guid: 065aa245a47ca5e4aae67836229323eb, type: 3}

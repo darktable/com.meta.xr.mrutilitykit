@@ -102,7 +102,7 @@ PrefabInstance:
     - target: {fileID: -5754084199372789682, guid: f2cffc5985061e74db9da0fc0821a801, type: 3}
       propertyPath: m_Mesh
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: -3217460365241906745, guid: f2cffc5985061e74db9da0fc0821a801, type: 3}
     - target: {fileID: 919132149155446097, guid: f2cffc5985061e74db9da0fc0821a801, type: 3}
       propertyPath: m_Name
       value: Plant1
@@ -136,8 +136,8 @@ MonoBehaviour:
   ScalingZ: 1
   BorderZNegative: 0.78
   BorderZPositive: 0.79
+  StretchCenter: 0
   UpdateInPlayMode: 1
-  OriginalMesh: {fileID: -3217460365241906745, guid: f2cffc5985061e74db9da0fc0821a801, type: 3}
 --- !u!4 &9098701386074446322 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f2cffc5985061e74db9da0fc0821a801, type: 3}

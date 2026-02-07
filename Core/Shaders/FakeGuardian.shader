@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-Shader "MixedReality/FakeGuardian" {
+Shader "Meta/MRUK/MixedReality/FakeGuardian" {
     Properties
     {
         _WallScale("Wall Scale", Vector) = (1,1,0,0)

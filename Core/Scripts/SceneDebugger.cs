@@ -18,100 +18,93 @@
  * limitations under the License.
  */
 
-using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace Meta.XR.MRUtilityKit
 {
-    [RequireComponent(typeof(EventSystem))]
     public class SceneDebugger : MonoBehaviour
     {
-        public GameObject debugProjectile;
         public Material visualHelperMaterial;
+        [Tooltip("Visualize anchors")] public bool ShowDebugAnchors;
 
-        public Text logs;
-        public Selectable selectionEntryPoint;
-        public Dropdown surfaceTypeDropdown;
-        public Dropdown positioningMethodDropdown;
+        [Tooltip("On start, place the canvas in front of the user")]
+        public bool MoveCanvasInFrontOfCamera = true;
 
-        [Tooltip("The delay between the fired selection events")]
-        public float inputSelectionDelay = 0.2f;
+        [Tooltip("When false, use the interaction system already present in the scene")]
+        public bool SetupInteractions;
 
-        [SerializeField, Tooltip("Visualize anchors")]
-        public bool ShowDebugAnchors = false;
+        public TextMeshProUGUI logs;
+        public TMP_Dropdown surfaceTypeDropdown;
+        public TMP_Dropdown positioningMethodDropdown;
+        public TextMeshProUGUI RoomDetails;
+        public List<Image> Tabs = new();
+        public List<CanvasGroup> Menus = new();
+        public OVRRayHelper RayHelper;
+        public OVRInputModule InputModule;
+        public OVRRaycaster Raycaster;
+        public OVRGazePointer GazePointer;
 
-        public bool shootBall = true;
-
-        float inputDelayCounter = 0;
-        Ray shootingRay;
-
-        EventSystem eventSystem;
-        OVRCameraRig _cameraRig;
+        private readonly Color _foregroundColor = new(0.2039f, 0.2549f, 0.2941f, 1f);
+        private readonly Color _backgroundColor = new(0.11176f, 0.1568f, 0.1843f, 1f);
+        private readonly int _srcBlend = Shader.PropertyToID("_SrcBlend");
+        private readonly int _dstBlend = Shader.PropertyToID("_DstBlend");
+        private readonly int _zWrite = Shader.PropertyToID("_ZWrite");
+        private readonly int _cull = Shader.PropertyToID("_Cull");
+        private readonly int _color = Shader.PropertyToID("_Color");
+        private readonly List<GameObject> _debugAnchors = new();
+        private OVRCameraRig _cameraRig;
 
         // For visual debugging of the room
-        GameObject debugCube;
-        GameObject debugSphere;
-        GameObject debugNormal;
-        List<GameObject> debugAnchors = new List<GameObject>();
-        GameObject debugAnchor;
-        Mesh _debugCheckerMesh = null;
-        bool previousShowDebugAnchors = false;
-        MRUKAnchor previousShownDebugAnchor = null;
-        EffectMesh globalMeshEffectMesh = null;
-        MRUKAnchor globalMeshAnchor = null;
-        GameObject navMeshViz = null;
-        NavMeshTriangulation navMeshTriangulation;
+        private GameObject _debugCube;
+        private GameObject _debugSphere;
+        private GameObject _debugNormal;
+        private GameObject _navMeshViz;
+        private GameObject _debugAnchor;
+        private bool _previousShowDebugAnchors;
+        private Mesh _debugCheckerMesh;
+        private EffectMesh _globalMeshEffectMesh;
+        private MRUKAnchor _previousShownDebugAnchor;
+        private MRUKAnchor _globalMeshAnchor;
+        private NavMeshTriangulation _navMeshTriangulation;
+        private Action _debugAction;
+        private Canvas _canvas;
+        private const float _spawnDistanceFromCamera = 0.75f;
 
-
-        Action debugAction = null;
+        private void Awake()
+        {
+            _cameraRig = FindObjectOfType<OVRCameraRig>();
+            _canvas = GetComponentInChildren<Canvas>();
+            if (SetupInteractions)
+                SetupInteractionDependencies();
+        }
 
         private void Start()
         {
             MRUK.Instance?.RegisterSceneLoadedCallback(OnSceneLoaded);
-            eventSystem = gameObject.GetComponent<EventSystem>();
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDebugger).Send();
 #endif
-            globalMeshEffectMesh = GetGlobalMeshEffectMesh();
-            if (!_cameraRig)
+            _globalMeshEffectMesh = GetGlobalMeshEffectMesh();
+            if (MoveCanvasInFrontOfCamera)
             {
-                _cameraRig = FindObjectOfType<OVRCameraRig>();
+                StartCoroutine(SnapCanvasInFrontOfCamera());
             }
         }
-        private void OnDisable()
+
+        private void Update()
         {
-            debugAction = null;
-        }
-
-        void Update()
-        {
-            if (Application.isEditor)
-            {
-                if (Input.GetMouseButtonDown(0))
-                {
-                    shootingRay = Camera.main.ScreenPointToRay(Input.mousePosition);
-                    ShootProjectile();
-                }
-            }
-
-            if (OVRInput.GetDown(OVRInput.RawButton.RIndexTrigger))
-            {
-                shootingRay = GetRightControllerRay();
-                ShootProjectile();
-            }
-            if (OVRInput.GetDown(OVRInput.RawButton.Start))
-            {
-                eventSystem.SetSelectedGameObject(selectionEntryPoint.gameObject); // resets the UI focus to the debug canvas
-            }
-
-            debugAction?.Invoke();
+            _debugAction?.Invoke();
 
             // Toggle the anchors debug visuals
-            if (ShowDebugAnchors != previousShowDebugAnchors)
+            if (ShowDebugAnchors != _previousShowDebugAnchors)
             {
                 if (ShowDebugAnchors)
                 {
@@ -120,36 +113,97 @@ namespace Meta.XR.MRUtilityKit
                         foreach (var anchor in room.Anchors)
                         {
                             GameObject anchorVisual = GenerateDebugAnchor(anchor);
-                            debugAnchors.Add(anchorVisual);
+                            _debugAnchors.Add(anchorVisual);
                         }
                     }
                 }
                 else
                 {
-                    foreach (GameObject anchorVisual in debugAnchors)
+                    foreach (var anchorVisual in _debugAnchors)
                     {
                         Destroy(anchorVisual.gameObject);
                     }
+
+                    _previousShowDebugAnchors = ShowDebugAnchors;
                 }
-                previousShowDebugAnchors = ShowDebugAnchors;
             }
-            // Actively listen to the EventSystem to be independent from the Input System
-            UINavigationHelper();
-            if (OVRInput.GetDown(OVRInput.RawButton.X) || OVRInput.GetDown(OVRInput.RawButton.A))
+
+            if (OVRInput.GetDown(OVRInput.RawButton.Start))
             {
-                ClickUIElement();
+                ToggleMenu(!_canvas.gameObject.activeInHierarchy);
             }
+
+            Billboard();
         }
 
-        void OnSceneLoaded()
+        private void OnDisable()
+        {
+            _debugAction = null;
+        }
+
+        private void OnSceneLoaded()
         {
             CreateDebugPrimitives();
         }
 
-        Ray GetRightControllerRay()
+        private void SetupInteractionDependencies()
         {
-            Vector3 rayOrigin = _cameraRig.rightControllerAnchor.position;
-            Vector3 rayDirection = _cameraRig.rightControllerAnchor.forward;
+            if (!_cameraRig)
+                return;
+
+            GazePointer.rayTransform = _cameraRig.centerEyeAnchor;
+            InputModule.rayTransform = _cameraRig.rightControllerAnchor;
+            Raycaster.pointer = _cameraRig.rightControllerAnchor.gameObject;
+            if (_cameraRig.GetComponentsInChildren<OVRRayHelper>(false).Length > 0)
+                return;
+            var rightControllerHelper =
+                _cameraRig.rightControllerAnchor.GetComponentInChildren<OVRControllerHelper>();
+            if (rightControllerHelper)
+            {
+                rightControllerHelper.RayHelper =
+                    Instantiate(RayHelper, Vector3.zero, Quaternion.identity, rightControllerHelper.transform);
+                rightControllerHelper.RayHelper.gameObject.SetActive(true);
+            }
+
+            var leftControllerHelper =
+                _cameraRig.leftControllerAnchor.GetComponentInChildren<OVRControllerHelper>();
+            if (leftControllerHelper)
+            {
+                leftControllerHelper.RayHelper =
+                    Instantiate(RayHelper, Vector3.zero, Quaternion.identity, leftControllerHelper.transform);
+                leftControllerHelper.RayHelper.gameObject.SetActive(true);
+            }
+
+            var hands = _cameraRig.GetComponentsInChildren<OVRHand>();
+            foreach (var hand in hands)
+            {
+                hand.RayHelper =
+                    Instantiate(RayHelper, Vector3.zero, Quaternion.identity, _cameraRig.trackingSpace);
+                hand.RayHelper.gameObject.SetActive(true);
+            }
+        }
+
+        private Ray GetControllerRay()
+        {
+            Vector3 rayOrigin;
+            Vector3 rayDirection;
+            if (OVRInput.activeControllerType == OVRInput.Controller.Touch
+                || OVRInput.activeControllerType == OVRInput.Controller.RTouch)
+            {
+                rayOrigin = _cameraRig.rightHandOnControllerAnchor.position;
+                rayDirection = _cameraRig.rightHandOnControllerAnchor.forward;
+            }
+            else if (OVRInput.activeControllerType == OVRInput.Controller.LTouch)
+            {
+                rayOrigin = _cameraRig.leftHandOnControllerAnchor.position;
+                rayDirection = _cameraRig.leftHandOnControllerAnchor.forward;
+            }
+            else // hands
+            {
+                rayOrigin = _cameraRig.rightHandAnchor.GetComponentInChildren<OVRHand>().PointerPose.position;
+                rayDirection = _cameraRig.rightHandAnchor.GetComponentInChildren<OVRHand>().PointerPose.forward;
+            }
+
             return new Ray(rayOrigin, rayDirection);
         }
 
@@ -161,22 +215,9 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (isOn)
-                {
-                    debugAction = () =>
-                    {
-                        var currentRoomName = MRUK.Instance?.GetCurrentRoom().name ?? "N/A";
-                        var numRooms = MRUK.Instance?.Rooms.Count ?? 0;
-                        SetLogsText("\n[{0}]\nNumber of rooms: {1}\nCurrent room: {2}",
-                            nameof(ShowRoomDetailsDebugger),
-                            numRooms,
-                            currentRoomName
-                        );
-                    };
-                }
+                    _debugAction += ShowRoomDetails;
                 else
-                {
-                    debugAction = null;
-                }
+                    _debugAction -= ShowRoomDetails;
             }
             catch (Exception e)
             {
@@ -196,23 +237,28 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (isOn)
                 {
-                    Vector2 wallScale = Vector2.zero;
-                    MRUKAnchor keyWall = MRUK.Instance?.GetCurrentRoom()?.GetKeyWall(out wallScale);
-                    Vector3 anchorCenter = keyWall.GetAnchorCenter();
-                    if (debugCube != null)
+                    var wallScale = Vector2.zero;
+                    var keyWall = MRUK.Instance?.GetCurrentRoom()?.GetKeyWall(out wallScale);
+                    if (keyWall != null)
                     {
-                        debugCube.transform.localScale = new Vector3(wallScale.x, wallScale.y, 0.05f);
-                        debugCube.transform.localPosition = anchorCenter;
-                        debugCube.transform.localRotation = keyWall.transform.localRotation;
+                        var anchorCenter = keyWall.GetAnchorCenter();
+                        if (_debugCube != null)
+                        {
+                            _debugCube.transform.localScale = new Vector3(wallScale.x, wallScale.y, 0.05f);
+                            _debugCube.transform.localPosition = anchorCenter;
+                            _debugCube.transform.localRotation = keyWall.transform.localRotation;
+                        }
                     }
+
                     SetLogsText("\n[{0}]\nSize: {1}",
                         nameof(GetKeyWallDebugger),
                         wallScale
                     );
                 }
-                if (debugCube != null)
+
+                if (_debugCube != null)
                 {
-                    debugCube.SetActive(isOn);
+                    _debugCube.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -233,25 +279,30 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (isOn)
                 {
-                    string surfaceType = OVRSceneManager.Classification.Table; // using table as the default value
+#pragma warning disable CS0618 // Type or member is obsolete
+                    var surfaceType = OVRSceneManager.Classification.Table; // using table as the default value
+#pragma warning restore CS0618 // Type or member is obsolete
                     if (surfaceTypeDropdown)
-                    {
                         surfaceType = surfaceTypeDropdown.options[surfaceTypeDropdown.value].text.ToUpper();
-                    }
-                    MRUKAnchor largestSurface = MRUK.Instance?.GetCurrentRoom()?.FindLargestSurface(surfaceType);
+                    var largestSurface = MRUK.Instance?.GetCurrentRoom()?.FindLargestSurface(surfaceType);
                     if (largestSurface != null)
                     {
-                        if (debugCube != null)
+                        if (_debugCube != null)
                         {
-                            Vector3 anchorSize = largestSurface.VolumeBounds.HasValue ? largestSurface.VolumeBounds.Value.size : new Vector3(0,0,0.01f);
+                            Vector3 anchorSize = largestSurface.VolumeBounds.HasValue
+                                ? largestSurface.VolumeBounds.Value.size
+                                : new Vector3(0, 0, 0.01f);
                             if (largestSurface.PlaneRect.HasValue)
                             {
-                                anchorSize = new Vector3(largestSurface.PlaneRect.Value.x, largestSurface.PlaneRect.Value.y, 0.01f);
+                                anchorSize = new Vector3(largestSurface.PlaneRect.Value.x,
+                                    largestSurface.PlaneRect.Value.y, 0.01f);
                             }
-                            debugCube.transform.localScale = anchorSize;
-                            debugCube.transform.localPosition = largestSurface.transform.position;
-                            debugCube.transform.localRotation = largestSurface.transform.rotation;
+
+                            _debugCube.transform.localScale = anchorSize;
+                            _debugCube.transform.localPosition = largestSurface.transform.position;
+                            _debugCube.transform.localRotation = largestSurface.transform.rotation;
                         }
+
                         SetLogsText("\n[{0}]\nAnchor: {1}\nType: {2}",
                             nameof(GetLargestSurfaceDebugger),
                             largestSurface.name,
@@ -268,11 +319,12 @@ namespace Meta.XR.MRUtilityKit
                 }
                 else
                 {
-                    debugAction = null;
+                    _debugAction = null;
                 }
-                if (debugCube != null)
+
+                if (_debugCube != null)
                 {
-                    debugCube.SetActive(isOn);
+                    _debugCube.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -293,22 +345,21 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (isOn)
-                {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
                         MRUKAnchor seat = null;
-                        Pose seatPose = new Pose();
-                        Ray ray = GetRightControllerRay();
+                        var seatPose = new Pose();
+                        var ray = GetControllerRay();
                         MRUK.Instance?.GetCurrentRoom()?.TryGetClosestSeatPose(ray, out seatPose, out seat);
                         if (seat)
                         {
-                            Vector3 anchorCenter = seat.GetAnchorCenter();
-                            if (debugCube != null)
+                            if (_debugCube != null)
                             {
-                                debugCube.transform.localRotation = seat.transform.localRotation;
-                                debugCube.transform.position = seatPose.position;
-                                debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+                                _debugCube.transform.localRotation = seat.transform.localRotation;
+                                _debugCube.transform.position = seatPose.position;
+                                _debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
                             }
+
                             SetLogsText("\n[{0}]\nSeat: {1}\nPosition: {2}\nDistance: {3}",
                                 nameof(GetClosestSeatPoseDebugger),
                                 seat.name,
@@ -323,14 +374,11 @@ namespace Meta.XR.MRUtilityKit
                             );
                         }
                     };
-                }
                 else
+                    _debugAction = null;
+                if (_debugCube != null)
                 {
-                    debugAction = null;
-                }
-                if (debugCube != null)
-                {
-                    debugCube.SetActive(isOn);
+                    _debugCube.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -350,32 +398,33 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (isOn)
-                {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
-                        Vector3 origin = GetRightControllerRay().origin;
-                        Vector3 surfacePosition = Vector3.zero;
+                        var origin = GetControllerRay().origin;
+                        var surfacePosition = Vector3.zero;
                         MRUKAnchor closestAnchor = null;
-                        MRUK.Instance?.GetCurrentRoom()?.TryGetClosestSurfacePosition(origin, out surfacePosition, out closestAnchor);
-                        if (debugSphere != null)
+                        MRUK.Instance?.GetCurrentRoom()
+                            ?.TryGetClosestSurfacePosition(origin, out surfacePosition, out closestAnchor);
+                        if (_debugSphere != null)
                         {
-                            debugSphere.transform.position = surfacePosition;
+                            _debugSphere.transform.position = surfacePosition;
                         }
-                        SetLogsText("\n[{0}]\nAnchor: {1}\nSurface Position: {2}\nDistance: {3}",
-                            nameof(GetClosestSurfacePositionDebugger),
-                            closestAnchor.name,
-                            surfacePosition,
-                            Vector3.Distance(origin, surfacePosition).ToString("0.##")
-                        );
+
+                        if (closestAnchor != null)
+                        {
+                            SetLogsText("\n[{0}]\nAnchor: {1}\nSurface Position: {2}\nDistance: {3}",
+                                nameof(GetClosestSurfacePositionDebugger),
+                                closestAnchor.name,
+                                surfacePosition,
+                                Vector3.Distance(origin, surfacePosition).ToString("0.##")
+                            );
+                        }
                     };
-                }
                 else
+                    _debugAction = null;
+                if (_debugSphere != null)
                 {
-                    debugAction = null;
-                }
-                if (debugSphere != null)
-                {
-                    debugSphere.SetActive(isOn);
+                    _debugSphere.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -395,22 +444,20 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (isOn)
-                {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
-                        Ray ray = GetRightControllerRay();
+                        var ray = GetControllerRay();
                         MRUKAnchor sceneAnchor = null;
-                        MRUK.PositioningMethod positioningMethod = MRUK.PositioningMethod.DEFAULT;
+                        var positioningMethod = MRUK.PositioningMethod.DEFAULT;
                         if (positioningMethodDropdown)
-                        {
                             positioningMethod = (MRUK.PositioningMethod)positioningMethodDropdown.value;
-                        }
-                        Pose? bestPose = MRUK.Instance?.GetCurrentRoom()?.GetBestPoseFromRaycast(ray, Mathf.Infinity, new LabelFilter(), out sceneAnchor, positioningMethod);
-                        if (bestPose.HasValue && sceneAnchor && debugCube)
+                        var bestPose = MRUK.Instance?.GetCurrentRoom()?.GetBestPoseFromRaycast(ray, Mathf.Infinity,
+                            new LabelFilter(), out sceneAnchor, positioningMethod);
+                        if (bestPose.HasValue && sceneAnchor && _debugCube)
                         {
-                            debugCube.transform.position = bestPose.Value.position;
-                            debugCube.transform.rotation = bestPose.Value.rotation;
-                            debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+                            _debugCube.transform.position = bestPose.Value.position;
+                            _debugCube.transform.rotation = bestPose.Value.rotation;
+                            _debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
                             SetLogsText("\n[{0}]\nAnchor: {1}\nPose Position: {2}\nPose Rotation: {3}",
                                 nameof(GetBestPoseFromRaycastDebugger),
                                 sceneAnchor.name,
@@ -419,14 +466,11 @@ namespace Meta.XR.MRUtilityKit
                             );
                         }
                     };
-                }
                 else
+                    _debugAction = null;
+                if (_debugCube != null)
                 {
-                    debugAction = null;
-                }
-                if (debugCube != null)
-                {
-                    debugCube.SetActive(isOn);
+                    _debugCube.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -446,32 +490,26 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (isOn)
-                {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
-                        Ray ray = GetRightControllerRay();
-                        RaycastHit hit = new RaycastHit();
+                        var ray = GetControllerRay();
+                        var hit = new RaycastHit();
                         MRUKAnchor anchorHit = null;
                         MRUK.Instance?.GetCurrentRoom()?.Raycast(ray, Mathf.Infinity, out hit, out anchorHit);
                         ShowHitNormal(hit);
                         if (anchorHit != null)
-                        {
                             SetLogsText("\n[{0}]\nAnchor: {1}\nHit point: {2}\nHit normal: {3}\n",
                                 nameof(RayCastDebugger),
                                 anchorHit.name,
                                 hit.point,
                                 hit.normal
                             );
-                        }
                     };
-                }
                 else
+                    _debugAction = null;
+                if (_debugNormal != null)
                 {
-                    debugAction = null;
-                }
-                if (debugNormal != null)
-                {
-                    debugNormal.SetActive(isOn);
+                    _debugNormal.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -493,26 +531,26 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (isOn)
-                {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
-                        Ray ray = GetRightControllerRay();
-                        if (debugSphere != null)
+                        var ray = GetControllerRay();
+                        if (_debugSphere != null)
                         {
-                            bool? isInRoom = MRUK.Instance?.GetCurrentRoom()?.IsPositionInRoom(debugSphere.transform.position);
-                            debugSphere.transform.position = ray.GetPoint(0.2f); // add some offset
-                            debugSphere.GetComponent<Renderer>().material.color = (isInRoom.HasValue && isInRoom.Value) ? Color.green : Color.red;
+                            var isInRoom = MRUK.Instance?.GetCurrentRoom()
+                                ?.IsPositionInRoom(_debugSphere.transform.position);
+                            _debugSphere.transform.position = ray.GetPoint(0.2f); // add some offset
+                            _debugSphere.GetComponent<Renderer>().material.color =
+                                isInRoom.HasValue && isInRoom.Value ? Color.green : Color.red;
                             SetLogsText("\n[{0}]\nPosition: {1}\nIs inside the Room: {2}\n",
                                 nameof(IsPositionInRoomDebugger),
-                                debugSphere.transform.position,
+                                _debugSphere.transform.position,
                                 isInRoom
                             );
                         }
                     };
-                }
-                if (debugSphere != null)
+                if (_debugSphere != null)
                 {
-                    debugSphere.SetActive(isOn);
+                    _debugSphere.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -533,18 +571,19 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (isOn)
                 {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
-                        Ray ray = GetRightControllerRay();
-                        RaycastHit hit = new RaycastHit();
+                        var ray = GetControllerRay();
+                        var hit = new RaycastHit();
                         MRUKAnchor anchorHit = null;
                         MRUK.Instance?.GetCurrentRoom()?.Raycast(ray, Mathf.Infinity, out hit, out anchorHit);
-                        if (previousShownDebugAnchor != anchorHit && anchorHit != null)
+                        if (_previousShownDebugAnchor != anchorHit && anchorHit != null)
                         {
-                            Destroy(debugAnchor);
-                            debugAnchor = GenerateDebugAnchor(anchorHit);
-                            previousShownDebugAnchor = anchorHit;
+                            Destroy(_debugAnchor);
+                            _debugAnchor = GenerateDebugAnchor(anchorHit);
+                            _previousShownDebugAnchor = anchorHit;
                         }
+
                         ShowHitNormal(hit);
                         SetLogsText("\n[{0}]\nHit point: {1}\nHit normal: {2}\n",
                             nameof(ShowDebugAnchorsDebugger),
@@ -555,13 +594,14 @@ namespace Meta.XR.MRUtilityKit
                 }
                 else
                 {
-                    debugAction = null;
-                    Destroy(debugAnchor);
-                    debugAnchor = null;
+                    _debugAction = null;
+                    Destroy(_debugAnchor);
+                    _debugAnchor = null;
                 }
-                if (debugNormal != null)
+
+                if (_debugNormal != null)
                 {
-                    debugNormal.SetActive(isOn);
+                    _debugNormal.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -580,38 +620,46 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-                LabelFilter filter = LabelFilter.Included(new System.Collections.Generic.List<string>() { OVRSceneManager.Classification.GlobalMesh });
-                if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !globalMeshAnchor)
+#pragma warning disable CS0618 // Type or member is obsolete
+                var filter = LabelFilter.Included(new List<string> { OVRSceneManager.Classification.GlobalMesh });
+#pragma warning restore CS0618 // Type or member is obsolete
+                if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
                 {
-                    globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
+                    _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
                 }
-                if (!globalMeshAnchor)
+
+                if (!_globalMeshAnchor)
                 {
                     SetLogsText("\n[{0}]\nNo global mesh anchor found in the scene.\n",
-                            nameof(DisplayGlobalMesh)
-                        );
+                        nameof(DisplayGlobalMesh)
+                    );
                     return;
                 }
+
                 if (isOn)
                 {
-                    if (!globalMeshEffectMesh)
+                    if (!_globalMeshEffectMesh)
                     {
-                        globalMeshEffectMesh = new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
-                        globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
+                        _globalMeshEffectMesh =
+                            new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
+                        _globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
                         if (visualHelperMaterial)
-                            globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
-                        globalMeshEffectMesh.CreateMesh();
+                            _globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
+                        _globalMeshEffectMesh.CreateMesh();
                     }
                     else
                     {
-                        globalMeshEffectMesh.ToggleEffectMeshVisibility(true, filter, visualHelperMaterial);
+                        _globalMeshEffectMesh.ToggleEffectMeshVisibility(true, filter, visualHelperMaterial);
                     }
                 }
                 else
                 {
-                    if (!globalMeshEffectMesh)
+                    if (!_globalMeshEffectMesh)
+                    {
                         return;
-                    globalMeshEffectMesh.ToggleEffectMeshVisibility(false, filter, globalMeshEffectMesh.MeshMaterial);
+                    }
+
+                    _globalMeshEffectMesh.ToggleEffectMeshVisibility(false, filter, _globalMeshEffectMesh.MeshMaterial);
                 }
             }
             catch (Exception e)
@@ -631,36 +679,45 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-                LabelFilter filter = LabelFilter.Included(new System.Collections.Generic.List<string>() { OVRSceneManager.Classification.GlobalMesh });
-                if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !globalMeshAnchor)
+#pragma warning disable CS0618 // Type or member is obsolete
+                var filter = LabelFilter.Included(new List<string> { OVRSceneManager.Classification.GlobalMesh });
+#pragma warning restore CS0618 // Type or member is obsolete
+                if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
                 {
-                    globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
+                    _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
                 }
-                if (!globalMeshAnchor)
+
+                if (!_globalMeshAnchor)
                 {
                     SetLogsText("\n[{0}]\nNo global mesh anchor found in the scene.\n",
-                            nameof(ToggleGlobalMeshCollisions)
-                        );
+                        nameof(ToggleGlobalMeshCollisions)
+                    );
                     return;
                 }
+
                 if (isOn)
                 {
-                    if (!globalMeshEffectMesh)
+                    if (!_globalMeshEffectMesh)
                     {
-                        globalMeshEffectMesh = new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
-                        globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
+                        _globalMeshEffectMesh =
+                            new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
+                        _globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
                         if (visualHelperMaterial)
-                            globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
-                        globalMeshEffectMesh.HideMesh = true;
-                        globalMeshEffectMesh.CreateMesh();
+                            _globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
+                        _globalMeshEffectMesh.HideMesh = true;
+                        _globalMeshEffectMesh.CreateMesh();
                     }
-                    globalMeshEffectMesh.AddColliders();
+
+                    _globalMeshEffectMesh.AddColliders();
                 }
                 else
                 {
-                    if (!globalMeshEffectMesh)
+                    if (!_globalMeshEffectMesh)
+                    {
                         return;
-                    globalMeshEffectMesh.DestroyColliders(filter);
+                    }
+
+                    _globalMeshEffectMesh.DestroyColliders(filter);
                 }
             }
             catch (Exception e)
@@ -682,28 +739,30 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (isOn)
                 {
-                    debugAction = () =>
+                    _debugAction = () =>
                     {
                         var triangulation = NavMesh.CalculateTriangulation();
-                        if (triangulation.areas.Length == 0 && navMeshTriangulation.Equals(triangulation))
-                            return;
-
-                        triangulation.Equals(triangulation);
-                        MeshRenderer navMeshRenderer = null;
-                        MeshFilter navMeshFilter = null;
-                        if (!navMeshViz)
+                        if (triangulation.areas.Length == 0 && _navMeshTriangulation.Equals(triangulation))
                         {
-                            navMeshViz = new GameObject("_navMeshViz");
-                            navMeshRenderer = navMeshViz.AddComponent<MeshRenderer>();
-                            navMeshFilter = navMeshViz.AddComponent<MeshFilter>();
+                            return;
+                        }
+
+                        MeshRenderer navMeshRenderer;
+                        MeshFilter navMeshFilter;
+                        if (!_navMeshViz)
+                        {
+                            _navMeshViz = new GameObject("_navMeshViz");
+                            navMeshRenderer = _navMeshViz.AddComponent<MeshRenderer>();
+                            navMeshFilter = _navMeshViz.AddComponent<MeshFilter>();
                         }
                         else
                         {
-                            navMeshRenderer = navMeshViz.GetComponent<MeshRenderer>();
-                            navMeshFilter = navMeshViz.GetComponent<MeshFilter>();
+                            navMeshRenderer = _navMeshViz.GetComponent<MeshRenderer>();
+                            navMeshFilter = _navMeshViz.GetComponent<MeshFilter>();
                             DestroyImmediate(navMeshFilter.mesh);
                             navMeshFilter.mesh = null;
                         }
+
                         var navMesh = new Mesh();
 
                         navMesh.SetVertices(triangulation.vertices);
@@ -711,13 +770,13 @@ namespace Meta.XR.MRUtilityKit
                         navMeshRenderer.material = visualHelperMaterial;
                         navMeshRenderer.material.color = Color.cyan;
                         navMeshFilter.mesh = navMesh;
-                        navMeshTriangulation = triangulation;
+                        _navMeshTriangulation = triangulation;
                     };
                 }
                 else
                 {
-                    DestroyImmediate(navMeshViz);
-                    debugAction = null;
+                    DestroyImmediate(_navMeshViz);
+                    _debugAction = null;
                 }
             }
             catch (Exception e)
@@ -728,77 +787,70 @@ namespace Meta.XR.MRUtilityKit
                     e.StackTrace
                 );
             }
-
         }
 
 
         private EffectMesh GetGlobalMeshEffectMesh()
         {
-            EffectMesh[] effectMeshes = FindObjectsByType<EffectMesh>(FindObjectsSortMode.None);
-            foreach (EffectMesh effectMesh in effectMeshes)
+            var effectMeshes = FindObjectsByType<EffectMesh>(FindObjectsSortMode.None);
+            foreach (var effectMesh in effectMeshes)
             {
                 if ((effectMesh.Labels & MRUKAnchor.SceneLabels.GLOBAL_MESH) != 0)
-                {
                     return effectMesh;
-                }
             }
+
             return null;
         }
+
+        private void ShowRoomDetails()
+        {
+            var currentRoomName = MRUK.Instance?.GetCurrentRoom().name ?? "N/A";
+            var numRooms = MRUK.Instance?.Rooms.Count ?? 0;
+            RoomDetails.text = string.Format("\n[{0}]\nNumber of rooms: {1}\nCurrent room: {2}",
+                nameof(ShowRoomDetailsDebugger), numRooms, currentRoomName);
+        }
+
 
         /// <summary>
         /// Creates an object to help visually debugging a specific anchor.
         /// </summary>
-        GameObject GenerateDebugAnchor(MRUKAnchor anchor)
+        private GameObject GenerateDebugAnchor(MRUKAnchor anchor)
         {
-            GameObject debugPlanePrefab = CreateDebugPrefabSource(true);
-            GameObject debugVolumePrefab = CreateDebugPrefabSource(false);
+            var debugPlanePrefab = CreateDebugPrefabSource(true);
+            var debugVolumePrefab = CreateDebugPrefabSource(false);
 
             Vector3 anchorScale;
             if (anchor.VolumeBounds.HasValue)
             {
                 // Volumes
-                debugAnchor = CloneObject(debugVolumePrefab, anchor.transform);
+                _debugAnchor = CloneObject(debugVolumePrefab, anchor.transform);
                 anchorScale = anchor.VolumeBounds.Value.size;
             }
             else
             {
                 // Quads
-                debugAnchor = CloneObject(debugPlanePrefab, anchor.transform);
-                Vector2 quadScale = anchor.PlaneRect.Value.size;
-                anchorScale = new Vector3(quadScale.x, quadScale.y, 1.0f);
+                _debugAnchor = CloneObject(debugPlanePrefab, anchor.transform);
+                anchorScale = Vector3.zero;
+                if (anchor.PlaneRect != null)
+                {
+                    var quadScale = anchor.PlaneRect.Value.size;
+                    anchorScale = new Vector3(quadScale.x, quadScale.y, 1.0f);
+                }
             }
-            ScaleChildren(debugAnchor.transform, anchorScale);
-            debugAnchor.transform.parent = null;
-            debugAnchor.SetActive(true);
+
+            ScaleChildren(_debugAnchor.transform, anchorScale);
+            _debugAnchor.transform.parent = null;
+            _debugAnchor.SetActive(true);
 
             Destroy(debugPlanePrefab);
             Destroy(debugVolumePrefab);
 
-            return debugAnchor;
+            return _debugAnchor;
         }
 
-        void ShootProjectile()
+        private GameObject CloneObject(GameObject prefabObj, Transform refObject)
         {
-            if (!shootBall)
-            {
-                return;
-            }
-
-            debugProjectile.SetActive(true);
-            Rigidbody ball = debugProjectile.GetComponent<Rigidbody>();
-            if (ball)
-            {
-                debugProjectile.transform.parent = null;
-                ball.velocity = Vector3.zero;
-                // Position slightly ahead, since controller collision may intersect
-                ball.transform.position = shootingRay.origin + shootingRay.direction * 0.1f;
-                ball.AddForce(shootingRay.direction * 200.0f);
-            }
-        }
-
-        GameObject CloneObject(GameObject prefabObj, Transform refObject)
-        {
-            GameObject newObj = Instantiate(prefabObj);
+            var newObj = Instantiate(prefabObj);
             newObj.name = "Debug_" + refObject.name;
             newObj.transform.position = refObject.position;
             newObj.transform.rotation = refObject.rotation;
@@ -806,41 +858,41 @@ namespace Meta.XR.MRUtilityKit
             return newObj;
         }
 
-        void ScaleChildren(Transform transform, Vector3 localScale)
+        private void ScaleChildren(Transform parent, Vector3 localScale)
         {
-            foreach (Transform child in transform)
+            foreach (Transform child in parent)
+            {
                 child.localScale = localScale;
+            }
         }
 
         /// <summary>
         /// By creating our reference PLANE and VOLUME prefabs in code, we can avoid linking them via Inspector.
         /// </summary>
-        GameObject CreateDebugPrefabSource(bool isPlane)
+        private GameObject CreateDebugPrefabSource(bool isPlane)
         {
-            string prefabName = isPlane ? "PlanePrefab" : "VolumePrefab";
-            GameObject prefabObject = new GameObject(prefabName);
+            var prefabName = isPlane ? "PlanePrefab" : "VolumePrefab";
+            var prefabObject = new GameObject(prefabName);
 
-            GameObject meshParent = new GameObject("MeshParent");
+            var meshParent = new GameObject("MeshParent");
             meshParent.transform.SetParent(prefabObject.transform);
             meshParent.SetActive(false);
 
-            GameObject prefabMesh = isPlane ? GameObject.CreatePrimitive(PrimitiveType.Quad) : GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var prefabMesh = isPlane
+                ? GameObject.CreatePrimitive(PrimitiveType.Quad)
+                : GameObject.CreatePrimitive(PrimitiveType.Cube);
             prefabMesh.name = "Mesh";
             prefabMesh.transform.SetParent(meshParent.transform);
             if (isPlane)
-            {
                 // Unity quad's normal doesn't align with transform's Z-forward
                 prefabMesh.transform.localRotation = Quaternion.Euler(0, 180, 0);
-            }
             else
-            {
                 // Anchor cubes don't have a center pivot
                 prefabMesh.transform.localPosition = new Vector3(0, 0, -0.5f);
-            }
             SetMaterialProperties(prefabMesh.GetComponent<MeshRenderer>());
             DestroyImmediate(prefabMesh.GetComponent<Collider>());
 
-            GameObject prefabPivot = new GameObject("Pivot");
+            var prefabPivot = new GameObject("Pivot");
             prefabPivot.transform.SetParent(prefabObject.transform);
 
             CreateGridPattern(prefabPivot.transform, Vector3.zero, Quaternion.identity);
@@ -852,27 +904,28 @@ namespace Meta.XR.MRUtilityKit
                 CreateGridPattern(prefabPivot.transform, new Vector3(-0.5f, 0, -0.5f), Quaternion.Euler(0, -90, 90));
                 CreateGridPattern(prefabPivot.transform, new Vector3(0.5f, 0, -0.5f), Quaternion.Euler(180, -90, 90));
             }
+
             return prefabObject;
         }
 
-        void SetMaterialProperties(MeshRenderer refMesh)
+        private void SetMaterialProperties(MeshRenderer refMesh)
         {
-            refMesh.material.SetColor("_Color", new Color(0.5f, 0.9f, 1.0f, 0.75f));
+            refMesh.material.SetColor(_color, new Color(0.5f, 0.9f, 1.0f, 0.75f));
             refMesh.material.SetOverrideTag("RenderType", "Transparent");
-            refMesh.material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            refMesh.material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            refMesh.material.SetInt("_ZWrite", 0);
-            refMesh.material.SetInt("_Cull", 2); // "Back"
+            refMesh.material.SetInt(_srcBlend, (int)BlendMode.SrcAlpha);
+            refMesh.material.SetInt(_dstBlend, (int)BlendMode.One);
+            refMesh.material.SetInt(_zWrite, 0);
+            refMesh.material.SetInt(_cull, 2); // "Back"
             refMesh.material.DisableKeyword("_ALPHATEST_ON");
             refMesh.material.EnableKeyword("_ALPHABLEND_ON");
             refMesh.material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            refMesh.material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            refMesh.material.renderQueue = (int)RenderQueue.Transparent;
         }
 
         // The grid pattern on each anchor is actually a mesh, to avoid a texture
-        void CreateGridPattern(Transform parentTransform, Vector3 localOffset, Quaternion localRotation)
+        private void CreateGridPattern(Transform parentTransform, Vector3 localOffset, Quaternion localRotation)
         {
-            GameObject newGameObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            var newGameObject = GameObject.CreatePrimitive(PrimitiveType.Quad);
             newGameObject.name = "Checker";
             newGameObject.transform.SetParent(parentTransform, false);
             newGameObject.transform.localPosition = localOffset;
@@ -883,39 +936,39 @@ namespace Meta.XR.MRUtilityKit
             const float NORMAL_OFFSET = 0.001f;
 
             // the mesh is used on every prefab, but only needs to be created once
+            var vertCounter = 0;
             if (_debugCheckerMesh == null)
             {
                 _debugCheckerMesh = new Mesh();
                 const int gridWidth = 10;
-                float cellWidth = 1.0f / gridWidth;
-                float xPos = -0.5f;
-                float yPos = -0.5f;
+                var cellWidth = 1.0f / gridWidth;
+                var xPos = -0.5f;
+                var yPos = -0.5f;
 
-                int totalTiles = gridWidth * gridWidth / 2;
-                int totalVertices = totalTiles * 4;
-                int totalIndices = totalTiles * 6;
+                var totalTiles = gridWidth * gridWidth / 2;
+                var totalVertices = totalTiles * 4;
+                var totalIndices = totalTiles * 6;
 
-                Vector3[] MeshVertices = new Vector3[totalVertices];
-                Vector2[] MeshUVs = new Vector2[totalVertices];
-                Color32[] MeshColors = new Color32[totalVertices];
-                Vector3[] MeshNormals = new Vector3[totalVertices];
-                Vector4[] MeshTangents = new Vector4[totalVertices];
-                int[] MeshTriangles = new int[totalIndices];
+                var MeshVertices = new Vector3[totalVertices];
+                var MeshUVs = new Vector2[totalVertices];
+                var MeshColors = new Color32[totalVertices];
+                var MeshNormals = new Vector3[totalVertices];
+                var MeshTangents = new Vector4[totalVertices];
+                var MeshTriangles = new int[totalIndices];
 
-                int vertCounter = 0;
-                int indexCounter = 0;
-                int quadCounter = 0;
+                var indexCounter = 0;
+                var quadCounter = 0;
 
-                for (int x = 0; x < gridWidth; x++)
+                for (var x = 0; x < gridWidth; x++)
                 {
-                    bool createQuad = (x % 2 == 0);
-                    for (int y = 0; y < gridWidth; y++)
+                    var createQuad = x % 2 == 0;
+                    for (var y = 0; y < gridWidth; y++)
                     {
                         if (createQuad)
                         {
-                            for (int V = 0; V < 4; V++)
+                            for (var V = 0; V < 4; V++)
                             {
-                                Vector3 localVertPos = new Vector3(xPos, yPos + y * cellWidth, NORMAL_OFFSET);
+                                var localVertPos = new Vector3(xPos, yPos + y * cellWidth, NORMAL_OFFSET);
                                 switch (V)
                                 {
                                     case 1:
@@ -928,6 +981,7 @@ namespace Meta.XR.MRUtilityKit
                                         localVertPos += new Vector3(cellWidth, 0, 0);
                                         break;
                                 }
+
                                 MeshVertices[vertCounter] = localVertPos;
                                 MeshUVs[vertCounter] = Vector2.zero;
                                 MeshColors[vertCounter] = Color.black;
@@ -937,7 +991,7 @@ namespace Meta.XR.MRUtilityKit
                                 vertCounter++;
                             }
 
-                            int baseCount = quadCounter * 4;
+                            var baseCount = quadCounter * 4;
                             MeshTriangles[indexCounter++] = baseCount;
                             MeshTriangles[indexCounter++] = baseCount + 2;
                             MeshTriangles[indexCounter++] = baseCount + 1;
@@ -947,8 +1001,10 @@ namespace Meta.XR.MRUtilityKit
 
                             quadCounter++;
                         }
+
                         createQuad = !createQuad;
                     }
+
                     xPos += cellWidth;
                 }
 
@@ -966,126 +1022,123 @@ namespace Meta.XR.MRUtilityKit
 
             newGameObject.GetComponent<MeshFilter>().mesh = _debugCheckerMesh;
 
-            Material material = newGameObject.GetComponent<MeshRenderer>().material;
+            var material = newGameObject.GetComponent<MeshRenderer>().material;
             material.SetOverrideTag("RenderType", "Transparent");
-            material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
-            material.SetInt("_ZWrite", 0);
-            material.SetInt("_Cull", 2); // "Back"
+            material.SetInt(_srcBlend, (int)BlendMode.SrcAlpha);
+            material.SetInt(_dstBlend, (int)BlendMode.One);
+            material.SetInt(_zWrite, 0);
+            material.SetInt(_cull, 2); // "Back"
             material.DisableKeyword("_ALPHATEST_ON");
             material.EnableKeyword("_ALPHABLEND_ON");
             material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            material.renderQueue = (int)RenderQueue.Transparent;
         }
 
         /// <summary>
         /// Creates the debug primitives for visual debugging purposes and to avoid inspector linking.
         /// </summary>
-        void CreateDebugPrimitives()
+        private void CreateDebugPrimitives()
         {
-            debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            debugCube.GetComponent<Renderer>().material.color = Color.green;
-            debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-            debugCube.GetComponent<Collider>().enabled = false;
-            debugCube.SetActive(false);
+            _debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _debugCube.GetComponent<Renderer>().material.color = Color.green;
+            _debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+            _debugCube.GetComponent<Collider>().enabled = false;
+            _debugCube.SetActive(false);
 
-            debugSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            debugSphere.GetComponent<Renderer>().material.color = Color.green;
-            debugSphere.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
-            debugSphere.GetComponent<Collider>().enabled = false;
-            debugSphere.SetActive(false);
+            _debugSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            _debugSphere.GetComponent<Renderer>().material.color = Color.green;
+            _debugSphere.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+            _debugSphere.GetComponent<Collider>().enabled = false;
+            _debugSphere.SetActive(false);
 
-            debugNormal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            debugNormal.GetComponent<Renderer>().material.color = Color.green;
-            debugNormal.transform.localScale = new Vector3(0.02f, 0.1f, 0.02f);
-            debugNormal.GetComponent<Collider>().enabled = false;
-            debugNormal.SetActive(false);
+            _debugNormal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            _debugNormal.GetComponent<Renderer>().material.color = Color.green;
+            _debugNormal.transform.localScale = new Vector3(0.02f, 0.1f, 0.02f);
+            _debugNormal.GetComponent<Collider>().enabled = false;
+            _debugNormal.SetActive(false);
         }
 
         /// <summary>
         /// Convenience method to show the normal of a hit collision.
         /// </summary>
         /// <param name="hit"></param>
-        void ShowHitNormal(RaycastHit hit)
+        private void ShowHitNormal(RaycastHit hit)
         {
-            if (debugNormal != null && hit.point != Vector3.zero && hit.distance != 0)
+            if (_debugNormal != null && hit.point != Vector3.zero && hit.distance != 0)
             {
-                debugNormal.SetActive(true);
-                debugNormal.transform.position = hit.point + (-debugNormal.transform.up * debugNormal.transform.localScale.y);
-                debugNormal.transform.rotation = Quaternion.FromToRotation(-Vector3.up, hit.normal);
+                _debugNormal.SetActive(true);
+                _debugNormal.transform.position =
+                    hit.point + -_debugNormal.transform.up * _debugNormal.transform.localScale.y;
+                _debugNormal.transform.rotation = Quaternion.FromToRotation(-Vector3.up, hit.normal);
             }
             else
             {
-                debugNormal.SetActive(false);
+                _debugNormal.SetActive(false);
             }
         }
 
-        /// <summary>
-        ///  Selects a menu option if available.
-        /// </summary>
-        void ClickUIElement()
-        {
-            if (eventSystem != null && eventSystem.currentSelectedGameObject != null)
-            {
-                Selectable selectable = eventSystem.currentSelectedGameObject.GetComponent<Selectable>();
-                ExecuteEvents.Execute(selectable.gameObject, new BaseEventData(eventSystem), ExecuteEvents.submitHandler);
-            }
-        }
-
-        /// <summary>
-        /// Navigates the Unity UI using a given move direction.
-        /// </summary>
-        void NavigateUI(MoveDirection direction)
-        {
-            AxisEventData data = new AxisEventData(eventSystem)
-            {
-                moveDir = direction,
-                selectedObject = eventSystem.currentSelectedGameObject
-            };
-            ExecuteEvents.Execute(data.selectedObject, data, ExecuteEvents.moveHandler);
-        }
-
-        /// <summary>
-        /// Helper function to handle user navigation input using Oculus Touch thumbsticks.
-        /// Detects user input on primary and secondary thumbsticks and triggers navigation events accordingly.
-        /// This to make the option selection independent from the Project's Input System configuration.
-        /// </summary>
-        void UINavigationHelper()
-        {
-            if (inputDelayCounter <= 0)
-            {
-                Vector3 secondaryThumbstick = OVRInput.Get(OVRInput.Axis2D.SecondaryThumbstick);
-                Vector3 primaryThumbstick = OVRInput.Get(OVRInput.Axis2D.PrimaryThumbstick);
-                if (secondaryThumbstick.y > 0.5f || primaryThumbstick.y > 0.5f)
-                {
-                    NavigateUI(MoveDirection.Up);
-                    inputDelayCounter = inputSelectionDelay;
-                }
-                else if (secondaryThumbstick.y < -0.5f || primaryThumbstick.y < -0.5f)
-                {
-                    NavigateUI(MoveDirection.Down);
-                    inputDelayCounter = inputSelectionDelay;
-                }
-                else if (secondaryThumbstick.x > 0.5f || primaryThumbstick.x > 0.5f)
-                {
-                    NavigateUI(MoveDirection.Right);
-                }
-                else if (secondaryThumbstick.x < -0.5f || primaryThumbstick.x < -0.5f)
-                {
-                    NavigateUI(MoveDirection.Left);
-                }
-            }
-            else
-            {
-                inputDelayCounter -= Time.deltaTime;
-            }
-        }
-
-        void SetLogsText(string logsText, params object[] args)
+        private void SetLogsText(string logsText, params object[] args)
         {
             if (logs)
             {
-                logs.text = String.Format(logsText, args);
+                logs.text = string.Format(logsText, args);
+            }
+        }
+
+        public void ActivateTab(Image selectedTab)
+        {
+            foreach (var tab in Tabs)
+            {
+                tab.color = _backgroundColor;
+            }
+
+            selectedTab.color = _foregroundColor;
+        }
+
+        public void ActivateMenu(CanvasGroup menuToActivate)
+        {
+            foreach (var menu in Menus)
+            {
+                ToggleCanvasGroup(menu, false);
+            }
+
+            ToggleCanvasGroup(menuToActivate, true);
+        }
+
+
+        private void ToggleCanvasGroup(CanvasGroup canvasGroup, bool shouldShow)
+        {
+            canvasGroup.interactable = shouldShow;
+            canvasGroup.alpha = shouldShow ? 1f : 0f;
+            canvasGroup.blocksRaycasts = shouldShow;
+        }
+
+        private void Billboard()
+        {
+            if (!_canvas)
+                return;
+
+            var direction = _canvas.transform.position - _cameraRig.centerEyeAnchor.transform.position;
+            var rotation = Quaternion.LookRotation(direction);
+            _canvas.transform.rotation = rotation;
+        }
+
+        private void ToggleMenu(bool active)
+        {
+            if (!_canvas)
+                return;
+
+            _canvas.gameObject.SetActive(active);
+            StartCoroutine(SnapCanvasInFrontOfCamera());
+        }
+
+        private IEnumerator SnapCanvasInFrontOfCamera()
+        {
+            yield return 0; // wait one frame to make sure the camera is set up
+            if (_cameraRig)
+            {
+                transform.position = _cameraRig.centerEyeAnchor.transform.position +
+                                     _cameraRig.centerEyeAnchor.transform.forward * _spawnDistanceFromCamera;
             }
         }
     }

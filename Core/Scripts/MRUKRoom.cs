@@ -24,6 +24,7 @@ using UnityEngine;
 using System.Runtime.CompilerServices;
 using UnityEngine.Assertions;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 [assembly: InternalsVisibleTo("meta.xr.mrutilitykit.tests")]
 namespace Meta.XR.MRUtilityKit
@@ -79,15 +80,20 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// Gets fired when a new anchor of this room has been created
         /// </summary>
-        public UnityEvent<MRUKAnchor> AnchorCreatedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(AnchorCreatedEvent))]
+        public UnityEvent<MRUKAnchor> AnchorCreatedEvent { get; private set; } = new();
+
         /// <summary>
         /// Gets fired after a component of the corresponding anchor has changed
         /// </summary>
-        public UnityEvent<MRUKAnchor> AnchorUpdatedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(AnchorUpdatedEvent))]
+        public UnityEvent<MRUKAnchor> AnchorUpdatedEvent { get; private set; } = new();
+
         /// <summary>
         /// Gets fired when the anchor has been deleted.
         /// </summary>
-        public UnityEvent<MRUKAnchor> AnchorRemovedEvent = new();
+        [field: SerializeField, FormerlySerializedAs(nameof(AnchorRemovedEvent))]
+        public UnityEvent<MRUKAnchor> AnchorRemovedEvent { get; private set; } = new();
 
 
 
@@ -98,6 +104,7 @@ namespace Meta.XR.MRUtilityKit
         /// The function to be called when an anchor is created. It takes one parameter:
         /// - `MRUKAnchor` The created anchor object.
         ///</param>
+        [Obsolete("Use UnityEvent AnchorCreatedEvent directly instead")]
         public void RegisterAnchorCreatedCallback(UnityAction<MRUKAnchor> callback)
         {
             AnchorCreatedEvent.AddListener(callback);
@@ -110,6 +117,7 @@ namespace Meta.XR.MRUtilityKit
         /// The function to be called when an anchor is updated. It takes one parameter:
         /// - `MRUKAnchor` The updated anchor object.
         /// </param>
+        [Obsolete("Use UnityEvent AnchorUpdatedEvent directly instead")]
         public void RegisterAnchorUpdatedCallback(UnityAction<MRUKAnchor> callback)
         {
             AnchorUpdatedEvent.AddListener(callback);
@@ -122,6 +130,7 @@ namespace Meta.XR.MRUtilityKit
         /// The function to be called when an anchor is removed. It takes one parameter:
         /// - `MRUKAnchor` The removed anchor object.
         /// </param>
+        [Obsolete("Use UnityEvent AnchorRemovedEvent directly instead")]
         public void RegisterAnchorRemovedCallback(UnityAction<MRUKAnchor> callback)
         {
             AnchorRemovedEvent.AddListener(callback);
@@ -134,6 +143,7 @@ namespace Meta.XR.MRUtilityKit
         /// The function to be called when an anchor is created. It takes one parameter:
         /// - `MRUKAnchor` The created anchor object.
         ///</param>
+        [Obsolete("Use UnityEvent AnchorCreatedEvent directly instead")]
         public void UnRegisterAnchorCreatedCallback(UnityAction<MRUKAnchor> callback)
         {
             AnchorCreatedEvent.RemoveListener(callback);
@@ -146,6 +156,7 @@ namespace Meta.XR.MRUtilityKit
         /// The function to be called when an anchor is updated. It takes one parameter:
         /// - `MRUKAnchor` The updated anchor object.
         /// </param>
+        [Obsolete("Use UnityEvent AnchorUpdatedEvent directly instead")]
         public void UnRegisterAnchorUpdatedCallback(UnityAction<MRUKAnchor> callback)
         {
             AnchorUpdatedEvent.RemoveListener(callback);
@@ -158,6 +169,7 @@ namespace Meta.XR.MRUtilityKit
         /// The function to be called when an anchor is removed. It takes one parameter:
         /// - `MRUKAnchor` The removed anchor object.
         /// </param>
+        [Obsolete("Use UnityEvent AnchorRemovedEvent directly instead")]
         public void UnRegisterAnchorRemovedCallback(UnityAction<MRUKAnchor> callback)
         {
             AnchorRemovedEvent.RemoveListener(callback);
@@ -169,6 +181,7 @@ namespace Meta.XR.MRUtilityKit
                 gameObject.name = $"Room - {roomData.Anchor.Uuid}";
             }
         }
+
 
         internal void UpdateRoomLayout(Data.RoomLayoutData roomLayout)
         {
@@ -214,7 +227,9 @@ namespace Meta.XR.MRUtilityKit
             // Find the global mesh anchor
             foreach (var anchor in Anchors)
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 if (anchor.HasLabel(OVRSceneManager.Classification.GlobalMesh))
+#pragma warning restore CS0618 // Type or member is obsolete
                 {
                     GlobalMeshAnchor = anchor;
                 }
@@ -318,7 +333,9 @@ namespace Meta.XR.MRUtilityKit
 
             for (int i = 0; i < Anchors.Count; i++)
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 if (Anchors[i].HasLabel(OVRSceneManager.Classification.Couch))
+#pragma warning restore CS0618 // Type or member is obsolete
                 {
                     CouchSeat newSeat = new CouchSeat
                     {
@@ -811,11 +828,17 @@ namespace Meta.XR.MRUtilityKit
             for (int i = 0; i < Anchors.Count; i++)
             {
                 Anchors[i].ClearChildReferences();
+#pragma warning disable CS0618 // Type or member is obsolete
                 if (Anchors[i].HasLabel(OVRSceneManager.Classification.WallFace))
+#pragma warning restore CS0618 // Type or member is obsolete
                 {
                     // find all _anchors that are a "child" of this wall using heuristics
                     for (int k = 0; k < Anchors.Count; k++)
                     {
+                        if (Anchors[k] == Anchors[i])
+                        {
+                            continue;
+                        }
                         if (Anchors[k].PlaneRect.HasValue && !Anchors[k].VolumeBounds.HasValue)
                         {
                             float angle = Vector3.Angle(Anchors[k].transform.right, Anchors[i].transform.right);
@@ -839,7 +862,9 @@ namespace Meta.XR.MRUtilityKit
                         }
                     }
                 }
+#pragma warning disable CS0618 // Type or member is obsolete
                 else if (Anchors[i].HasLabel(OVRSceneManager.Classification.Floor))
+#pragma warning restore CS0618 // Type or member is obsolete
                 {
                     // check volumes that are on the floor (should be all volumes, unless volumes are stacked)
                     for (int k = 0; k < Anchors.Count; k++)
@@ -867,6 +892,10 @@ namespace Meta.XR.MRUtilityKit
                     // treat this anchor (i) as a parent, and search for a child (k)
                     for (int k = 0; k < Anchors.Count; k++)
                     {
+                        if (Anchors[k] == Anchors[i])
+                        {
+                            continue;
+                        }
                         if (Anchors[k].VolumeBounds.HasValue)
                         {
                             Bounds childVolumeBounds = Anchors[k].VolumeBounds.Value;
@@ -1037,7 +1066,9 @@ namespace Meta.XR.MRUtilityKit
                     // Reject points that are outside the room
                     continue;
                 }
+#pragma warning disable CS0618 // Type or member is obsolete
                 LabelFilter filter = LabelFilter.Included(new List<string> { OVRSceneManager.Classification.WallFace });
+#pragma warning restore CS0618 // Type or member is obsolete
                 float closestDist = TryGetClosestSurfacePosition(spawnPosition, out Vector3 _, out MRUKAnchor _, filter);
                 if (closestDist <= minDistanceToSurface)
                 {

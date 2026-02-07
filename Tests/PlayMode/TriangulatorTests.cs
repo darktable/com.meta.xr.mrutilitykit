@@ -19,6 +19,7 @@
  */
 
 
+using System;
 using System.Collections;
 using UnityEngine;
 using NUnit.Framework;
@@ -27,9 +28,8 @@ using System.Collections.Generic;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
-    public class TriangulatorTests : MonoBehaviour
+    public class TriangulatorTests : MRUKTestBase
     {
-        private const int DefaultTimeoutMs = 10000;
 
         private float CalculateTriangleArea(Vector2 p1, Vector2 p2, Vector2 p3)
         {
@@ -131,5 +131,171 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.AreEqual(18, indices.Count);
             Assert.AreEqual(5.0f, CalculateTriangulatedArea(vertices, indices));
         }
+
+        /// <summary>
+        /// Tests that FindLineIntersection works as expected
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator FindLineIntersection1()
+        {
+            var foundIntersection = Triangulator.FindLineIntersection(new(0f, 0f), new(0f, 1f), new(-1f, 1f), new(1f, 1f), out Vector2 intersection, out var u1, out var u2);
+            yield return null;
+            Assert.IsTrue(foundIntersection);
+            Assert.AreEqual(new Vector2(0f, 1f), intersection);
+            Assert.AreEqual(1f, u1);
+            Assert.AreEqual(0.5f, u2);
+        }
+
+        /// <summary>
+        /// Tests that FindLineIntersection works as expected
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator FindLineIntersection2()
+        {
+            var foundIntersection = Triangulator.FindLineIntersection(new(0f, 0f), new(2f, 2f), new(1f, 0f), new(0f, 1f), out Vector2 intersection, out var u1, out var u2);
+            yield return null;
+            Assert.IsTrue(foundIntersection);
+            Assert.AreEqual(new Vector2(0.5f, 0.5f), intersection);
+            Assert.AreEqual(0.25f, u1);
+            Assert.AreEqual(0.5f, u2);
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons works as expected with a hole cut out of a quad at the bottom middle section
+        /// </summary>
+        /// <remarks>
+        /// __________
+        /// |        |
+        /// |  ____  |
+        /// |__|  |__|
+        /// </remarks>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsBottomMiddle()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(0.5f, -0.5f), new(0.5f, 1.5f), new(1.5f, 1.5f), new(1.5f, -0.5f) };
+            Triangulator.ClipPolygon(vertices, hole);
+            yield return null;
+            Assert.AreEqual(new List<Vector2> { new(0f, 0f), new(0.5f, 0f), new(0.5f, 1.5f), new(1.5f, 1.5f), new(1.5f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) }, vertices);
+            Assert.AreEqual(0, hole.Count);
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons works as expected with a hole cut out of a quad at the bottom middle section and
+        /// one of the hole edges exactly overlaps with one of the edges of the polygon
+        /// </summary>
+        /// <remarks>
+        /// __________
+        /// |        |
+        /// |  ____  |
+        /// |__|  |__|
+        /// </remarks>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsBottomMiddleOverlap()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(0.5f, 0f), new(0.5f, 1.5f), new(1.5f, 1.5f), new(1.5f, 0f) };
+            Triangulator.ClipPolygon(vertices, hole);
+            yield return null;
+            Assert.AreEqual(new List<Vector2> { new(0f, 0f), new(0.5f, 0f), new(0.5f, 1.5f), new(1.5f, 1.5f), new(1.5f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) }, vertices);
+            Assert.AreEqual(0, hole.Count);
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons works as expected with a hole cut out of a quad at the bottom left section
+        /// </summary>
+        /// <remarks>
+        /// __________
+        /// |        |
+        /// |___     |
+        ///    |_____|
+        /// </remarks>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsBottomLeftCorner()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(-0.5f, -0.5f), new(-0.5f, 1.5f), new(1.5f, 1.5f), new(1.5f, -0.5f) };
+            Triangulator.ClipPolygon(vertices, hole);
+            yield return null;
+            Assert.AreEqual(new List<Vector2> { new(2f, 0f), new(2f, 2f), new(0f, 2f), new(0f, 1.5f), new(1.5f, 1.5f), new(1.5f, 0f) }, vertices);
+            Assert.AreEqual(0, hole.Count);
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons works as expected with a hole cut out of a quad at the right middle section
+        /// </summary>
+        /// <remarks>
+        /// __________
+        /// |    ____|
+        /// |    |___
+        /// |________|
+        /// </remarks>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsRightMiddle()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(0.5f, 0.5f), new(0.5f, 1.5f), new(2.5f, 1.5f), new(2.5f, 0.5f) };
+            Triangulator.ClipPolygon(vertices, hole);
+            yield return null;
+            Assert.AreEqual(new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2.0f, 0.5f), new(0.5f, 0.5f), new(0.5f, 1.5f), new(2.0f, 1.5f), new(2f, 2f), new(0f, 2f) }, vertices);
+            Assert.AreEqual(0, hole.Count);
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons works as expected with a hole cut out of a quad encapsulating the top half of the quad
+        /// </summary>
+        /// <remarks>
+        ///
+        ///
+        /// __________
+        /// |________|
+        /// </remarks>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsTopHalf()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(-0.5f, 0.5f), new(-0.5f, 2.5f), new(2.5f, 2.5f), new(2.5f, 0.5f) };
+            Triangulator.ClipPolygon(vertices, hole);
+            yield return null;
+            Assert.AreEqual(new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 0.5f), new(0f, 0.5f) }, vertices);
+            Assert.AreEqual(0, hole.Count);
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons throws an exception if the hole completely encapsulates the polygon
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsHoleEncapsulatesVertices()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(-0.5f, -0.5f), new(-0.5f, 2.5f), new(2.5f, 2.5f), new(2.5f, -0.5f) };
+            Assert.That(() => Triangulator.ClipPolygon(vertices, hole),
+                Throws.TypeOf<Exception>());
+            yield return null;
+        }
+
+        /// <summary>
+        /// Tests that MergePolygons works as expected with a hole vertex sharing the same position as a vertex
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator MergePolygonsOverlappingPoints()
+        {
+            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
+            var hole = new List<Vector2> { new(-0.5f, -0.5f), new(-0.5f, 0f), new(0f, 0f), new(0f, -0.5f) };
+            Assert.That(() => Triangulator.ClipPolygon(vertices, hole),
+                Throws.TypeOf<NotSupportedException>());
+            yield return null;
+        }
+
     }
 }
+

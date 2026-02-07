@@ -20,7 +20,7 @@
 
  // NOTE: for translucent passthrough (e.g. this shader), you MUST have on some script in your scene:
  // OVRManager.eyeFovPremultipliedAlphaModeEnabled = false;
-Shader "MixedReality/PassthroughReveal" {
+Shader "Meta/MRUK/MixedReality/PassthroughReveal" {
     Properties
     {
         _PassthroughAmount ("Passthrough Amount", Range (0, 1)) = 1

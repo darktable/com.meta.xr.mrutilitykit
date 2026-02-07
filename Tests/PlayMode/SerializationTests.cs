@@ -31,10 +31,168 @@ using UnityEngine.TestTools.Utils;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
-    public class SerializationTests : MonoBehaviour
+    public class SerializationTests : MRUKTestBase
     {
-        private const int DefaultTimeoutMs = 10000;
-        const string unityExpectedSerializedScene = @"{
+
+        [UnitySetUp]
+        public new IEnumerator SetUp()
+        {
+          SceneToLoad = @"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity";
+          yield return base.SetUp();
+        }
+
+        [UnityTearDown]
+        public new IEnumerator TearDown()
+        {
+          yield return base.TearDown();
+        }
+
+        /// <summary>
+        /// Test that serialization to the Unity coordinate system works as expected.
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator SerializationToUnity()
+        {
+            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unity);
+
+            var splitJson = json.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            var splitExpected = unityExpectedSerializedScene.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < splitExpected.Length && i < splitJson.Length; i++)
+            {
+                if (Regex.IsMatch(splitExpected[i], "[A-F0-9]{32}") &&
+                    Regex.IsMatch(splitJson[i], "[A-F0-9]{32}"))
+                {
+                    // Ignore GUIDs because they change every time
+                    continue;
+                }
+                Assert.AreEqual(splitExpected[i], splitJson[i], "Line {0}", i + 1);
+            }
+            Assert.AreEqual(splitExpected.Length, splitJson.Length, "Number of lines");
+            yield return null;
+        }
+
+        /// <summary>
+        /// Test that serialization to the Unreal coordinate system works as expected.
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator SerializationToUnreal()
+        {
+            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unreal);
+
+            var splitJson = json.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            var splitExpected = unrealExpectedSerializedScene.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < splitExpected.Length && i < splitJson.Length; i++)
+            {
+                if (Regex.IsMatch(splitExpected[i], "[A-F0-9]{32}") &&
+                    Regex.IsMatch(splitJson[i], "[A-F0-9]{32}"))
+                {
+                    // Ignore GUIDs because they change every time
+                    continue;
+                }
+                Assert.AreEqual(splitExpected[i], splitJson[i], "Line {0}", i + 1);
+            }
+            Assert.AreEqual(splitExpected.Length, splitJson.Length, "Number of lines");
+            yield return null;
+        }
+
+        /// <summary>
+        /// Test that deserialization from the Unity coordinate system works as expected.
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator DeserializationFromUnity()
+        {
+            ValidateLoadedScene(unityExpectedSerializedScene);
+            yield return null;
+        }
+
+        /// <summary>
+        /// Test that deserialization from the Unreal coordinate system works as expected.
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator DeserializationFromUnreal()
+        {
+            ValidateLoadedScene(unrealExpectedSerializedScene);
+            yield return null;
+        }
+
+        /// <summary>
+        /// Make sure the order of wall anchors matches that of the room layout
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator WallOrderMatchesRoomLayout()
+        {
+            MRUK.Instance.LoadSceneFromJsonString(unityExpectedSerializedScene);
+            var sceneData = SerializationHelpers.Deserialize(unityExpectedSerializedScene);
+
+            Assert.AreEqual(8, sceneData.Rooms[0].RoomLayout.WallsUuid.Count);
+            Assert.AreEqual(8, MRUK.Instance.Rooms[0].WallAnchors.Count);
+            int i = 0;
+            foreach (var anchorUuid in sceneData.Rooms[0].RoomLayout.WallsUuid)
+            {
+                Assert.AreEqual(MRUK.Instance.Rooms[0].WallAnchors[i++].Anchor.Uuid, anchorUuid);
+            }
+
+            yield return null;
+        }
+
+        void ValidateLoadedScene(string sceneJson)
+        {
+            MRUK.Instance.LoadSceneFromJsonString(sceneJson);
+            Assert.NotNull(MRUK.Instance.GetCurrentRoom());
+            var loadedRoom = MRUK.Instance.GetCurrentRoom();
+            MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0], false);
+            var expectedRoom = MRUK.Instance.Rooms[1];
+            Assert.IsNotNull(expectedRoom);
+            var loadedAnchors = loadedRoom.Anchors;
+            var expectedAnchors = expectedRoom.Anchors;
+            Assert.AreEqual(expectedAnchors.Count, loadedAnchors.Count);
+            for (int i = 0; i < loadedAnchors.Count; i++)
+            {
+                var loadedAnchor = loadedAnchors[i];
+                var expectedAnchor = expectedAnchors[i];
+                // Skip UUID check as they could change every time
+                if (loadedAnchor.PlaneRect.HasValue)
+                {
+                    Assert.That(loadedAnchor.PlaneRect.Value.position, Is.EqualTo(expectedAnchor.PlaneRect.Value.position).Using(Vector2EqualityComparer.Instance));
+                    Assert.That(loadedAnchor.PlaneRect.Value.size, Is.EqualTo(expectedAnchor.PlaneRect.Value.size).Using(Vector2EqualityComparer.Instance));
+                }
+                if (loadedAnchor.VolumeBounds.HasValue)
+                {
+                    Assert.That(loadedAnchor.VolumeBounds.Value.extents, Is.EqualTo(expectedAnchor.VolumeBounds.Value.extents).Using(Vector3EqualityComparer.Instance));
+                    Assert.That(loadedAnchor.VolumeBounds.Value.center, Is.EqualTo(expectedAnchor.VolumeBounds.Value.center).Using(Vector3EqualityComparer.Instance));
+                }
+                Assert.That(loadedAnchor.transform.position, Is.EqualTo(expectedAnchor.transform.position).Using(Vector3EqualityComparer.Instance));
+                Assert.That(loadedAnchor.transform.rotation.eulerAngles, Is.EqualTo(expectedAnchor.transform.rotation.eulerAngles).Using(Vector3EqualityComparer.Instance));
+                Assert.That(loadedAnchor.transform.localScale, Is.EqualTo(expectedAnchor.transform.localScale).Using(Vector3EqualityComparer.Instance));
+                Assert.That(loadedAnchor.GetAnchorCenter(), Is.EqualTo(expectedAnchor.GetAnchorCenter()).Using(Vector3EqualityComparer.Instance));
+                if (loadedAnchor.PlaneBoundary2D != null)
+                {
+                    var loadedPlaneBoundary2D = loadedAnchor.PlaneBoundary2D;
+                    var expectedPlaneBoundary2D = expectedAnchor.PlaneBoundary2D;
+                    for (int j = 0; j < loadedAnchor.AnchorLabels.Count; j++)
+                    {
+                        Assert.That(loadedPlaneBoundary2D[j], Is.EqualTo(expectedPlaneBoundary2D[j]).Using(Vector2EqualityComparer.Instance));
+                    }
+                }
+                for (int j = 0; j < loadedAnchor.AnchorLabels.Count; j++)
+                {
+                    Assert.AreEqual(expectedAnchor.AnchorLabels[j], loadedAnchor.AnchorLabels[j]);
+                }
+                var loadedBoundsFaceCenters = loadedAnchor.GetBoundsFaceCenters();
+                var expectedBoundsFaceCenters = expectedAnchor.GetBoundsFaceCenters();
+                for (int j = 0; j < loadedAnchor.GetBoundsFaceCenters().Length; j++)
+                {
+                    Assert.That(loadedBoundsFaceCenters[j], Is.EqualTo(expectedBoundsFaceCenters[j]).Using(Vector3EqualityComparer.Instance));
+                }
+            }
+        }
+
+                const string unityExpectedSerializedScene = @"{
   ""CoordinateSystem"": ""Unity"",
   ""Rooms"": [
     {
@@ -825,168 +983,6 @@ namespace Meta.XR.MRUtilityKit.Tests
   ]
 }
 ";
-
-        [UnitySetUp]
-        public IEnumerator SetUp()
-        {
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode("Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity",
-                new LoadSceneParameters(LoadSceneMode.Additive));
-            yield return new WaitUntil(() => MRUK.Instance.IsInitialized);
-        }
-
-        [UnityTearDown]
-        public IEnumerator TearDown()
-        {
-            for (int i = SceneManager.sceneCount - 1; i >= 1; i--)
-            {
-                var asyncOperation = SceneManager.UnloadSceneAsync(SceneManager.GetSceneAt(i).name); // Clear/reset scene
-                yield return new WaitUntil(() => asyncOperation.isDone);
-            }
-        }
-
-        /// <summary>
-        /// Test that serialization to the Unity coordinate system works as expected.
-        /// </summary>
-        [UnityTest]
-        [Timeout(DefaultTimeoutMs)]
-        public IEnumerator SerializationToUnity()
-        {
-            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unity);
-
-            var splitJson = json.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-            var splitExpected = unityExpectedSerializedScene.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < splitExpected.Length && i < splitJson.Length; i++)
-            {
-                if (Regex.IsMatch(splitExpected[i], "[A-F0-9]{32}") &&
-                    Regex.IsMatch(splitJson[i], "[A-F0-9]{32}"))
-                {
-                    // Ignore GUIDs because they change every time
-                    continue;
-                }
-                Assert.AreEqual(splitExpected[i], splitJson[i], "Line {0}", i + 1);
-            }
-            Assert.AreEqual(splitExpected.Length, splitJson.Length, "Number of lines");
-            yield return null;
-        }
-
-        /// <summary>
-        /// Test that serialization to the Unreal coordinate system works as expected.
-        /// </summary>
-        [UnityTest]
-        [Timeout(DefaultTimeoutMs)]
-        public IEnumerator SerializationToUnreal()
-        {
-            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unreal);
-
-            var splitJson = json.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-            var splitExpected = unrealExpectedSerializedScene.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-            for (int i = 0; i < splitExpected.Length && i < splitJson.Length; i++)
-            {
-                if (Regex.IsMatch(splitExpected[i], "[A-F0-9]{32}") &&
-                    Regex.IsMatch(splitJson[i], "[A-F0-9]{32}"))
-                {
-                    // Ignore GUIDs because they change every time
-                    continue;
-                }
-                Assert.AreEqual(splitExpected[i], splitJson[i], "Line {0}", i + 1);
-            }
-            Assert.AreEqual(splitExpected.Length, splitJson.Length, "Number of lines");
-            yield return null;
-        }
-
-        /// <summary>
-        /// Test that deserialization from the Unity coordinate system works as expected.
-        /// </summary>
-        [UnityTest]
-        [Timeout(DefaultTimeoutMs)]
-        public IEnumerator DeserializationFromUnity()
-        {
-            ValidateLoadedScene(unityExpectedSerializedScene);
-            yield return null;
-        }
-
-        /// <summary>
-        /// Test that deserialization from the Unreal coordinate system works as expected.
-        /// </summary>
-        [UnityTest]
-        [Timeout(DefaultTimeoutMs)]
-        public IEnumerator DeserializationFromUnreal()
-        {
-            ValidateLoadedScene(unrealExpectedSerializedScene);
-            yield return null;
-        }
-
-        /// <summary>
-        /// Make sure the order of wall anchors matches that of the room layout
-        /// </summary>
-        [UnityTest]
-        [Timeout(DefaultTimeoutMs)]
-        public IEnumerator WallOrderMatchesRoomLayout()
-        {
-            MRUK.Instance.LoadSceneFromJsonString(unityExpectedSerializedScene);
-            var sceneData = SerializationHelpers.Deserialize(unityExpectedSerializedScene);
-
-            Assert.AreEqual(8, sceneData.Rooms[0].RoomLayout.WallsUuid.Count);
-            Assert.AreEqual(8, MRUK.Instance.Rooms[0].WallAnchors.Count);
-            int i = 0;
-            foreach (var anchorUuid in sceneData.Rooms[0].RoomLayout.WallsUuid)
-            {
-                Assert.AreEqual(MRUK.Instance.Rooms[0].WallAnchors[i++].Anchor.Uuid, anchorUuid);
-            }
-
-            yield return null;
-        }
-
-        void ValidateLoadedScene(string sceneJson)
-        {
-            MRUK.Instance.LoadSceneFromJsonString(sceneJson);
-            Assert.NotNull(MRUK.Instance.GetCurrentRoom());
-            var loadedRoom = MRUK.Instance.GetCurrentRoom();
-            MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0], false);
-            var expectedRoom = MRUK.Instance.Rooms[1];
-            Assert.IsNotNull(expectedRoom);
-            var loadedAnchors = loadedRoom.Anchors;
-            var expectedAnchors = expectedRoom.Anchors;
-            Assert.AreEqual(expectedAnchors.Count, loadedAnchors.Count);
-            for (int i = 0; i < loadedAnchors.Count; i++)
-            {
-                var loadedAnchor = loadedAnchors[i];
-                var expectedAnchor = expectedAnchors[i];
-                // Skip UUID check as they could change every time
-                if (loadedAnchor.PlaneRect.HasValue)
-                {
-                    Assert.That(loadedAnchor.PlaneRect.Value.position, Is.EqualTo(expectedAnchor.PlaneRect.Value.position).Using(Vector2EqualityComparer.Instance));
-                    Assert.That(loadedAnchor.PlaneRect.Value.size, Is.EqualTo(expectedAnchor.PlaneRect.Value.size).Using(Vector2EqualityComparer.Instance));
-                }
-                if (loadedAnchor.VolumeBounds.HasValue)
-                {
-                    Assert.That(loadedAnchor.VolumeBounds.Value.extents, Is.EqualTo(expectedAnchor.VolumeBounds.Value.extents).Using(Vector3EqualityComparer.Instance));
-                    Assert.That(loadedAnchor.VolumeBounds.Value.center, Is.EqualTo(expectedAnchor.VolumeBounds.Value.center).Using(Vector3EqualityComparer.Instance));
-                }
-                Assert.That(loadedAnchor.transform.position, Is.EqualTo(expectedAnchor.transform.position).Using(Vector3EqualityComparer.Instance));
-                Assert.That(loadedAnchor.transform.rotation.eulerAngles, Is.EqualTo(expectedAnchor.transform.rotation.eulerAngles).Using(Vector3EqualityComparer.Instance));
-                Assert.That(loadedAnchor.transform.localScale, Is.EqualTo(expectedAnchor.transform.localScale).Using(Vector3EqualityComparer.Instance));
-                Assert.That(loadedAnchor.GetAnchorCenter(), Is.EqualTo(expectedAnchor.GetAnchorCenter()).Using(Vector3EqualityComparer.Instance));
-                if (loadedAnchor.PlaneBoundary2D != null)
-                {
-                    var loadedPlaneBoundary2D = loadedAnchor.PlaneBoundary2D;
-                    var expectedPlaneBoundary2D = expectedAnchor.PlaneBoundary2D;
-                    for (int j = 0; j < loadedAnchor.AnchorLabels.Count; j++)
-                    {
-                        Assert.That(loadedPlaneBoundary2D[j], Is.EqualTo(expectedPlaneBoundary2D[j]).Using(Vector2EqualityComparer.Instance));
-                    }
-                }
-                for (int j = 0; j < loadedAnchor.AnchorLabels.Count; j++)
-                {
-                    Assert.AreEqual(expectedAnchor.AnchorLabels[j], loadedAnchor.AnchorLabels[j]);
-                }
-                var loadedBoundsFaceCenters = loadedAnchor.GetBoundsFaceCenters();
-                var expectedBoundsFaceCenters = expectedAnchor.GetBoundsFaceCenters();
-                for (int j = 0; j < loadedAnchor.GetBoundsFaceCenters().Length; j++)
-                {
-                    Assert.That(loadedBoundsFaceCenters[j], Is.EqualTo(expectedBoundsFaceCenters[j]).Using(Vector3EqualityComparer.Instance));
-                }
-            }
-        }
     }
 }
+

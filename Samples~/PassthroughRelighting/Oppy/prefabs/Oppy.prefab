@@ -97,7 +97,7 @@ Animator:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7107983976591372239}
   m_Enabled: 1
-  m_Avatar: {fileID: 9000000, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+  m_Avatar: {fileID: 9000000, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
   m_Controller: {fileID: 9100000, guid: e0682c78f336ea74ea53278c56f2663d, type: 2}
   m_CullingMode: 0
   m_UpdateMode: 0
@@ -646,31 +646,31 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 6
       objectReference: {fileID: 0}
-    - target: {fileID: -9041454682160946857, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -9041454682160946857, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_Layer
       value: 6
       objectReference: {fileID: 0}
-    - target: {fileID: -8741530462471963069, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -8741530462471963069, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_Layer
       value: 6
       objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -8679921383154817045, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_RootOrder
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -8679921383154817045, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.03
       objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -8679921383154817045, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_LocalScale.y
       value: 0.03
       objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -8679921383154817045, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_LocalScale.z
       value: 0.03
       objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: 73619331e91e029479cfe990a8b1ed6a, type: 3}
+    - target: {fileID: -8679921383154817045, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
       objectReference: {fileID: 0}

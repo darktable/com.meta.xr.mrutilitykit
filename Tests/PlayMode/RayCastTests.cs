@@ -29,28 +29,22 @@ using UnityEngine.TestTools.Utils;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
-    public class RayCastTests : MonoBehaviour
+    public class RayCastTests : MRUKTestBase
     {
-        private const int DefaultTimeoutMs = 10000;
         private MRUKRoom _currentRoom;
 
         [UnitySetUp]
-        public IEnumerator SetUp()
+        public new IEnumerator SetUp()
         {
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode("Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity",
-                new LoadSceneParameters(LoadSceneMode.Additive));
-            yield return new WaitUntil(() => MRUK.Instance.IsInitialized);
+            SceneToLoad = @"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity";
+            yield return base.SetUp();
             _currentRoom = MRUK.Instance.GetCurrentRoom();
         }
 
         [UnityTearDown]
-        public IEnumerator TearDown()
+        public new IEnumerator TearDown()
         {
-            for (int i = SceneManager.sceneCount - 1; i >= 1; i--)
-            {
-                var asyncOperation = SceneManager.UnloadSceneAsync(SceneManager.GetSceneAt(i).name); // Clear/reset scene
-                yield return new WaitUntil(() => asyncOperation.isDone);
-            }
+            yield return base.TearDown();
         }
 
         /// <summary>
@@ -66,7 +60,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
             Assert.IsTrue(hit.point != Vector3.zero);
             Assert.IsNotNull(anchorInfo);
+#pragma warning disable CS0618 // Type or member is obsolete
             Assert.Contains(OVRSceneManager.Classification.WallFace, anchorInfo.AnchorLabels);
+#pragma warning restore CS0618 // Type or member is obsolete
             Vector3 expectedHitPoint = new Vector3(0.0000f, 1.7000f, 4.2992f);
             Assert.That(hit.point, Is.EqualTo(expectedHitPoint).Using(Vector3EqualityComparer.Instance));
             Vector3 expectedHitNormal = new Vector3(-0.0864f, 0.0000f, -0.9963f);
@@ -95,7 +91,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_Plane_DoesNotHitFilter()
         {
             Ray mockRay = new Ray(new Vector3(0f, 1.70f, 1f), Vector3.forward);
+#pragma warning disable CS0618 // Type or member is obsolete
             bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, LabelFilter.Excluded(new System.Collections.Generic.List<string> { OVRSceneManager.Classification.WallFace }), out RaycastHit _, out MRUKAnchor anchorInfo);
+#pragma warning restore CS0618 // Type or member is obsolete
             yield return null;
             Assert.IsFalse(didHit);
             Assert.IsNull(anchorInfo);
@@ -115,7 +113,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.IsTrue(didHit);
             Assert.IsTrue(hit.point != Vector3.zero);
             Assert.IsNotNull(anchorInfo);
+#pragma warning disable CS0618 // Type or member is obsolete
             Assert.Contains(OVRSceneManager.Classification.WindowFrame, anchorInfo.AnchorLabels);
+#pragma warning restore CS0618 // Type or member is obsolete
             Vector3 expectedHitPoint = new Vector3(-1.7084f, 1.6833f, -0.6833f);
             Assert.That(hit.point, Is.EqualTo(expectedHitPoint).Using(Vector3EqualityComparer.Instance));
             Vector3 expectedHitNormal = new Vector3(0.9917f, 0.0000f, -0.1288f);
@@ -135,7 +135,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.IsTrue(didHit);
             Assert.IsTrue(hit.point != Vector3.zero);
             Assert.IsNotNull(anchorInfo);
+#pragma warning disable CS0618 // Type or member is obsolete
             Assert.Contains(OVRSceneManager.Classification.Table, anchorInfo.AnchorLabels);
+#pragma warning restore CS0618 // Type or member is obsolete
             Vector3 expectedHitPoint = new Vector3(-3.3530f, 0.500f, 2.0000f);
             Assert.That(hit.point, Is.EqualTo(expectedHitPoint).Using(Vector3EqualityComparer.Instance));
             Vector3 expectedHitNormal = new Vector3(0.9976f, 0.0000f, -0.0699f);
@@ -164,7 +166,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_Volume_DoesNotHitLabelFilter()
         {
             Ray mockRay = new Ray(new Vector3(0f, 0.5f, 2f), Vector3.left);
+#pragma warning disable CS0618 // Type or member is obsolete
             bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, LabelFilter.Included(new System.Collections.Generic.List<string> { OVRSceneManager.Classification.Other }), out RaycastHit _, out MRUKAnchor anchorInfo);
+#pragma warning restore CS0618 // Type or member is obsolete
             yield return null;
             Assert.IsFalse(didHit);
             Assert.IsNull(anchorInfo);
@@ -182,7 +186,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
             Assert.IsTrue(hit.point != Vector3.zero);
             Assert.IsNotNull(anchorInfo);
+#pragma warning disable CS0618 // Type or member is obsolete
             Assert.Contains(OVRSceneManager.Classification.Floor, anchorInfo.AnchorLabels);
+#pragma warning restore CS0618 // Type or member is obsolete
             Vector3 expectedHitPoint = new Vector3(0.0000f, 0.0000f, 1.0000f);
             Assert.That(hit.point, Is.EqualTo(expectedHitPoint).Using(Vector3EqualityComparer.Instance));
             Vector3 expectedHitNormal = new Vector3(0.0000f, 1.0000f, 0.0000f);
@@ -201,7 +207,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
             yield return null;
             Assert.IsTrue(hit.point == Vector3.zero);
+#pragma warning disable CS0618 // Type or member is obsolete
             Assert.Contains(OVRSceneManager.Classification.Floor, anchorInfo.AnchorLabels);
+#pragma warning restore CS0618 // Type or member is obsolete
             Assert.IsNotNull(anchorInfo);
         }
 
@@ -237,3 +245,4 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
     }
 }
+

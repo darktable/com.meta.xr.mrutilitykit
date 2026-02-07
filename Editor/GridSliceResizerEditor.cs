@@ -25,6 +25,8 @@ using UnityEngine;
 [CustomEditor(typeof(GridSliceResizer))]
 public class GridSliceResizerEditor : Editor
 {
+    private SerializedProperty _originalMesh;
+
     private SerializedProperty _borderXNegative;
     private SerializedProperty _borderXPositive;
     private SerializedProperty _borderYNegative;
@@ -44,6 +46,7 @@ public class GridSliceResizerEditor : Editor
 
     private void OnEnable()
     {
+        _originalMesh = serializedObject.FindProperty(nameof(GridSliceResizer.OriginalMesh));
         _pivotOffset = serializedObject.FindProperty(nameof(GridSliceResizer.PivotOffset));
         _stretchCenter = serializedObject.FindProperty(nameof(GridSliceResizer.StretchCenter));
         _scalingX = serializedObject.FindProperty(nameof(GridSliceResizer.ScalingX));
@@ -80,6 +83,7 @@ public class GridSliceResizerEditor : Editor
         }
 
         EditorGUILayout.PropertyField(_updateInPlayMode);
+        EditorGUILayout.PropertyField(_originalMesh);
         EditorGUILayout.PropertyField(_pivotOffset);
         EditorGUILayout.PropertyField(_stretchCenter, new GUIContent("Stretch Center",
             "Determines whether the center part of the object should be scaled per each axis."));

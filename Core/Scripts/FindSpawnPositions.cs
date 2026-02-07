@@ -29,7 +29,7 @@ using UnityEngine.Serialization;
 public class FindSpawnPositions : MonoBehaviour
 {
     [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
-    public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.AllRooms;
+    public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
     [SerializeField, Tooltip("Prefab to be placed into the scene, or object in the scene to be moved around.")]
     public GameObject SpawnObject;
     [SerializeField, Tooltip("Number of SpawnObject(s) to place into the scene per room, only applies to Prefabs.")]

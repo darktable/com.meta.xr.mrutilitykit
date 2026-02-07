@@ -40,6 +40,8 @@ public class DropTablePropertyDrawer : PropertyDrawer
         var alignmentProperty = property.FindPropertyRelative(nameof(AnchorPrefabSpawner.AnchorPrefabGroup.Alignment));
         var ignorePrefabSizeProperty =
             property.FindPropertyRelative(nameof(AnchorPrefabSpawner.AnchorPrefabGroup.IgnorePrefabSize));
+        var prefabSelection =
+            property.FindPropertyRelative(nameof(AnchorPrefabSpawner.AnchorPrefabGroup.PrefabSelection));
 
         // Display the labels names as the title of the property in the inspector
         var sceneLabelsFlags = (MRUKAnchor.SceneLabels)labelsProperty.enumValueFlag;
@@ -71,7 +73,7 @@ public class DropTablePropertyDrawer : PropertyDrawer
             var adjustedPropertyHeight = propertyHeight;
             if (prefabsProperty.isExpanded)
             {
-                adjustedPropertyHeight += propertyHeight;
+                adjustedPropertyHeight += propertyHeight * 2;
                 for (var i = 0; i < prefabsProperty.arraySize - 1; i++)
                     adjustedPropertyHeight += EditorGUI.GetPropertyHeight(prefabsProperty.GetArrayElementAtIndex(i));
             }
@@ -91,6 +93,9 @@ public class DropTablePropertyDrawer : PropertyDrawer
             EditorGUI.PropertyField(
                 new Rect(position.x, position.y + propertyHeight * 7 + adjustedPropertyHeight, position.width,
                     propertyHeight), ignorePrefabSizeProperty);
+            EditorGUI.PropertyField(
+                new Rect(position.x, position.y + propertyHeight * 8 + adjustedPropertyHeight, position.width,
+                    propertyHeight), prefabSelection);
             EditorGUI.indentLevel--;
         }
 
@@ -101,7 +106,7 @@ public class DropTablePropertyDrawer : PropertyDrawer
     {
         var totalHeight = EditorGUIUtility.singleLineHeight;
         if (!property.isExpanded) return totalHeight;
-        totalHeight += EditorGUIUtility.singleLineHeight * 8; // 7 properties + 1 for the label
+        totalHeight += EditorGUIUtility.singleLineHeight * 11; // 8 properties + 1 for the label + 2 extra padding lines
         var prefabsProperty = property.FindPropertyRelative(nameof(AnchorPrefabSpawner.AnchorPrefabGroup.Prefabs));
         if (!prefabsProperty.isExpanded) return totalHeight;
         totalHeight += EditorGUIUtility.singleLineHeight;

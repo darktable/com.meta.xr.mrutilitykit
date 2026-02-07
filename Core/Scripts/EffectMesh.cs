@@ -29,7 +29,10 @@ namespace Meta.XR.MRUtilityKit
     public class EffectMesh : MonoBehaviour
     {
         [Tooltip("When the scene data is loaded, this controls what room(s) the effect mesh is applied to.")]
-        public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.AllRooms;
+        public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
+
+        [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
+        public bool TrackUpdates = true;
 
         [Tooltip("The material applied to the generated mesh.")]
         [FormerlySerializedAs("_MeshMaterial")]
@@ -53,6 +56,9 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Hide the effect mesh.")]
         [SerializeField]
         private bool hideMesh = false;
+
+
+        private MRUK.SceneTrackingSettings SceneTrackingSettings;
 
         public bool CastShadow
         {
@@ -87,7 +93,7 @@ namespace Meta.XR.MRUtilityKit
             STRETCH,                        // The texture coordinates range from 0 to 1 across the anchor surface.
         };
 
-        [System.Serializable]
+        [Serializable]
         public class TextureCoordinateModes
         {
             [FormerlySerializedAs("U")]
@@ -102,12 +108,13 @@ namespace Meta.XR.MRUtilityKit
         [FormerlySerializedAs("_include")]
         public MRUKAnchor.SceneLabels Labels;
 
-        List<EffectMeshObject> effectMeshObjects = new List<EffectMeshObject>();
+        private static readonly string Suffix = "_EffectMesh";
 
-        private class EffectMeshObject
+        Dictionary<MRUKAnchor, EffectMeshObject> effectMeshObjects = new ();
+
+        public class EffectMeshObject
         {
             public GameObject effectMeshGO;
-            public MRUKAnchor anchorInfo;
             public Mesh mesh;
             public Collider collider;
         }
@@ -117,20 +124,95 @@ namespace Meta.XR.MRUtilityKit
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadEffectMesh).Send();
 #endif
-            if (MRUK.Instance && SpawnOnStart != MRUK.RoomFilter.None)
+            if (MRUK.Instance is null) return;
+
+            SceneTrackingSettings.UnTrackedRooms = new();
+            SceneTrackingSettings.UnTrackedAnchors = new();
+
+            MRUK.Instance.RegisterSceneLoadedCallback(() =>
             {
-                MRUK.Instance.RegisterSceneLoadedCallback(() =>
+                if (SpawnOnStart == MRUK.RoomFilter.None) return;
+
+                switch(SpawnOnStart)
                 {
-                    switch (SpawnOnStart)
-                    {
-                        case MRUK.RoomFilter.AllRooms:
-                            CreateMesh();
-                            break;
-                        case MRUK.RoomFilter.CurrentRoomOnly:
-                            CreateMesh(MRUK.Instance.GetCurrentRoom());
-                            break;
-                    }
-                });
+                    case MRUK.RoomFilter.CurrentRoomOnly:
+                        CreateMesh(MRUK.Instance.GetCurrentRoom());
+                        break;
+                    case MRUK.RoomFilter.AllRooms:
+                        CreateMesh();
+                        break;
+                }
+            });
+
+            if (!TrackUpdates) return;
+
+            MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveCreatedRoom);
+            MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
+        }
+
+        private void ReceiveRemovedRoom(MRUKRoom room)
+        {
+            // there is no check on ```SceneTrackingSettings.TrackUpdates``` when removing a room.
+            DestroyMesh(room);
+            UnregisterAnchorUpdates(room);
+        }
+
+        private void UnregisterAnchorUpdates(MRUKRoom room)
+        {
+            room.AnchorCreatedEvent.RemoveListener(ReceiveAnchorCreatedEvent);
+            room.AnchorRemovedEvent.RemoveListener(ReceiveAnchorRemovedCallback);
+            room.AnchorUpdatedEvent.RemoveListener(ReceiveAnchorUpdatedCallback);
+        }
+
+        private void RegisterAnchorUpdates(MRUKRoom room)
+        {
+            room.AnchorCreatedEvent.AddListener(ReceiveAnchorCreatedEvent);
+            room.AnchorRemovedEvent.AddListener(ReceiveAnchorRemovedCallback);
+            room.AnchorUpdatedEvent.AddListener(ReceiveAnchorUpdatedCallback);
+        }
+
+        private void ReceiveAnchorUpdatedCallback(MRUKAnchor anchor)
+        {
+            // only update the anchor when we track updates
+            // &
+            // only create when the anchor or parent room is tracked
+            if (SceneTrackingSettings.UnTrackedRooms.Contains(anchor.Room) ||
+                SceneTrackingSettings.UnTrackedAnchors.Contains(anchor) ||
+                !TrackUpdates)
+            {
+                return;
+            }
+            DestroyMesh(anchor);
+            CreateEffectMesh(anchor);
+        }
+
+        private void ReceiveAnchorRemovedCallback(MRUKAnchor anchor)
+        {
+            // there is no check on ```SceneTrackingSettings.TrackUpdates``` when removing an anchor.
+            DestroyMesh(anchor);
+        }
+
+        private void ReceiveAnchorCreatedEvent(MRUKAnchor anchor)
+        {
+            // only create the anchor when we track updates
+            // &
+            // only create when the parent room is tracked
+            if (SceneTrackingSettings.UnTrackedRooms.Contains(anchor.Room) ||
+                !TrackUpdates)
+            {
+                return;
+            }
+            CreateEffectMesh(anchor);
+        }
+
+        private void ReceiveCreatedRoom(MRUKRoom room)
+        {
+            //only create the room when we track room updates
+            if (TrackUpdates &&
+                SpawnOnStart == MRUK.RoomFilter.AllRooms)
+            {
+                CreateMesh(room);
+                RegisterAnchorUpdates(room);
             }
         }
 
@@ -216,11 +298,15 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Creates effect mesh for all elements in all rooms
+        /// </summary>
         public void CreateMesh()
         {
             foreach (var room in MRUK.Instance.Rooms)
             {
                 CreateMesh(room);
+                RegisterAnchorUpdates(room);
             }
         }
 
@@ -232,16 +318,53 @@ namespace Meta.XR.MRUtilityKit
         /// Default value includes all labels.</param>
         public void DestroyMesh(LabelFilter label = new LabelFilter())
         {
-            for (int i = 0; i < effectMeshObjects.Count; i++)
+            List<MRUKAnchor> itemsToRemove = new();
+            foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(effectMeshObjects[i].anchorInfo.AnchorLabels);
-                if (effectMeshObjects[i].effectMeshGO && filterByLabel)
+                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                if (kv.Value.effectMeshGO && filterByLabel)
                 {
-                    DestroyImmediate(effectMeshObjects[i].effectMeshGO);
-                    effectMeshObjects[i] = null;
+                    DestroyImmediate(kv.Value.effectMeshGO);
+                    itemsToRemove.Add(kv.Key);
                 }
             }
-            effectMeshObjects.RemoveAll(emObj => emObj == null);
+
+            foreach (var itemToRemove in itemsToRemove)
+            {
+                effectMeshObjects.Remove(itemToRemove);
+                SceneTrackingSettings.UnTrackedAnchors.Add(itemToRemove);
+            }
+        }
+
+        /// <summary>
+        /// Destroys all meshs in the given room and mark the room as not tracked anymore by this class
+        /// </summary>
+        /// <param name="room">MRUK Room</param>
+        public void DestroyMesh(MRUKRoom room)
+        {
+            var anchors = room.Anchors;
+            foreach (var anchor in anchors)
+            {
+                DestroyMesh(anchor);
+            }
+            SceneTrackingSettings.UnTrackedRooms.Add(room);
+        }
+
+        /// <summary>
+        /// Destroys the meshs associated with the provided anchor and mark the anchor as not tracked anymore by this class
+        /// </summary>
+        /// <param name="anchor">MRUK Anchor</param>
+        public void DestroyMesh(MRUKAnchor anchor)
+        {
+            if(effectMeshObjects.TryGetValue(anchor, out var eMO))
+            {
+                if (eMO.effectMeshGO)
+                {
+                    DestroyImmediate(eMO.effectMeshGO);
+                    effectMeshObjects.Remove(anchor);
+                    SceneTrackingSettings.UnTrackedAnchors.Add(anchor);
+                }
+            }
         }
 
         /// <summary>
@@ -252,12 +375,12 @@ namespace Meta.XR.MRUtilityKit
         /// Default value includes all labels.</param>
         public void AddColliders(LabelFilter label = new LabelFilter())
         {
-            foreach (var effectMeshObj in effectMeshObjects)
+            foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(effectMeshObj.anchorInfo.AnchorLabels);
-                if (effectMeshObj.anchorInfo && !effectMeshObj.collider && filterByLabel)
+                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                if (kv.Key && !kv.Value.collider && filterByLabel)
                 {
-                    effectMeshObj.collider = AddCollider(effectMeshObj);
+                    kv.Value.collider = AddCollider(kv.Key, kv.Value);
                 }
             }
         }
@@ -270,25 +393,25 @@ namespace Meta.XR.MRUtilityKit
         /// Default value includes all labels.</param>
         public void DestroyColliders(LabelFilter label = new LabelFilter())
         {
-            foreach (var effectMeshObj in effectMeshObjects)
+            foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(effectMeshObj.anchorInfo.AnchorLabels);
-                if (effectMeshObj.collider && filterByLabel)
+                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                if (kv.Value.collider && filterByLabel)
                 {
-                    DestroyImmediate(effectMeshObj.collider);
+                    DestroyImmediate(kv.Value.collider);
                 }
             }
         }
 
         public void ToggleShadowCasting(bool shouldCast, LabelFilter label = new LabelFilter())
         {
-            foreach (var effectMeshObj in effectMeshObjects)
+            foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(effectMeshObj.anchorInfo.AnchorLabels);
-                if (effectMeshObj.effectMeshGO && filterByLabel)
+                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                if (kv.Value.effectMeshGO && filterByLabel)
                 {
                     ShadowCastingMode castingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
-                    effectMeshObj.effectMeshGO.GetComponent<MeshRenderer>().shadowCastingMode = castingMode;
+                    kv.Value.effectMeshGO.GetComponent<MeshRenderer>().shadowCastingMode = castingMode;
                 }
             }
         }
@@ -304,15 +427,15 @@ namespace Meta.XR.MRUtilityKit
         /// If not provided, the material of the mesh objects remains unchanged.</param>
         public void ToggleEffectMeshVisibility(bool shouldShow, LabelFilter label = new LabelFilter(), Material materialOverride = null)
         {
-            foreach (var effectMeshObj in effectMeshObjects)
+            foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(effectMeshObj.anchorInfo.AnchorLabels);
-                if (effectMeshObj.effectMeshGO && filterByLabel)
+                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                if (kv.Value.effectMeshGO && filterByLabel)
                 {
-                    effectMeshObj.effectMeshGO.GetComponent<MeshRenderer>().enabled = shouldShow;
+                    kv.Value.effectMeshGO.GetComponent<MeshRenderer>().enabled = shouldShow;
                     if (materialOverride)
                     {
-                        effectMeshObj.effectMeshGO.GetComponent<MeshRenderer>().material = materialOverride;
+                        kv.Value.effectMeshGO.GetComponent<MeshRenderer>().material = materialOverride;
                     }
                 }
             }
@@ -327,107 +450,116 @@ namespace Meta.XR.MRUtilityKit
         /// Default value is a new instance of LabelFilter.</param>
         public void OverrideEffectMaterial(Material newMaterial, LabelFilter label = new LabelFilter())
         {
-            foreach (var effectMeshObj in effectMeshObjects)
+            foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(effectMeshObj.anchorInfo.AnchorLabels);
-                if (effectMeshObj.effectMeshGO && filterByLabel)
+                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                if (kv.Value.effectMeshGO && filterByLabel)
                 {
-                    effectMeshObj.effectMeshGO.GetComponent<MeshRenderer>().material = newMaterial;
+                    kv.Value.effectMeshGO.GetComponent<MeshRenderer>().material = newMaterial;
                 }
             }
         }
 
-        public void CreateMesh(MRUKRoom tkRoom)
+        private (List<MRUKAnchor>,float,float) GenerateData(MRUKRoom room)
         {
-            // To get all the anchors in the space:
-            var sceneAnchors = tkRoom.Anchors;
+            var shortestWall = Mathf.Infinity;
+            var totalWallLength = 0.0f;
 
             List<MRUKAnchor> walls = new List<MRUKAnchor>();
+            foreach (var anchorInfo in room.Anchors)
+            {
+#pragma warning disable CS0618 // Type or member is obsolete
+                if (anchorInfo.HasLabel(OVRSceneManager.Classification.WallFace))
+#pragma warning restore CS0618 // Type or member is obsolete
+                {
+                    Vector2 wallScale = anchorInfo.PlaneRect.Value.size;
+                    shortestWall = Mathf.Min(Mathf.Min(wallScale.x, wallScale.y), shortestWall);
+                    walls.Add(anchorInfo);
+                }
+            }
+            var sortedWalls = GetOrderedWalls(walls, ref totalWallLength);
+            var polyBorderSize = Mathf.Min(shortestWall * 0.5f, BorderSize);
+
+            return (sortedWalls,totalWallLength, polyBorderSize);
+        }
+
+        /// <summary>
+        /// Creates effect mesh for all objects in the given room
+        /// </summary>
+        /// <param name="room">The room to apply to</param>
+        public void CreateMesh(MRUKRoom room)
+        {
+            // To get all the anchors in the space:
+            var sceneAnchors = room.Anchors;
+
+            var (sortedWalls, totalWallLength, polyBorderSize) = GenerateData(room);
+
             MRUKAnchor floor = null;
             MRUKAnchor ceiling = null;
-            MRUKAnchor globalMesh = null;
 
             if (CutHoles != 0 && BorderSize > 0.0f)
             {
                 Debug.LogWarning("CutHoles property does not have any effect when BorderSize is non-zero");
             }
 
-            float shortestWallDimension = Mathf.Infinity;
             for (int i = 0; i < sceneAnchors.Count; i++)
             {
                 MRUKAnchor anchorInfo = sceneAnchors[i];
-                if (anchorInfo && IncludesAnyLabels(anchorInfo.AnchorLabels))
+                if (anchorInfo && anchorInfo.HasAnyLabel(Labels))
                 {
-                    if (sceneAnchors[i].HasLabel(OVRSceneManager.Classification.WallFace))
+#pragma warning disable CS0618 // Type or member is obsolete
+                    if (anchorInfo.HasLabel(OVRSceneManager.Classification.WallFace))
                     {
-                        Vector2 wallScale = sceneAnchors[i].PlaneRect.Value.size;
-                        float thisWallMin = Mathf.Min(wallScale.x, wallScale.y);
-                        shortestWallDimension = Mathf.Min(thisWallMin, shortestWallDimension);
-
-                        walls.Add(sceneAnchors[i]);
+                        continue;
                     }
-                    else if (sceneAnchors[i].HasLabel(OVRSceneManager.Classification.Floor))
+                    if (anchorInfo.HasLabel(OVRSceneManager.Classification.Ceiling))
                     {
-                        floor = sceneAnchors[i];
+                        ceiling = anchorInfo;
                     }
-                    else if (sceneAnchors[i].HasLabel(OVRSceneManager.Classification.Ceiling))
+                    else if (anchorInfo.HasLabel(OVRSceneManager.Classification.Floor))
                     {
-                        ceiling = sceneAnchors[i];
+                        floor = anchorInfo;
                     }
-                    else if (sceneAnchors[i].HasLabel(OVRSceneManager.Classification.GlobalMesh))
+                    else if (anchorInfo.HasLabel(OVRSceneManager.Classification.GlobalMesh))
                     {
-                        globalMesh = sceneAnchors[i];
+                        CreateGlobalMeshObject(anchorInfo);
                     }
                     else
                     {
-                        CreateEffectMesh(sceneAnchors[i], BorderSize);
+                        CreateEffectMesh(anchorInfo);
                     }
+#pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
 
-            float totalWallLength = 0.0f;
-            List<MRUKAnchor> sortedWalls = GetOrderedWalls(walls, ref totalWallLength);
             float uSpacing = 0.0f;
-            float polyBorderSize = Mathf.Min(shortestWallDimension * 0.5f, BorderSize);
             for (int i = 0; i < sortedWalls.Count; i++)
             {
                 // sortedWalls contains ALL walls in the room, both WALL_FACE and INVISIBLE_WALL_FACE
                 // however, we only want to create the mesh for walls in this EffectMesh's label list
                 // this requires custom behavior because every INVISIBLE wall is also tagged as a WALL
+#pragma warning disable CS0618 // Type or member is obsolete
                 bool includeMesh = IncludesLabel(OVRSceneManager.Classification.InvisibleWallFace) &&
                     sortedWalls[i].HasLabel(OVRSceneManager.Classification.InvisibleWallFace);
                 includeMesh |= IncludesLabel(OVRSceneManager.Classification.WallFace) &&
                     !sortedWalls[i].HasLabel(OVRSceneManager.Classification.InvisibleWallFace);
+#pragma warning restore CS0618 // Type or member is obsolete
 
                 if (includeMesh)
                 {
                     CreateEffectMeshWall(sortedWalls[i], totalWallLength, ref uSpacing, polyBorderSize);
                 }
             }
-            if (floor)
-            {
-                CreateEffectMesh(floor, polyBorderSize);
-            }
-            if (ceiling)
-            {
-                CreateEffectMesh(ceiling, polyBorderSize);
-            }
-            if (globalMesh)
-            {
-                CreateGlobalMeshObject(globalMesh);
-            }
-        }
+            if (ceiling) CreateEffectMesh(ceiling, polyBorderSize);
+            if (floor) CreateEffectMesh(floor, polyBorderSize);
 
-        private bool IncludesAnyLabels(List<string> labelsToCheck)
-        {
-            foreach (string label in labelsToCheck)
+            if (!TrackUpdates)
             {
-                if (IncludesLabel(label))
+                if (!SceneTrackingSettings.UnTrackedRooms.Contains(room))
                 {
-                    return true;
+                    SceneTrackingSettings.UnTrackedRooms.Add(room);
                 }
             }
-            return false;
         }
 
         private bool IncludesLabel(string labelToCheck)
@@ -455,7 +587,6 @@ namespace Meta.XR.MRUtilityKit
 
                 orderedWalls.Add(GetRightWall(ref seedId, randomWalls));
             }
-
             return orderedWalls;
         }
 
@@ -489,8 +620,18 @@ namespace Meta.XR.MRUtilityKit
             return randomWalls[thisID];
         }
 
+        public EffectMeshObject CreateEffectMesh(MRUKAnchor anchorInfo)
+        {
+            return CreateEffectMesh(anchorInfo, BorderSize);
+        }
+
         EffectMeshObject CreateEffectMesh(MRUKAnchor anchorInfo, float border)
         {
+            if (effectMeshObjects.ContainsKey(anchorInfo))
+            {
+                //Anchor already has an EffectMeshComponent
+                return null;
+            }
             EffectMeshObject effectMeshObject = new EffectMeshObject();
             int totalVertices;
             int totalIndices;
@@ -520,9 +661,7 @@ namespace Meta.XR.MRUtilityKit
                 return effectMeshObject;
             }
 
-            effectMeshObject.anchorInfo = anchorInfo;
-
-            GameObject newGameObject = new GameObject(anchorInfo.name + "_EffectMesh");
+            GameObject newGameObject = new GameObject(anchorInfo.name + Suffix);
             newGameObject.transform.SetParent(anchorInfo.transform, false);
 
             effectMeshObject.effectMeshGO = newGameObject;
@@ -773,28 +912,26 @@ namespace Meta.XR.MRUtilityKit
 
             if (Colliders)
             {
-                effectMeshObject.collider = AddCollider(effectMeshObject);
+                effectMeshObject.collider = AddCollider(anchorInfo, effectMeshObject);
             }
-            effectMeshObjects.Add(effectMeshObject);
+            effectMeshObjects.Add(anchorInfo, effectMeshObject);
             return effectMeshObject;
         }
 
-        private Collider AddCollider(EffectMeshObject effectMeshObject)
+        private Collider AddCollider(MRUKAnchor anchorInfo, EffectMeshObject effectMeshObject)
         {
-            if (effectMeshObject.anchorInfo.VolumeBounds.HasValue)
+            if (anchorInfo.VolumeBounds.HasValue)
             {
                 var boxCollider = effectMeshObject.effectMeshGO.AddComponent<BoxCollider>();
-                boxCollider.size = effectMeshObject.anchorInfo.VolumeBounds.Value.size;
-                boxCollider.center = effectMeshObject.anchorInfo.VolumeBounds.Value.center;
+                boxCollider.size = anchorInfo.VolumeBounds.Value.size;
+                boxCollider.center = anchorInfo.VolumeBounds.Value.center;
                 return boxCollider;
             }
-            else
-            {
-                var meshCollider = effectMeshObject.effectMeshGO.AddComponent<MeshCollider>();
-                meshCollider.sharedMesh = effectMeshObject.mesh;
-                meshCollider.convex = false;
-                return meshCollider;
-            }
+
+            var meshCollider = effectMeshObject.effectMeshGO.AddComponent<MeshCollider>();
+            meshCollider.sharedMesh = effectMeshObject.mesh;
+            meshCollider.convex = false;
+            return meshCollider;
         }
 
         float GetSeamlessFactor(float totalWallLength, float stepSize)
@@ -806,12 +943,14 @@ namespace Meta.XR.MRUtilityKit
 
         EffectMeshObject CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, float border)
         {
-            EffectMeshObject effectMeshObject = new EffectMeshObject
+            if (effectMeshObjects.ContainsKey(anchorInfo))
             {
-                anchorInfo = anchorInfo
-            };
+                //WallAnchor already has an EffectMeshComponent
+                return null;
+            }
+            EffectMeshObject effectMeshObject = new();
 
-            GameObject newGameObject = new GameObject(anchorInfo.name + "_EffectMesh");
+            GameObject newGameObject = new GameObject(anchorInfo.name + Suffix);
             newGameObject.transform.SetParent(anchorInfo.transform, false);
 
             effectMeshObject.effectMeshGO = newGameObject;
@@ -838,14 +977,6 @@ namespace Meta.XR.MRUtilityKit
 
             Rect wallRect = anchorInfo.PlaneRect.Value;
 
-            List<Vector2> wallQuad = new()
-            {
-                new Vector2(wallRect.xMax, wallRect.yMax),
-                new Vector2(wallRect.xMin, wallRect.yMax),
-                new Vector2(wallRect.xMin, wallRect.yMin),
-                new Vector2(wallRect.xMax, wallRect.yMin)
-            };
-
             // Holes are not supported if a border is created, supporting this combination adds a lot of complexity
             // in dealing with the edge cases.
             if (!createBorder)
@@ -858,29 +989,23 @@ namespace Meta.XR.MRUtilityKit
                         {
                             continue;
                         }
-                        Vector3 relativePos = anchorInfo.transform.InverseTransformPoint(child.transform.position);
+                        Vector2 relativePos = anchorInfo.transform.InverseTransformPoint(child.transform.position);
 
                         var childRect = child.PlaneRect.Value;
                         childRect.position += new Vector2(relativePos.x, relativePos.y);
-                        // Keep a minimum gap away from the edge to make sure triangulation works properly
-                        const float tolerance = 0.01f;
-                        childRect.xMin = Mathf.Max(childRect.xMin, wallRect.xMin + tolerance);
-                        childRect.xMax = Mathf.Min(childRect.xMax, wallRect.xMax - tolerance);
-                        childRect.yMin = Mathf.Max(childRect.yMin, wallRect.yMin + tolerance);
-                        childRect.yMax = Mathf.Min(childRect.yMax, wallRect.yMax - tolerance);
-                        List<Vector2> childOutline = new()
+                        List<Vector2> childOutline = new(child.PlaneBoundary2D.Count);
+                        // Reverse the order for the holes, this is necessary for the hole cutting algorithm to work
+                        // correctly.
+                        for (int i = child.PlaneBoundary2D.Count - 1; i >= 0; i--)
                         {
-                            new Vector2(childRect.xMin, childRect.yMax),
-                            new Vector2(childRect.xMax, childRect.yMax),
-                            new Vector2(childRect.xMax, childRect.yMin),
-                            new Vector2(childRect.xMin, childRect.yMin)
-                        };
+                            childOutline.Add(child.PlaneBoundary2D[i] + relativePos);
+                        }
                         holes.Add(childOutline);
                     }
                 }
             }
 
-            var outline = Triangulator.CreateOutline(wallQuad, holes);
+            var outline = Triangulator.CreateOutline(anchorInfo.PlaneBoundary2D, holes);
 
             int totalVertices = outline.vertices.Count;
             if (createBorder)
@@ -1048,9 +1173,9 @@ namespace Meta.XR.MRUtilityKit
 
             if (Colliders)
             {
-                effectMeshObject.collider = AddCollider(effectMeshObject);
+                effectMeshObject.collider = AddCollider(anchorInfo, effectMeshObject);
             }
-            effectMeshObjects.Add(effectMeshObject);
+            effectMeshObjects.Add(anchorInfo, effectMeshObject);
             return effectMeshObject;
         }
 
@@ -1061,12 +1186,15 @@ namespace Meta.XR.MRUtilityKit
                 Debug.LogWarning("No global mesh was found in the current room");
                 return;
             }
-            var effectMeshObject = new EffectMeshObject
+            if (effectMeshObjects.ContainsKey(globalMeshAnchor))
             {
-                anchorInfo = globalMeshAnchor
-            };
+                //Anchor already has an EffectMeshComponent
+                return;
+            }
 
-            var globalMeshGO = new GameObject(globalMeshAnchor.name + "_EffectMesh", typeof(MeshFilter), typeof(MeshRenderer));
+            var effectMeshObject = new EffectMeshObject();
+
+            var globalMeshGO = new GameObject(globalMeshAnchor.name + Suffix, typeof(MeshFilter), typeof(MeshRenderer));
             globalMeshGO.transform.SetParent(globalMeshAnchor.transform, false);
             effectMeshObject.effectMeshGO = globalMeshGO;
 
@@ -1105,15 +1233,14 @@ namespace Meta.XR.MRUtilityKit
             renderer.enabled = !hideMesh;
             renderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
             effectMeshObject.mesh = trimesh;
-            effectMeshObjects.Add(effectMeshObject);
-            return;
+            effectMeshObjects.Add(globalMeshAnchor, effectMeshObject);
         }
 
         public void SetEffectObjectsParent(Transform newParent)
         {
-            foreach (var effectMeshObject in effectMeshObjects)
+            foreach (var kv in effectMeshObjects)
             {
-                effectMeshObject.effectMeshGO.transform.SetParent(newParent);
+                kv.Value.effectMeshGO.transform.SetParent(newParent);
             }
         }
     }

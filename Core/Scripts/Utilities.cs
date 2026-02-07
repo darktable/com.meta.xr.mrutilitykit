@@ -156,5 +156,33 @@ namespace Meta.XR.MRUtilityKit
             anchorsString += "]";
             return anchorsString;
         }
+
+        public static bool IsPositionInPolygon(Vector2 position, List<Vector2> polygon)
+        {
+            int lineCrosses = 0;
+            for (int i = 0; i < polygon.Count; i++)
+            {
+                Vector2 p1 = polygon[i];
+                Vector2 p2 = polygon[(i + 1) % polygon.Count];
+
+                if (position.y > Mathf.Min(p1.y, p2.y) && position.y <= Mathf.Max(p1.y, p2.y))
+                {
+                    if (position.x <= Mathf.Max(p1.x, p2.x))
+                    {
+                        if (p1.y != p2.y)
+                        {
+                            var frac = (position.y - p1.y) / (p2.y - p1.y);
+                            var xIntersection = p1.x + frac * (p2.x - p1.x);
+                            if (p1.x == p2.x || position.x <= xIntersection)
+                            {
+                                lineCrosses++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return (lineCrosses % 2) == 1;
+        }
     }
 }

@@ -47,9 +47,9 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 80
+  spritePixelsToUnits: 160
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
-  spriteGenerateFallbackPhysicsShape: 1
+  spriteGenerateFallbackPhysicsShape: 0
   alphaUsage: 1
   alphaIsTransparency: 0
   spriteTessellationDetail: -1
@@ -253,12 +253,12 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     nameFileIdTable:
-      RoundCorners_3: -390783979
-      RoundCorners_2: 843850486
-      RoundCorners_1: -1672551875
-      RoundCorners_5: 1413655889
       RoundCorners_0: -1699348145
+      RoundCorners_1: -1672551875
+      RoundCorners_2: 843850486
+      RoundCorners_3: -390783979
       RoundCorners_4: -1442444011
+      RoundCorners_5: 1413655889
   spritePackingTag: 
   pSDRemoveMatte: 0
   pSDShowRemoveMatteOption: 0

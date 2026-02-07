@@ -16,7 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-Shader "Projector/BlobShadow" {
+Shader "Meta/MRUK/Projector/BlobShadow" {
 	Properties {
 		_ShadowTex ("Cookie", 2D) = "gray" {}
 		_FalloffTex ("FallOff", 2D) = "white" {}

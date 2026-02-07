@@ -87,6 +87,11 @@ public class OppyCharacterController : MonoBehaviour
 
     public void Respawn()
     {
+        if (_characterController == null)
+        {
+            _characterController = GetComponent<CharacterController>();
+        }
+
         _characterController.enabled = false;
         transform.position = respawnTransform.position + respawnTransform.forward * 0.3f;
         _characterController.enabled = true;

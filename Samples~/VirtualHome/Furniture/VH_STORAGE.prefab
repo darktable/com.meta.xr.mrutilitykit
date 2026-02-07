@@ -141,5 +141,5 @@ MonoBehaviour:
   ScalingZ: 0
   BorderZNegative: 0.774
   BorderZPositive: 0.01
+  StretchCenter: 0
   UpdateInPlayMode: 1
-  OriginalMesh: {fileID: 7015685756936656978, guid: 3eb09c8566fac92478f0745099e47222, type: 3}

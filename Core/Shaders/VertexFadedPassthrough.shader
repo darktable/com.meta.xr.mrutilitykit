@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-Shader "MixedReality/VertexFadedPassthrough" {
+Shader "Meta/MRUK/MixedReality/VertexFadedPassthrough" {
     Properties
     {
         [Header(DepthTest)]

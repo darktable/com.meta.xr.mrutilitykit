@@ -25,6 +25,9 @@ MonoBehaviour:
   externalBlockDependencies: []
   dependencies:
   - d4413f4f-542f-451f-92ee-4801f27d676a
+  - 8b26b298-7bf4-490e-b245-a039c0184303
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  - 5817f7c0-f2a5-45f9-a5ca-64264e0166e8
   packageDependencies: []
   isSingleton: 1
   usageInstructions: 

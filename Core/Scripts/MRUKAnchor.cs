@@ -88,7 +88,7 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// We prefer to avoid colliders and Physics.Raycast because: <br/>
         /// 1. It requires tags/layers to filter out Scene API object hits from general raycasts. This can be intrusive to a dev's pipeline by altering their project settings <br/>
-        /// 2. It still requires us to require specific Plane & Volume prefabs that OVRSceneManager instantiates (with colliders as children) <br/>
+        /// 2. It requires specific Plane & Volume prefabs that MRUK instantiates with colliders as children <br/>
         /// 3. It seems like overkill, since we already "know" where all the Scene API primitives are; no need to raycast everywhere to find them <br/>
         /// Instead, we use Plane.Raycast and other methods to see if the ray has hit the surface of the object <br/>
         /// </summary>
@@ -133,30 +133,8 @@ namespace Meta.XR.MRUtilityKit
             {
                 return false;
             }
-            int lineCrosses = 0;
-            for (int i = 0; i < PlaneBoundary2D.Count; i++)
-            {
-                Vector2 p1 = PlaneBoundary2D[i];
-                Vector2 p2 = PlaneBoundary2D[(i + 1) % PlaneBoundary2D.Count];
 
-                if (position.y > Mathf.Min(p1.y, p2.y) && position.y <= Mathf.Max(p1.y, p2.y))
-                {
-                    if (position.x <= Mathf.Max(p1.x, p2.x))
-                    {
-                        if (p1.y != p2.y)
-                        {
-                            var frac = (position.y - p1.y) / (p2.y - p1.y);
-                            var xIntersection = p1.x + frac * (p2.x - p1.x);
-                            if (p1.x == p2.x || position.x <= xIntersection)
-                            {
-                                lineCrosses++;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return (lineCrosses % 2) == 1;
+            return Utilities.IsPositionInPolygon(position, PlaneBoundary2D);
         }
 
         public void AddChildReference(MRUKAnchor childObj)
@@ -409,7 +387,9 @@ namespace Meta.XR.MRUtilityKit
 
         public Mesh LoadGlobalMeshTriangles()
         {
+#pragma warning disable CS0618 // Type or member is obsolete
             if (!AnchorLabels.Contains(OVRSceneManager.Classification.GlobalMesh))
+#pragma warning restore CS0618 // Type or member is obsolete
                 return null; // for now only global mesh is supported
             Anchor.TryGetComponent(out OVRTriangleMesh mesh);
             var trimesh = new Mesh
@@ -434,6 +414,39 @@ namespace Meta.XR.MRUtilityKit
         public bool HasLabel(string label)
         {
             return AnchorLabels.Contains(label);
+        }
+
+        /// <summary>
+        /// See if an anchor contains any of the Scene API labels passed as a parameter.
+        /// </summary>
+        public bool HasAnyLabel(List<string> labels)
+        {
+            foreach (var label in labels)
+            {
+                if (HasLabel(label))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// See if an anchor contains any of the SceneLabels passed as a parameter.
+        /// </summary>
+        public bool HasAnyLabel(MRUKAnchor.SceneLabels labels)
+        {
+            foreach (string label in AnchorLabels)
+            {
+                if (!Enum.TryParse(label, out MRUKAnchor.SceneLabels enumLabel)) continue;
+                if (labels.HasFlag(enumLabel))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         internal void UpdateAnchor(Data.AnchorData newData)

@@ -55,7 +55,9 @@ namespace Meta.XR.MRUtilityKit
             // (to catch short volumes like a bed, which are a tripping hazard)
             Vector3 testPosition = new Vector3(Camera.main.transform.position.x, 0.2f, Camera.main.transform.position.z);
 
+#pragma warning disable CS0618 // Type or member is obsolete
             float closestDistance = room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
+#pragma warning restore CS0618 // Type or member is obsolete
 
             bool outsideVolume = !room.IsPositionInSceneVolume(testPosition);
 

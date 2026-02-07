@@ -27,7 +27,7 @@ namespace Meta.XR.MRUtilityKit
     public class SpaceMap : MonoBehaviour
     {
         [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
-        public MRUK.RoomFilter CreateOnStart = MRUK.RoomFilter.AllRooms;
+        public MRUK.RoomFilter CreateOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
         // Instead of creating a texture all in code, we prefer an external texture
         // (this is so you can more easily link to the texture from the inspector, for example to use it in a material)
@@ -37,8 +37,19 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Texture requirements: Read/Write enabled, RGBA 32 bit format. Texture suggestions: Wrap Mode = Clamped, size small (<128x128)")]
         public Texture2D TextureMap;
 
-        Vector3 MapCenter = Vector3.zero;
         Bounds MapBounds = new Bounds();
+        /// <summary>
+        /// The center of the texture. Note that Offset.y aligns with Unity's Z.
+        /// </summary>
+        public Vector2 Offset => new Vector2(MapBounds.center.x, MapBounds.center.z);
+
+        /// <summary>
+        /// The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
+        /// </summary>
+        public Vector2 Scale => new Vector2(
+            Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2,
+            Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2);
+
         Color[,] Pixels;
         int PixelDimensions = 128;
 
@@ -52,6 +63,7 @@ namespace Meta.XR.MRUtilityKit
 
         const string MATERIAL_PROPERTY_NAME = "_SpaceMap";
         const string PARAMETER_PROPERTY_NAME = "_SpaceMapParams";
+
 
         private void Start()
         {
@@ -87,10 +99,8 @@ namespace Meta.XR.MRUtilityKit
             // TODO: send event when texture is done being calculated
             StartCoroutine(CalculatePixels(room));
 
-            float textureScale = Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2;
             Shader.SetGlobalTexture(MATERIAL_PROPERTY_NAME, TextureMap);
-            Vector4 textureParams = new Vector4(textureScale, textureScale, MapCenter.x, MapCenter.z);
-            Shader.SetGlobalVector(PARAMETER_PROPERTY_NAME, textureParams);
+            Shader.SetGlobalVector(PARAMETER_PROPERTY_NAME, new Vector4(Scale.x, Scale.y, Offset.x, Offset.y));
         }
 
         void InitializeMapValues(MRUKRoom room)
@@ -111,13 +121,8 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
 
-            MapCenter = new Vector3(MapBounds.center.x, MapBounds.min.y, MapBounds.center.z);
-            transform.position = MapCenter;
-
-            float largestDimension = Mathf.Max(MapBounds.size.x, MapBounds.size.z);
-            // make the texture square
-            Vector3 mapScale = new Vector3(largestDimension + MapBorder * 2, MapBounds.size.y, largestDimension + MapBorder * 2);
-            transform.localScale = mapScale;
+            transform.position = new Vector3(MapBounds.center.x, MapBounds.min.y, MapBounds.center.z);
+            transform.localScale = new Vector3(Scale.x, MapBounds.size.y, Scale.y);
         }
 
         /// <summary>
@@ -130,14 +135,18 @@ namespace Meta.XR.MRUtilityKit
             float sign = 1f;
             if (room != null)
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
+#pragma warning restore CS0618 // Type or member is obsolete
                 sign = room.IsPositionInRoom(worldPosition, false) ? 1 : -1;
             }
             else
             {
                 foreach (var currentRoom in MRUK.Instance.Rooms)
                 {
+#pragma warning disable CS0618 // Type or member is obsolete
                     var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
+#pragma warning restore CS0618 // Type or member is obsolete
                     if (dist < closestDist)
                     {
                         closestDist = dist;
@@ -160,7 +169,7 @@ namespace Meta.XR.MRUtilityKit
                     // convert texel coordinate to world position
                     float xWorld = x / (float)PixelDimensions - 0.5f + halfPixel;
                     float yWorld = y / (float)PixelDimensions - 0.5f + halfPixel;
-                    Vector3 worldPos = new Vector3(xWorld * largestDimension + MapCenter.x, 0, yWorld * largestDimension + MapCenter.z);
+                    Vector3 worldPos = new Vector3(xWorld * largestDimension + MapBounds.center.x, 0, yWorld * largestDimension + MapBounds.center.z);
                     float distToSurface = -GetSurfaceDistance(room, worldPos);
                     float normalizedDist = Mathf.Clamp01((distToSurface - InnerBorder) / (OuterBorder - InnerBorder));
                     Color averageColor = MapGradient.Evaluate(normalizedDist);
@@ -208,7 +217,7 @@ namespace Meta.XR.MRUtilityKit
 
         Vector2 GetPixelFromWorldPosition(Vector3 worldPosition, bool normalizedUV = false)
         {
-            Vector3 localSpace = worldPosition - MapCenter;
+            Vector3 localSpace = worldPosition - MapBounds.center;
             Vector2 scaledSpace = new Vector2(localSpace.x / MapBounds.size.x + 0.5f, localSpace.z / MapBounds.size.z + 0.5f);
             if (!normalizedUV)
             {

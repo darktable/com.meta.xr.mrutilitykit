@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-Shader "MixedReality/RoomBoxEdgeGlow" {
+Shader "Meta/MRUK/MixedReality/SceneMeshOutline" {
     Properties
     {
         _Color ("Tint", Color) = (1,1,1,1)

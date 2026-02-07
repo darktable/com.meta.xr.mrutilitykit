@@ -1,7 +1,7 @@
 {
   "name": "com.meta.xr.mrutilitykit",
   "displayName": "Meta MR Utility Kit",
-  "version": "64.0.0",
+  "version": "65.0.0",
   "description": "Helper tools & functions to simplify development with Scene API. Works on Mac & PC, without a device attached.",
   "samples": [
     {
@@ -33,6 +33,11 @@
       "displayName": "Passthrough Relighting",
       "description": "A scene showing the effect of virtual shadows and highlights on scene objects",
       "path": "Samples~/PassthroughRelighting"
+    },
+    {
+      "displayName": "Bouncing Ball",
+      "description": "A scene showing virtual balls interacting with physical environment",
+      "path": "Samples~/BouncingBall"
     }
   ],
   "unity": "2021.3",
@@ -51,9 +56,7 @@
   "dependencies": {
     "com.unity.ai.navigation": "1.1.4",
     "com.unity.nuget.newtonsoft-json": "3.0.2",
-    "com.meta.xr.sdk.core": "64.0.0",
-    "com.unity.textmeshpro": "3.0.6",
-    "com.meta.xr.sdk.interaction": "64.0.0",
-    "com.meta.xr.sdk.interaction.ovr": "64.0.0"
+    "com.meta.xr.sdk.core": "65.0.0",
+    "com.unity.textmeshpro": "3.0.6"
   }
 }

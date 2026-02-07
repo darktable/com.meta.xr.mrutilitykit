@@ -19,6 +19,7 @@
  */
 
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
@@ -28,9 +29,20 @@ namespace Meta.XR.MRUtilityKit
         protected override List<GameObject> InstallRoutine(GameObject selectedGameObject)
         {
             var existingMRUK = FindObjectOfType<MRUK>();
-            return existingMRUK != null
-                ? new List<GameObject> { existingMRUK.gameObject }
-                : base.InstallRoutine(selectedGameObject);
+
+            if (existingMRUK == null)
+            {
+                return base.InstallRoutine(selectedGameObject);
+            }
+
+#if UNITY_2021
+            if (PrefabUtility.GetPrefabInstanceStatus(existingMRUK.gameObject) != PrefabInstanceStatus.NotAPrefab)
+            {
+                PrefabUtility.UnpackPrefabInstance(existingMRUK.gameObject, PrefabUnpackMode.Completely, InteractionMode.AutomatedAction);
+            }
+#endif
+
+            return new List<GameObject> { existingMRUK.gameObject };
         }
     }
 }

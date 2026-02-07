@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+using System;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -49,7 +50,8 @@ namespace Meta.XR.MRUtilityKit
             float crossProductZ2 = bc.x * bp.y - bc.y * bp.x;
             float crossProductZ3 = ca.x * cp.y - ca.y * cp.x;
 
-            return (crossProductZ1 >= 0 && crossProductZ2 >= 0 && crossProductZ3 >= 0) || (crossProductZ1 <= 0 && crossProductZ2 <= 0 && crossProductZ3 <= 0);
+            return (crossProductZ1 >= 0 && crossProductZ2 >= 0 && crossProductZ3 >= 0) ||
+                   (crossProductZ1 <= 0 && crossProductZ2 <= 0 && crossProductZ3 <= 0);
         }
 
         static bool IsEar(List<Vector2> vertices, List<int> indices, int prevIndex, int currIndex, int nextIndex)
@@ -77,6 +79,200 @@ namespace Meta.XR.MRUtilityKit
             return true;
         }
 
+        internal static bool FindLineIntersection(Vector2 start1, Vector2 end1, Vector2 start2, Vector2 end2,
+            out Vector2 intersection, out float u1, out float u2)
+        {
+            // Calculate direction vectors
+            Vector2 dir1 = end1 - start1;
+            Vector2 dir2 = end2 - start2;
+
+            // Calculate normal vector
+            Vector2 perp1 = Vector2.Perpendicular(dir1);
+            Vector2 perp2 = Vector2.Perpendicular(dir2);
+
+            // Calculate dot product
+            float dot = Vector2.Dot(perp2, dir1);
+
+            // Check if lines are parallel
+            if (dot == 0)
+            {
+                u1 = default;
+                u2 = default;
+                intersection = default;
+                return false; // No intersection
+            }
+
+            // Calculate distance to intersection point
+            u1 = Vector2.Dot(perp2, start2 - start1) / dot;
+            u2 = Vector2.Dot(perp1, start2 - start1) / dot;
+
+            intersection = start1 + (end1 - start1) * u1;
+
+            return u1 is >= 0f and <= 1f &&
+                   u2 is >= 0f and <= 1f;
+        }
+
+        private struct MergedVertex
+        {
+            public Vector2 Position;
+            public int NextVertex;  // Linked list to the next vertex (or -1 if none)
+            public int NextHole;    // Linked list to the next hole (or -1 if none)
+        }
+
+        // Implements a simplified Weiler–Atherton clipping algorithm that does not deal with many edge cases
+        internal static void ClipPolygon(List<Vector2> vertices, List<Vector2> hole)
+        {
+            var mergedVerts = new List<MergedVertex>(vertices.Count + hole.Count);
+
+            int vertStart = 0;
+            for (int i = 0; i < vertices.Count; ++i)
+            {
+                mergedVerts.Add(new MergedVertex()
+                    { Position = vertices[i], NextVertex = (i + 1) % vertices.Count, NextHole = -1 });
+            }
+
+            int holeStart = vertices.Count;
+            for (int i = 0; i < hole.Count; ++i)
+            {
+                for (int j = 0; j < vertices.Count; ++j)
+                {
+                    if (hole[i] == vertices[j])
+                    {
+                        throw new NotSupportedException("Overlapping vertices and holes are not supported");
+                    }
+                }
+
+                mergedVerts.Add(new MergedVertex()
+                    { Position = hole[i], NextVertex = -1, NextHole = holeStart + (i + 1) % hole.Count });
+            }
+
+            // Iterate through all the edges of the vertices polygon
+            bool foundIntersection = false;
+            int vertIndex = vertStart;
+            while (true)
+            {
+                var vertMerged = mergedVerts[vertIndex];
+                Vector2 o1 = mergedVerts[vertIndex].Position;
+                Vector2 o2 = mergedVerts[vertMerged.NextVertex].Position;
+
+                float closestU = Mathf.Infinity;
+                Vector2 closestIntersect = new();
+                int closestHoleIndex = -1;
+
+                // Iterate through all the edges of the hole polygon and find the closest intersection to o1
+                int holeIndex = holeStart;
+                while (true)
+                {
+                    var holeMerged = mergedVerts[holeIndex];
+                    Vector2 h1 = mergedVerts[holeIndex].Position;
+                    Vector2 h2 = mergedVerts[holeMerged.NextHole].Position;
+
+                    if (holeIndex != vertIndex && holeMerged.NextHole != vertIndex &&
+                        holeIndex != vertMerged.NextVertex && holeMerged.NextHole != vertMerged.NextVertex)
+                    {
+                        if (FindLineIntersection(o1, o2, h1, h2, out var intersection, out var u1, out var u2))
+                        {
+                            if (u1 < closestU)
+                            {
+                                closestU = u1;
+                                closestIntersect = intersection;
+                                closestHoleIndex = holeIndex;
+                            }
+                        }
+                    }
+
+                    holeIndex = holeMerged.NextHole;
+                    if (holeIndex == holeStart)
+                    {
+                        break;
+                    }
+                }
+
+                // If an intersection was found then create a new vertex at the intersection point and update
+                // the linked list pointers to insert it
+                if (closestHoleIndex != -1)
+                {
+                    foundIntersection = true;
+                    var holeMerged = mergedVerts[closestHoleIndex];
+                    mergedVerts.Add(new MergedVertex()
+                    {
+                        Position = closestIntersect, NextVertex = vertMerged.NextVertex,
+                        NextHole = holeMerged.NextHole
+                    });
+
+                    vertMerged.NextVertex = mergedVerts.Count - 1;
+                    mergedVerts[vertIndex] = vertMerged;
+
+                    holeMerged.NextHole = mergedVerts.Count - 1;
+                    mergedVerts[closestHoleIndex] = holeMerged;
+                }
+
+                vertIndex = vertMerged.NextVertex;
+                if (vertIndex == vertStart)
+                {
+                    break;
+                }
+            }
+
+            if (foundIntersection)
+            {
+                // Find the first vertex that is not inside the hole
+                vertIndex = vertStart;
+                while (true)
+                {
+                    var vertMerged = mergedVerts[vertIndex];
+
+                    if (!Utilities.IsPositionInPolygon(vertMerged.Position, hole))
+                    {
+                        break;
+                    }
+
+                    vertIndex = vertMerged.NextVertex;
+                    if (vertIndex == vertStart)
+                    {
+                        throw new Exception("Unable to find a starting vertex outside of the hole");
+                    }
+                }
+
+                // Clear the hole and vertices, we are going to merge them together into the vertices list
+                hole.Clear();
+                vertices.Clear();
+
+                // Start at the first vertex not in the hole
+                vertStart = vertIndex;
+                bool followingVerts = true;
+                while (true)
+                {
+                    var vertMerged = mergedVerts[vertIndex];
+                    vertices.Add(vertMerged.Position);
+
+                    if (vertMerged.NextHole != -1 && (followingVerts || vertMerged.NextVertex == -1))
+                    {
+                        vertIndex = vertMerged.NextHole;
+                        followingVerts = false;
+                    }
+                    else if (vertMerged.NextVertex != -1)
+                    {
+                        vertIndex = vertMerged.NextVertex;
+                        followingVerts = true;
+                    }
+                    else
+                    {
+                        throw new Exception("Unable to follow next vertex or hole, the node is invalid");
+                    }
+
+                    if (vertIndex == vertStart)
+                    {
+                        break;
+                    }
+                }
+            }
+            else if (Utilities.IsPositionInPolygon(vertices[0], hole))
+            {
+                throw new Exception("vertices are completely encapsulated within the hole");
+            }
+        }
+
         public struct Outline
         {
             public List<Vector2> vertices;
@@ -85,6 +281,20 @@ namespace Meta.XR.MRUtilityKit
 
         public static Outline CreateOutline(List<Vector2> vertices, List<List<Vector2>> holes)
         {
+            for (int i = 0; i < holes.Count;)
+            {
+                ClipPolygon(vertices, holes[i]);
+                if (holes[i].Count == 0)
+                {
+                    // Hole was merged or remove, so remove it from the list
+                    holes.RemoveAt(i);
+                }
+                else
+                {
+                    ++i;
+                }
+            }
+
             Outline outline = new();
             outline.vertices = new List<Vector2>(vertices);
             outline.indices = new();
@@ -93,12 +303,14 @@ namespace Meta.XR.MRUtilityKit
             {
                 totalVertices += hole.Count;
             }
+
             outline.vertices.Capacity = totalVertices;
             outline.indices.Capacity = totalVertices + 2 * holes.Count;
             for (int i = 0; i < vertices.Count; ++i)
             {
                 outline.indices.Add(i);
             }
+
             while (holes.Count > 0)
             {
                 float maxX = Mathf.NegativeInfinity;
@@ -118,6 +330,7 @@ namespace Meta.XR.MRUtilityKit
                         }
                     }
                 }
+
                 Vector2 holePos = holes[holeToMerge][vertexToMerge];
                 float closestXIntersection = Mathf.Infinity;
                 int mergeWithIndex = -1;
@@ -130,7 +343,7 @@ namespace Meta.XR.MRUtilityKit
                     Vector2 p2 = outline.vertices[i2];
                     if ((p1.y != p2.y) &&
                         ((p1.y >= holePos.y && p2.y <= holePos.y) ||
-                        (p2.y >= holePos.y && p1.y <= holePos.y)))
+                         (p2.y >= holePos.y && p1.y <= holePos.y)))
                     {
                         float frac = (holePos.y - p1.y) / (p2.y - p1.y);
                         float xIntersection = p1.x + frac * (p2.x - p1.x);
@@ -142,6 +355,7 @@ namespace Meta.XR.MRUtilityKit
                         }
                     }
                 }
+
                 if (mergeWithIndex != -1)
                 {
                     Vector2 intersection = new Vector2(closestXIntersection, holePos.y);
@@ -174,10 +388,12 @@ namespace Meta.XR.MRUtilityKit
                     {
                         insertedIndices.Add(startIndex + (j + vertexToMerge) % holeVertexCount);
                     }
+
                     insertedIndices.Add(startIndex + vertexToMerge);
                     insertedIndices.Add(outline.indices[mergeWithIndex]);
                     outline.indices.InsertRange(mergeWithIndex + 1, insertedIndices);
                 }
+
                 holes.RemoveAt(holeToMerge);
             }
 
@@ -219,7 +435,8 @@ namespace Meta.XR.MRUtilityKit
                     int currIndex = indices[i];
                     int nextIndex = indices[(i + 1) % indices.Count];
 
-                    if (IsConvex(vertices[prevIndex], vertices[currIndex], vertices[nextIndex]) && IsEar(vertices, indices, prevIndex, currIndex, nextIndex))
+                    if (IsConvex(vertices[prevIndex], vertices[currIndex], vertices[nextIndex]) &&
+                        IsEar(vertices, indices, prevIndex, currIndex, nextIndex))
                     {
                         triangles.Add(prevIndex);
                         triangles.Add(currIndex);
