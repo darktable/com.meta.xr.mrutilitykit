@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+using System;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -27,10 +28,10 @@ namespace Meta.XR.MRUtilityKit
     {
         static Dictionary<GameObject, Bounds?> prefabBoundsCache = new();
 
-        static public readonly float Sqrt2 = Mathf.Sqrt(2f);
-        static public readonly float InvSqrt2 = 1f / Mathf.Sqrt(2f);
+        public static readonly float Sqrt2 = Mathf.Sqrt(2f);
+        public static readonly float InvSqrt2 = 1f / Mathf.Sqrt(2f);
 
-        static public Bounds? GetPrefabBounds(GameObject prefab)
+        public static Bounds? GetPrefabBounds(GameObject prefab)
         {
             if (prefabBoundsCache.TryGetValue(prefab, out Bounds? cachedBounds))
             {
@@ -72,6 +73,88 @@ namespace Meta.XR.MRUtilityKit
             }
 
             return bounds;
+        }
+
+        /// <summary>
+        /// Gets the name of an anchor based on its semantic classification.
+        /// </summary>
+        /// <param name="anchorData">The Data.AnchorData object representing the anchor.</param>
+        /// <returns>The name of the anchor, or "UNDEFINED_ANCHOR" if no semantic classification is available.</returns>
+        public static string GetAnchorName(Data.AnchorData anchorData)
+        {
+            return anchorData.SemanticClassifications.Count != 0
+                ? anchorData.SemanticClassifications[0]
+                : "UNDEFINED_ANCHOR";
+        }
+
+        internal static Rect? GetPlaneRectFromAnchorData(Data.AnchorData data)
+        {
+            if (data.PlaneBounds == null) return null;
+            return new Rect(data.PlaneBounds.Value.Min, data.PlaneBounds.Value.Max - data.PlaneBounds.Value.Min);
+        }
+
+        internal static Bounds? GetVolumeBoundsFromAnchorData(Data.AnchorData data)
+        {
+            if (data.VolumeBounds == null) return null;
+            Vector3 volumeBoundsMin = data.VolumeBounds.Value.Min;
+            Vector3 volumeBoundsMax = data.VolumeBounds.Value.Max;
+            Vector3 volumeBoundsCenterOffset = (volumeBoundsMin + volumeBoundsMax) * 0.5f;
+            return new Bounds(volumeBoundsCenterOffset, volumeBoundsMax - volumeBoundsMin);
+        }
+
+        internal static Mesh GetGlobalMeshFromAnchorData(Data.AnchorData data)
+        {
+            if (data.GlobalMesh == null) return null;
+            return new Mesh()
+            {
+                vertices = data.GlobalMesh.Value.Positions,
+                triangles = data.GlobalMesh.Value.Indices
+            };
+        }
+
+        internal static void DestroyGameObjectAndChildren(GameObject gameObject)
+        {
+            if (gameObject == null) return;
+            foreach (Transform child in gameObject.transform)
+                UnityEngine.Object.Destroy(child.gameObject);
+            UnityEngine.Object.Destroy(gameObject.gameObject);
+        }
+
+        /// <summary>
+        /// Replacement for LINQ
+        /// </summary>
+        public static bool SequenceEqual<T>(this List<T> list1, List<T> list2)
+        {
+            if (list1 == null && list2 == null) return true;
+            if (list1 == null && list2 != null) return false;
+            if (list1 != null && list2 == null) return false;
+            if (list1.Count != list2.Count)
+            {
+                return false;
+            }
+            for (int i = 0; i < list1.Count; i++)
+            {
+                if (!Equals(list1[i], list2[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public static string GetAnchorDatasString(List<Data.AnchorData> anchors)
+        {
+            string anchorsString = "Anchors: [";
+            for (int i = 0; i < anchors.Count; i++)
+            {
+                if (i > 0)
+                {
+                    anchorsString += ", ";
+                }
+                anchorsString += anchors[i].ToString();
+            }
+            anchorsString += "]";
+            return anchorsString;
         }
     }
 }

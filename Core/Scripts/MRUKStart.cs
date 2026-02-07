@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+using System;
+using System.Collections.Generic;
 using UnityEngine.Events;
 using UnityEngine;
 
@@ -25,7 +27,11 @@ namespace Meta.XR.MRUtilityKit
 {
     public class MRUKStart : MonoBehaviour
     {
-        public UnityEvent sceneLoadedEvent = new UnityEvent();
+        public UnityEvent sceneLoadedEvent = new();
+
+        public UnityEvent<MRUKRoom> roomCreatedEvent = new();
+        public UnityEvent<MRUKRoom> roomUpdatedEvent = new();
+        public UnityEvent<MRUKRoom> roomRemovedEvent = new();
 
         private void Start()
         {
@@ -35,6 +41,10 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
             MRUK.Instance.RegisterSceneLoadedCallback(() => sceneLoadedEvent?.Invoke());
+            MRUK.Instance.RegisterRoomCreatedCallback(room=> roomCreatedEvent?.Invoke(room));
+            MRUK.Instance.RegisterRoomRemovedCallback(room=> roomRemovedEvent?.Invoke(room));
+            MRUK.Instance.RegisterRoomUpdatedCallback(room=> roomUpdatedEvent?.Invoke(room));
         }
+
     }
 }

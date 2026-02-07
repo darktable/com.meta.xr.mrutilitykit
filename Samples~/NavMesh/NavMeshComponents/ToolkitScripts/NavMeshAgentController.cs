@@ -30,7 +30,6 @@ using UnityEngine.AI;
 
 // Additionally, RandomNavPoint can be used for position finding (eg, discover a random floor area in the room for a minigolf hole)
 
-// RoomWander.cs simply discovers a random position (RandomNavPoint) and then tells the agent to move there.
 // The interval between changing positions is randomized as well as the characters speed)
 
 public class NavMeshAgentController : MonoBehaviour

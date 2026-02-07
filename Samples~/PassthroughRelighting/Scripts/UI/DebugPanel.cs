@@ -19,29 +19,26 @@
  */
 
 using Meta.XR.MRUtilityKit;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class DebugPanel : MonoBehaviour
 {
-    [SerializeField] private Toggle shadowsToggle;
-    [SerializeField] private Toggle highlightsToggle;
-    [SerializeField] private Toggle globalMeshToggle;
-    [SerializeField] private Button respawnButton;
-    [SerializeField] private Slider lightAttenuationSlider;
-    [SerializeField] private Slider passthroughBrightnessSlider;
-    [SerializeField] private Slider lightOpaquenessSlider;
-
-    [SerializeField] private Renderer oppyRenderer;
-    [SerializeField] private GameObject blobShadowProjector;
-    [SerializeField] private Material sceneMaterial;
-    [SerializeField] private OppyCharacterController oppyController;
-    [SerializeField] private OppyLightGlow oppyLightGlow;
-    [SerializeField] private OVRPassthroughLayer passthroughLayer;
+    [SerializeField] private TMP_Dropdown _shadowDropDown;
+    [SerializeField] private Toggle _highlightsToggle;
+    [SerializeField] private TMP_Dropdown _geometryDropDown;
+    [SerializeField] private Button _respawnButton;
+    [SerializeField] private Slider _lightIntensitySlider;
+    [SerializeField] private Slider _passthroughBrightnessSlider;
+    [SerializeField] private Slider _lightBlendFactor;
+    [SerializeField] private Renderer _oppyRenderer;
+    [SerializeField] private GameObject _blobShadowProjector;
+    [SerializeField] private Material _sceneMaterial;
+    [SerializeField] private OppyCharacterController _oppyController;
+    [SerializeField] private OppyLightGlow _oppyLightGlow;
+    [SerializeField] private OVRPassthroughLayer _passthroughLayer;
 
     private EffectMesh[] effectMeshes;
     private const string HighLightAttenuationShaderPropertyName = "_HighLightAttenuation";
@@ -49,34 +46,34 @@ public class DebugPanel : MonoBehaviour
 
     private void Awake()
     {
-        shadowsToggle.onValueChanged.AddListener(ShadowsSettingsToggled);
-        highlightsToggle.onValueChanged.AddListener(HighlightSettingsToggled);
-        globalMeshToggle.onValueChanged.AddListener(GlobalMeshSettingsToggled);
-        respawnButton.onClick.AddListener(oppyController.Respawn);
-        lightAttenuationSlider.onValueChanged.AddListener(
-            (val) => { sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val); }
+        _shadowDropDown.onValueChanged.AddListener(ShadowsSettingsChanged);
+        _highlightsToggle.onValueChanged.AddListener(HighlightSettingsToggled);
+        _geometryDropDown.onValueChanged.AddListener(GeometrySettingsChanged);
+        _respawnButton.onClick.AddListener(_oppyController.Respawn);
+        _lightIntensitySlider.onValueChanged.AddListener(
+            (val) => { _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val); }
         );
-        lightOpaquenessSlider.onValueChanged.AddListener(
-            (val) => { sceneMaterial.SetFloat(HighLightOpaquenessShaderPropertyName, val); }
+        _lightBlendFactor.onValueChanged.AddListener(
+            (val) => { _sceneMaterial.SetFloat(HighLightOpaquenessShaderPropertyName, val); }
         );
-        passthroughBrightnessSlider.onValueChanged.AddListener(
+        _passthroughBrightnessSlider.onValueChanged.AddListener(
             (brightness) =>
             {
-                passthroughLayer.SetBrightnessContrastSaturation(brightness);
+                _passthroughLayer.SetBrightnessContrastSaturation(brightness);
             }
         );
         effectMeshes = FindObjectsOfType<EffectMesh>();
     }
 
-    public void DisableGlobalMeshToggle()
+    public void ToggleGeometryDropDown()
     {
         bool globalMeshExists = MRUK.Instance && MRUK.Instance.GetCurrentRoom() && MRUK.Instance.GetCurrentRoom().GetGlobalMeshAnchor();
-        globalMeshToggle.interactable = globalMeshExists;
+        _geometryDropDown.interactable = globalMeshExists;
     }
 
-    private void GlobalMeshSettingsToggled(bool globalMeshActive)
+    private void GeometrySettingsChanged(int optionSelected)
     {
-        if (globalMeshActive && !Application.isEditor)
+        if (optionSelected == 1)
         {
             foreach (var effectMesh in effectMeshes)
             {
@@ -104,26 +101,27 @@ public class DebugPanel : MonoBehaviour
                 }
             }
         }
-        oppyController.Respawn();
+        _oppyController.Respawn();
+
     }
 
     private void HighlightSettingsToggled(bool highlightsOn)
     {
-        sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, highlightsOn ? 1 : 0);
-        oppyLightGlow.SetGlowActive(highlightsOn);
+        _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, highlightsOn ? 1 : 0);
+        _oppyLightGlow.SetGlowActive(highlightsOn);
     }
 
-    private void ShadowsSettingsToggled(bool realtimeShadows)
+    private void ShadowsSettingsChanged(int dynamicShadow)
     {
-        if (realtimeShadows)
+        if (dynamicShadow == 0)
         {
-            oppyRenderer.shadowCastingMode = ShadowCastingMode.On;
-            blobShadowProjector.SetActive(false);
+            _oppyRenderer.shadowCastingMode = ShadowCastingMode.On;
+            _blobShadowProjector.SetActive(false);
         }
         else
         {
-            oppyRenderer.shadowCastingMode = ShadowCastingMode.Off;
-            blobShadowProjector.SetActive(true);
+            _oppyRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            _blobShadowProjector.SetActive(true);
         }
     }
 }

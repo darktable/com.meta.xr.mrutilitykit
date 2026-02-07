@@ -20,7 +20,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Collections;
 using UnityEngine;
 
@@ -48,10 +47,15 @@ namespace Meta.XR.MRUtilityKit
             GLOBAL_MESH = 1 << 14,
         };
 
-        public List<string> AnchorLabels = new List<string>();
+        public List<string> AnchorLabels = new();
+
+        public Rect? PlaneRect;
+        public Bounds? VolumeBounds;
+        public List<Vector2> PlaneBoundary2D;
 
         public Collider anchorCollider;
 
+        // Link to the tracked object
         public OVRAnchor Anchor = OVRAnchor.Null;
 
         // these are populated via MRUKRoom.CalculateHierarchyReferences
@@ -59,10 +63,6 @@ namespace Meta.XR.MRUtilityKit
         public MRUKAnchor ParentAnchor;
         public List<MRUKAnchor> ChildAnchors = new List<MRUKAnchor>();
 
-        public Rect? PlaneRect;
-        public List<Vector2> PlaneBoundary2D;
-
-        public Bounds? VolumeBounds;
         public bool HasPlane { get { return PlaneRect != null; } }
         public bool HasVolume { get { return VolumeBounds != null; } }
 
@@ -70,7 +70,7 @@ namespace Meta.XR.MRUtilityKit
         {
             get
             {
-                if(!_globalMesh)
+                if (!_globalMesh)
                 {
                     _globalMesh = LoadGlobalMeshTriangles();
                 }
@@ -80,33 +80,6 @@ namespace Meta.XR.MRUtilityKit
         }
         Mesh _globalMesh;
 
-        /// <summary>
-        /// Populate and inject data into this class. This should be considered part
-        /// of the initialization process, and is a requirements for running further
-        /// computations, such as <seealso cref="MRUKRoom.ComputeRoomInfo()"/>.
-        /// </summary>
-        public void PopulateData(List<string> labels, OVRAnchor anchor)
-        {
-            if (anchor.TryGetComponent(out OVRBounded2D bounds2) && bounds2.IsEnabled)
-            {
-                PlaneRect = bounds2.BoundingBox;
-
-                if (bounds2.TryGetBoundaryPointsCount(out var counts))
-                {
-                    using var boundary = new NativeArray<Vector2>(counts, Allocator.Temp);
-                    if (bounds2.TryGetBoundaryPoints(boundary))
-                    {
-                        PlaneBoundary2D = boundary.ToList();
-                    }
-                }
-            }
-            if (anchor.TryGetComponent(out OVRBounded3D bounds3) && bounds3.IsEnabled)
-            {
-                VolumeBounds = bounds3.BoundingBox;
-            }
-            AnchorLabels = labels;
-            Anchor = anchor;
-        }
 
         /// <summary>
         /// We prefer to avoid colliders and Physics.Raycast because: <br/>
@@ -470,6 +443,15 @@ namespace Meta.XR.MRUtilityKit
             return AnchorLabels.Contains(label);
         }
 
+        internal void UpdateAnchor(Data.AnchorData newData)
+        {
+            PlaneBoundary2D = newData.PlaneBoundary2D;
+            PlaneRect = Utilities.GetPlaneRectFromAnchorData(newData);
+            VolumeBounds = Utilities.GetVolumeBoundsFromAnchorData(newData);
+            GlobalMesh = Utilities.GetGlobalMeshFromAnchorData(newData);
+            AnchorLabels = newData.SemanticClassifications;
+        }
+
         public SceneLabels GetLabelsAsEnum()
         {
             SceneLabels enumLabels = 0;
@@ -482,6 +464,20 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
             return enumLabels;
+        }
+
+        /// <summary>
+        /// Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
+        /// </summary>
+        /// <param name="anchorData">The Data.AnchorData object to compare with.</param>
+        /// <returns>True if both objects are equal, false otherwise.</returns>
+        public bool Equals(Data.AnchorData anchorData)
+        {
+            return Anchor == anchorData.Anchor &&
+                   PlaneRect == Utilities.GetPlaneRectFromAnchorData(anchorData) &&
+                   VolumeBounds == Utilities.GetVolumeBoundsFromAnchorData(anchorData) &&
+                   AnchorLabels.SequenceEqual(anchorData.SemanticClassifications) &&
+                   PlaneBoundary2D.SequenceEqual(anchorData.PlaneBoundary2D);
         }
     }
 }

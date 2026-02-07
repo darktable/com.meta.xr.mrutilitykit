@@ -21,8 +21,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using UnityEditor;
+using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Android;
 using UnityEngine.Events;
 
 namespace Meta.XR.MRUtilityKit
@@ -66,7 +67,13 @@ namespace Meta.XR.MRUtilityKit
             /// fall back to loading from a prefab.
             /// </summary>
             DeviceWithPrefabFallback,
+            /// <summary>
+            /// Load Scene from Json String
+            /// </summary>
+            Json,
         }
+
+
 
         [Flags]
         public enum SurfaceType
@@ -85,8 +92,25 @@ namespace Meta.XR.MRUtilityKit
 
         public bool IsInitialized { get; private set; } = false;
 
-        public UnityEvent SceneLoadedEvent = new UnityEvent();
+        /// <summary>
+        /// Event that is triggered when the scene is loaded.
+        /// </summary>
+        public UnityEvent SceneLoadedEvent = new();
 
+        /// <summary>
+        /// Event that is triggered when a room is created.
+        /// </summary>
+        public UnityEvent<MRUKRoom> RoomCreatedEvent = new();
+
+        /// <summary>
+        /// Event that is triggered when a room is updated.
+        /// </summary>
+        public UnityEvent<MRUKRoom> RoomUpdatedEvent = new();
+
+        /// <summary>
+        /// Event that is triggered when a room is removed.
+        /// </summary>
+        public UnityEvent<MRUKRoom> RoomRemovedEvent = new();
         /// <summary>
         /// When world locking is enabled the position of the camera rig will be adjusted each frame to ensure
         /// the room anchors are where they should be relative to the camera position.This is necessary to
@@ -108,6 +132,7 @@ namespace Meta.XR.MRUtilityKit
 
         private OVRCameraRig _cameraRig;
         private bool _enableWorldLock = true;
+        private bool _loadSceneCalled = false;
 
         /// <summary>
         /// This is the final event that tells developer code that Scene API and MR Utility Kit have been initialized, and that the room can be queried.
@@ -141,9 +166,47 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
+        /// Register to receive a callback when a new room has been created from scene capture.
+        /// </summary>
+        /// <param name="callback">
+        /// - `MRUKRoom` The created room object.
+        /// </param>
+        public void RegisterRoomCreatedCallback(UnityAction<MRUKRoom> callback)
+        {
+            RoomCreatedEvent.AddListener(callback);
+        }
+
+        /// <summary>
+        /// Register to receive a callback when a room has been updated from scene capture.
+        /// </summary>
+        /// <param name="callback">
+        /// - `MRUKRoom` The updated room object.
+        /// </param>
+        public void RegisterRoomUpdatedCallback(UnityAction<MRUKRoom> callback)
+        {
+            RoomUpdatedEvent.AddListener(callback);
+        }
+        /// <summary>
+        /// Registers a callback function to be called before the room is removed.
+        /// </summary>
+        /// <param name="callback">The function to be called when the room is removed. It takes one parameter:
+        /// - `MRUKRoom` The removed room object.
+        ///</param>
+        public void RegisterRoomRemovedCallback(UnityAction<MRUKRoom> callback)
+        {
+            RoomRemovedEvent.AddListener(callback);
+        }
+
+        /// <summary>
         /// Get a list of all the rooms in the scene.
         /// </summary>
         public List<MRUKRoom> GetRooms() => _sceneRooms;
+
+        /// <summary>
+        /// Get a flat list of all Anchors in the scene
+        /// </summary>
+        public List<MRUKAnchor> GetAnchors() => GetCurrentRoom().GetRoomAnchors();
+
 
         /// <summary>
         /// Returns the current room the headset is in. If the headset is not in any given room
@@ -184,20 +247,6 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Ensures whether the runtime permission for USE_SCENE has been
-        /// granted or not. If the user has not granted this permission,
-        /// a request is made.
-        /// </summary>
-        public static void EnsureSceneRuntimePermissions()
-        {
-#if !UNITY_EDITOR && UNITY_ANDROID
-        var permission = "com.oculus.permission.USE_SCENE";
-        if (UnityEngine.Android.Permission.HasUserAuthorizedPermission(permission))
-            UnityEngine.Android.Permission.RequestUserPermission(permission);
-#endif
-        }
-
-        /// <summary>
         /// Checks whether any anchors can be loaded.
         /// </summary>
         /// <returns>Returns a task-based bool, which is true if
@@ -226,14 +275,16 @@ namespace Meta.XR.MRUtilityKit
             public bool LoadSceneOnStartup = true;
             [SerializeField, Tooltip("The width of a seat. Use to calculate seat positions")]
             public float SeatWidth = 0.6f;
+            [SerializeField, Tooltip("The Scene Json to use")]
+            public string SceneJson;
         }
 
         [Tooltip("Contains all the information regarding data loading.")]
         public MRUKSettings SceneSettings;
 
-        List<MRUKRoom> _sceneRooms = new List<MRUKRoom>();
         MRUKRoom _cachedCurrentRoom = null;
         int _cachedCurrentRoomFrame = 0;
+        List<MRUKRoom> _sceneRooms = new();
 
         public static MRUK Instance { get; private set; }
 
@@ -249,11 +300,42 @@ namespace Meta.XR.MRUtilityKit
                 Instance = this;
             }
 
+            if (SceneSettings == null) return;
+
             if (SceneSettings.LoadSceneOnStartup)
             {
-                // We can't await for the result because Awake is not async, silence the warning
+                // We can't await for the LoadScene result because Awake is not async, silence the warning
 #pragma warning disable CS4014
-                LoadScene();
+#if !UNITY_EDITOR && UNITY_ANDROID
+                // If we are going to load from device we need to ensure we have permissions first
+                if ((SceneSettings.DataSource == SceneDataSource.Device || SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback) &&
+                    !Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
+                {
+                    var callbacks = new PermissionCallbacks();
+                    callbacks.PermissionDenied += permissionId =>
+                    {
+                        Debug.LogWarning("User denied permissions to use scene data");
+                        // Permissions denied, if data source is using prefab fallback let's load the prefab scene instead
+                        if (SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback)
+                        {
+                            LoadScene(SceneDataSource.Prefab);
+                        }
+                    };
+                    callbacks.PermissionGranted += permissionId =>
+                    {
+                        // Permissions are now granted and it is safe to try load the scene now
+                        LoadScene(SceneSettings.DataSource);
+                    };
+                    // Note: If the permission request dialog is already active then this call will silently fail
+                    // and we won't receive the callbacks. So as a work-around there is a code in Update() to mitigate
+                    // this problem.
+                    Permission.RequestUserPermission(OVRPermissionsRequester.ScenePermission, callbacks);
+                }
+                else
+#endif
+                {
+                    LoadScene(SceneSettings.DataSource);
+                }
 #pragma warning restore CS4014
             }
         }
@@ -276,6 +358,21 @@ namespace Meta.XR.MRUtilityKit
 
         private void Update()
         {
+            if (SceneSettings.LoadSceneOnStartup && !_loadSceneCalled)
+            {
+#if !UNITY_EDITOR && UNITY_ANDROID
+                // This is to cope with the case where the permissions dialog was already opened before we called
+                // Permission.RequestUserPermission in Awake() and we don't get the PermissionGranted callback
+                if (Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
+                {
+                    // We can't await for the LoadScene result because Awake is not async, silence the warning
+#pragma warning disable CS4014
+                    LoadScene(SceneSettings.DataSource);
+#pragma warning restore CS4014
+
+                }
+#endif
+            }
             if (_enableWorldLock && _cameraRig)
             {
                 var room = GetCurrentRoom();
@@ -287,19 +384,20 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Load the scene asynchronously using the settings from SceneSettings
+        /// Load the scene asynchronously from the specified data source
         /// </summary>
-        async Task LoadScene()
+        async Task LoadScene(SceneDataSource dataSource)
         {
+            _loadSceneCalled = true;
             try
             {
-                if (SceneSettings.DataSource == SceneDataSource.Device ||
-                    SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback)
+                if (dataSource == SceneDataSource.Device ||
+                    dataSource == SceneDataSource.DeviceWithPrefabFallback)
                 {
                     await LoadSceneFromDevice();
                 }
-                if (SceneSettings.DataSource == SceneDataSource.Prefab ||
-                    (SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback && _sceneRooms.Count == 0))
+                if (dataSource == SceneDataSource.Prefab ||
+                    (dataSource == SceneDataSource.DeviceWithPrefabFallback && _sceneRooms.Count == 0))
                 {
                     if (SceneSettings.RoomPrefabs.Length == 0)
                     {
@@ -317,6 +415,15 @@ namespace Meta.XR.MRUtilityKit
 
                     GameObject roomPrefab = SceneSettings.RoomPrefabs[roomIndex];
                     LoadSceneFromPrefab(roomPrefab);
+                }
+
+                if (dataSource == SceneDataSource.Json)
+                {
+                    if (SceneSettings.SceneJson == "")
+                    {
+                        Debug.LogWarning($"Empty SceneJson string provided");
+                    }
+                    LoadSceneFromJsonString(SceneSettings.SceneJson);
                 }
             }
             catch (Exception ex)
@@ -343,9 +450,11 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Destroys the rooms and all children
+        /// </summary>
         public void ClearScene()
         {
-            // destroy the rooms and all children
             foreach (var room in _sceneRooms)
             {
                 foreach (Transform child in room.transform)
@@ -353,6 +462,7 @@ namespace Meta.XR.MRUtilityKit
                 Destroy(room.gameObject);
             }
             _sceneRooms.Clear();
+            _cachedCurrentRoom = null;
         }
 
         /// <summary>
@@ -364,6 +474,34 @@ namespace Meta.XR.MRUtilityKit
             {
                 ClearScene();
             }
+
+            var newSceneData = await CreateSceneDataFromDevice();
+
+            if (newSceneData.Rooms.Count == 0)
+            {
+                Debug.Log("MRUKLoader couldn't load any scene data. Ensure " +
+                          "that Scene Capture has been run and that the runtime " +
+                          "permission for Scene Data has been granted.");
+                return;
+            }
+
+            UpdateScene(newSceneData);
+
+            InitializeScene();
+        }
+
+        /// <summary>
+        /// Attempts to create scene data from the device.
+        /// </summary>
+        /// <returns>A tuple containing a boolean indicating whether the operation was successful, the created scene data, and a list of OVRAnchors.</returns>
+        private async Task<Data.SceneData> CreateSceneDataFromDevice()
+        {
+            var sceneData = new Data.SceneData()
+            {
+                CoordinateSystem = SerializationHelpers.CoordinateSystem.Unity,
+                Rooms = new List<Data.RoomData>()
+            };
+
             var rooms = new List<OVRAnchor>();
             await OVRAnchor.FetchAnchorsAsync<OVRRoomLayout>(rooms);
 
@@ -374,82 +512,139 @@ namespace Meta.XR.MRUtilityKit
                 .Send();
 #endif
 
-            if (rooms.Count == 0)
-            {
-                Debug.Log("MRUKLoader couldn't load any scene data. Ensure " +
-                    "that Scene Capture has been run and that the runtime " +
-                    "permission for Scene Data has been granted.");
-                return;
-            }
-
-            var roomInfos = new List<MRUKRoom>();
             foreach (var roomAnchor in rooms)
             {
                 var room = roomAnchor.GetComponent<OVRAnchorContainer>();
-
                 var childAnchors = new List<OVRAnchor>();
                 await room.FetchChildrenAsync(childAnchors);
 
-                var roomObject = new GameObject($"Room - {roomAnchor.Uuid}");
-                var roomInfo = roomObject.AddComponent<MRUKRoom>();
-                roomInfo.Anchor = roomAnchor;
-                roomInfos.Add(roomInfo);
+                var roomData = new Data.RoomData()
+                {
+                    Anchor = roomAnchor,
+                    UUID = roomAnchor.Uuid.ToString(),
+                    Anchors = new List<Data.AnchorData>(),
+                    RoomLayout = new Data.RoomLayoutData()
+                };
 
-                // Enable locatable on all the child anchors
+                // Enable locatable on all the child anchors, we do this before accessing all the positions
+                // so that when we actually go to access them they are already enabled and we can get all
+                // the position on the same frame. Or as close as possible to the same frame.
                 var tasks = new List<OVRTask<bool>>();
                 foreach (var child in childAnchors)
                 {
                     if (!child.TryGetComponent<OVRLocatable>(out var locatable))
                         continue;
+
                     tasks.Add(locatable.SetEnabledSafeAsync(true));
                 }
-                foreach (var task in tasks)
-                {
-                    await task;
-                }
+                await OVRTask.WhenAll(tasks);
 
-                // Once they are all enabled, get their position in a batch
                 foreach (var child in childAnchors)
                 {
-                    if (!child.TryGetComponent<OVRLocatable>(out var locatable))
-                        continue;
-
-                    var label = "none";
+                    var anchorData = new Data.AnchorData
+                    {
+                        Anchor = child,
+                        UUID = child.Uuid.ToString("N").ToUpper()
+                    };
                     var splitLabels = new List<string>();
-                    if (child.TryGetComponent<OVRSemanticLabels>(out var labels) && labels.IsEnabled)
+                    if (child.TryGetComponent(out OVRSemanticLabels labels) && labels.IsEnabled)
                     {
-                        label = labels.Labels;
-                        splitLabels.AddRange(label.Split(','));
+                        splitLabels.AddRange(labels.Labels.Split(','));
+                    }
+                    anchorData.SemanticClassifications = splitLabels;
+                    if (child.TryGetComponent(out OVRBounded2D bounds2) && bounds2.IsEnabled)
+                    {
+                        anchorData.PlaneBounds = new Data.PlaneBoundsData()
+                        {
+                            Min = bounds2.BoundingBox.min,
+                            Max = bounds2.BoundingBox.max,
+                        };
+
+                        if (bounds2.TryGetBoundaryPointsCount(out var counts))
+                        {
+                            using var boundary = new NativeArray<Vector2>(counts, Allocator.Temp);
+                            if (bounds2.TryGetBoundaryPoints(boundary))
+                            {
+                                anchorData.PlaneBoundary2D = new List<Vector2>();
+                                for (int i = 0; i < counts; i++)
+                                {
+                                    anchorData.PlaneBoundary2D.Add(boundary[i]);
+                                }
+                            }
+                        }
+                    }
+                    if (child.TryGetComponent(out OVRBounded3D bounds3) && bounds3.IsEnabled)
+                    {
+                        anchorData.VolumeBounds = new Data.VolumeBoundsData()
+                        {
+                            Min = bounds3.BoundingBox.min,
+                            Max = bounds3.BoundingBox.max,
+                        };
                     }
 
-                    var childObject = new GameObject(label);
-                    childObject.transform.parent = roomObject.transform;
-
-                    // first position it
-                    if (locatable.TryGetSceneAnchorPose(out var pose))
+                    anchorData.Transform.Scale = Vector3.one;
+                    bool gotLocation = false;
+                    if (child.TryGetComponent(out OVRLocatable locatable) && locatable.IsEnabled)
                     {
-                        var position = pose.ComputeWorldPosition(Camera.main);
-                        var rotation = pose.ComputeWorldRotation(Camera.main);
-                        childObject.transform.localPosition = position ?? Vector3.zero;
-                        childObject.transform.localRotation = rotation ?? Quaternion.identity;
+                        if (locatable.TryGetSceneAnchorPose(out var pose))
+                        {
+                            var position = pose.ComputeWorldPosition(Camera.main);
+                            var rotation = pose.ComputeWorldRotation(Camera.main);
+                            if (rotation.HasValue && rotation.HasValue)
+                            {
+                                anchorData.Transform.Translation = position.Value;
+                                anchorData.Transform.Rotation = rotation.Value.eulerAngles;
+                                gotLocation = true;
+                            }
+                        }
+                    }
+                    if (!gotLocation)
+                    {
+                        Debug.LogWarning($"Failed to get location of anchor with UUID: {anchorData.UUID}");
                     }
 
-                    // provide anchor info
-                    var info = childObject.AddComponent<MRUKAnchor>();
-                    info.PopulateData(splitLabels, child);
+                    roomData.Anchors.Add(anchorData);
+
+                    if (anchorData.SemanticClassifications.Contains(OVRSceneManager.Classification.WallFace))
+                    {
+                        roomData.RoomLayout.WallsUUid.Add(anchorData.UUID);
+                    }
+                    else if (anchorData.SemanticClassifications.Contains(OVRSceneManager.Classification.Floor))
+                    {
+                        roomData.RoomLayout.FloorUuid = anchorData.UUID;
+                    }
+                    else if (anchorData.SemanticClassifications.Contains(OVRSceneManager.Classification.Ceiling))
+                    {
+                        roomData.RoomLayout.CeilingUuid = anchorData.UUID;
+                    }
+                    else if (anchorData.SemanticClassifications.Contains(OVRSceneManager.Classification.GlobalMesh))
+                    {
+                        roomData.RoomLayout.GlobalMeshUuid = anchorData.UUID;
+                    }
                 }
+                sceneData.Rooms.Add(roomData);
             }
+            return sceneData;
+        }
 
-            // this thing calculates everything, but first we need to have all
-            // the toolkitanchor infos populated
-            foreach (var roomInfo in roomInfos)
-            {
-                roomInfo.ComputeRoomInfo();
-                _sceneRooms.Add(roomInfo);
-            }
-
-            // now that we're done, updated the global state for the Update()
-            InitializeScene();
+        private void FindAllObjects(GameObject roomPrefab, out List<GameObject> walls, out List<GameObject> volumes,
+            out List<GameObject> planes)
+        {
+            walls = new List<GameObject>();
+            volumes = new List<GameObject>();
+            planes = new List<GameObject>();
+            FindObjects(MRUKAnchor.SceneLabels.WALL_FACE.ToString(), roomPrefab.transform, ref walls);
+            FindObjects(MRUKAnchor.SceneLabels.OTHER.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.TABLE.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.COUCH.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.WINDOW_FRAME.ToString(), roomPrefab.transform, ref planes);
+            FindObjects(MRUKAnchor.SceneLabels.DOOR_FRAME.ToString(), roomPrefab.transform, ref planes);
+            FindObjects(MRUKAnchor.SceneLabels.WALL_ART.ToString(), roomPrefab.transform, ref planes);
+            FindObjects(MRUKAnchor.SceneLabels.PLANT.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.SCREEN.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.BED.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.LAMP.ToString(), roomPrefab.transform, ref volumes);
+            FindObjects(MRUKAnchor.SceneLabels.STORAGE.ToString(), roomPrefab.transform, ref volumes);
         }
 
         /// <summary>
@@ -468,9 +663,7 @@ namespace Meta.XR.MRUtilityKit
                 ClearScene();
             }
 
-            List<GameObject> walls = new List<GameObject>();
-            List<GameObject> volumes = new List<GameObject>();
-            List<GameObject> planes = new List<GameObject>();
+            FindAllObjects(roomPrefab, out var walls, out var volumes, out var planes);
 
             GameObject sceneRoom = new GameObject(roomPrefab.name);
             MRUKRoom roomInfo = sceneRoom.AddComponent<MRUKRoom>();
@@ -480,19 +673,6 @@ namespace Meta.XR.MRUtilityKit
 
             List<MRUKAnchor> unorderedWalls = new List<MRUKAnchor>();
             List<Vector3> floorCorners = new List<Vector3>();
-
-            FindObjects(MRUKAnchor.SceneLabels.WALL_FACE.ToString(), roomPrefab.transform, ref walls);
-            FindObjects(MRUKAnchor.SceneLabels.OTHER.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.TABLE.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.COUCH.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.WINDOW_FRAME.ToString(), roomPrefab.transform, ref planes);
-            FindObjects(MRUKAnchor.SceneLabels.DOOR_FRAME.ToString(), roomPrefab.transform, ref planes);
-            FindObjects(MRUKAnchor.SceneLabels.WALL_ART.ToString(), roomPrefab.transform, ref planes);
-            FindObjects(MRUKAnchor.SceneLabels.PLANT.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.SCREEN.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.BED.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.LAMP.ToString(), roomPrefab.transform, ref volumes);
-            FindObjects(MRUKAnchor.SceneLabels.STORAGE.ToString(), roomPrefab.transform, ref volumes);
 
             float wallHeight = 0.0f;
 
@@ -665,26 +845,34 @@ namespace Meta.XR.MRUtilityKit
                 ClearScene();
             }
 
-            _sceneRooms =  SerializationHelpers.Deserialize(jsonString);
-            foreach (var room in _sceneRooms)
-            {
-                // after everything, we need to let the room computation run
-                room.ComputeRoomInfo();
-            }
+            var newSceneData = SerializationHelpers.Deserialize(jsonString);
+
+            UpdateScene(newSceneData);
+
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromJson)
                 .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, _sceneRooms.Count.ToString())
                 .Send();
 #endif
+
             InitializeScene();
         }
 
-        MRUKAnchor CreateAnchorFromRoomObject(Transform refObject, Vector3 objScale, AnchorRepresentation representation)
+        private MRUKAnchor CreateAnchorFromRoomObject(Transform refObject, Vector3 objScale, AnchorRepresentation representation)
         {
             return CreateAnchor(refObject.name, refObject.position, refObject.rotation, objScale, representation);
         }
 
-        MRUKAnchor CreateAnchor(string name, Vector3 position, Quaternion rotation, Vector3 objScale, AnchorRepresentation representation)
+        /// <summary>
+        /// Creates an anchor with the specified properties.
+        /// </summary>
+        /// <param name="name">The name of the anchor.</param>
+        /// <param name="position">The position of the anchor.</param>
+        /// <param name="rotation">The rotation of the anchor.</param>
+        /// <param name="objScale">The scale of the anchor.</param>
+        /// <param name="representation">The representation of the anchor (plane or volume).</param>
+        /// <returns>The created anchor.</returns>
+        private MRUKAnchor CreateAnchor(string name, Vector3 position, Quaternion rotation, Vector3 objScale, AnchorRepresentation representation)
         {
             var realAnchor = new GameObject(name);
             realAnchor.transform.position = position;
@@ -752,6 +940,186 @@ namespace Meta.XR.MRUtilityKit
             }
             thisID = rightWallID;
             return randomWalls[thisID];
+        }
+
+        /// <summary>
+        /// Manages the scene by creating, updating, or deleting rooms and anchors based on new scene data.
+        /// </summary>
+        /// <param name="newSceneData">The new scene data.</param>
+        /// <returns>A list of managed MRUKRoom objects.</returns>
+        private void UpdateScene(Data.SceneData newSceneData)
+        {
+            List<Data.RoomData> newRoomsToCreate = new();
+            List<MRUKRoom> rooms = new();
+
+            //the existing rooms will get removed from this list and updated seperatly
+            newRoomsToCreate.AddRange(newSceneData.Rooms);
+
+            List<MRUKRoom> roomsToRemove = new();
+
+            //check old rooms to see if a new received room match and then perform update on room,
+            //update,delete or create on anchors.
+            for (int i = 0; i < _sceneRooms.Count; i++)
+            {
+                var oldRoom = _sceneRooms[i];
+
+                foreach (var newRoomData in newSceneData.Rooms)
+                {
+                    if (oldRoom.Equals(newRoomData))
+                    {
+                        newRoomsToCreate.Remove(newRoomData);
+                        rooms.Add(oldRoom);
+
+                        //we may added the room before as candidate to remove
+                        roomsToRemove.RemoveAll(room => room == oldRoom);
+                        break;
+                    }
+                    //check for similar room
+
+                    bool containsExistingAnchor = false;
+                    foreach (var oldAnchor in oldRoom.GetRoomAnchors())
+                    {
+                        foreach (var newAnchorData in newRoomData.Anchors)
+                        {
+                            if (oldAnchor.Equals(newAnchorData)) //if a new anchor matches an old, we are in the same room
+                            {
+                                containsExistingAnchor = true;
+                                break;
+                            }
+                        }
+                        if (containsExistingAnchor) break;
+                    }
+
+                    if (containsExistingAnchor)
+                    {
+                        oldRoom.Anchor = newRoomData.Anchor;
+                        oldRoom.name = $"Room - {newRoomData.UUID}";
+
+                        List<Tuple<MRUKAnchor, Data.AnchorData>> anchorsToUpdate = new();
+                        Dictionary<Data.AnchorData, bool> newAnchorsExisting = new();
+                        Dictionary<MRUKAnchor, bool> oldAnchorsExisting = new();
+                        foreach (var anchorData in newRoomData.Anchors)
+                        {
+                            newAnchorsExisting[anchorData] = false;
+                        }
+
+                        foreach (var oldAnchor in oldRoom.GetRoomAnchors())
+                        {
+                            foreach (var anchorData in newRoomData.Anchors)
+                            {
+                                if (oldAnchor.Equals(anchorData))
+                                {
+                                    newAnchorsExisting[anchorData] = true;
+                                    oldAnchorsExisting[oldAnchor] = true;
+                                    break;
+                                }
+
+                                if (oldAnchor.Anchor == anchorData.Anchor)
+                                {
+                                    anchorsToUpdate.Add(
+                                        new Tuple<MRUKAnchor, Data.AnchorData>(oldAnchor, anchorData));
+
+                                    //because we do not need a create, we have the update
+                                    newAnchorsExisting[anchorData] = true;
+                                    oldAnchorsExisting[oldAnchor] = true;
+                                }
+                            }
+
+                            oldAnchorsExisting.TryAdd(oldAnchor, false);
+                        }
+
+                        foreach (var kv in newAnchorsExisting)
+                        {
+                            if (kv.Value) continue; //existing,  not create a new one
+
+                            var anchor = oldRoom.CreateAnchor(kv.Key);
+                            oldRoom.GetRoomAnchors().Add(anchor);
+                        }
+
+                        foreach (var kv in oldAnchorsExisting)
+                        {
+                            if (kv.Value) continue; //if existing, we do not need to remove
+                            oldRoom.GetRoomAnchors().Remove(kv.Key);
+                            oldRoom.AnchorRemovedEvent?.Invoke(kv.Key);
+                            Utilities.DestroyGameObjectAndChildren(kv.Key.gameObject);
+                        }
+
+                        foreach (var anchorToUpdate in anchorsToUpdate)
+                        {
+                            var oldAnchor = anchorToUpdate.Item1;
+                            var newAnchorData = anchorToUpdate.Item2;
+                            oldAnchor.UpdateAnchor(newAnchorData);
+                            oldRoom.AnchorUpdatedEvent?.Invoke(oldAnchor);
+                        }
+
+                        rooms.Add(oldRoom);
+
+                        RoomUpdatedEvent?.Invoke(oldRoom);
+
+                        //we may added the room before as candidate to remove
+                        roomsToRemove.RemoveAll(room => room == oldRoom);
+                        newRoomsToCreate.Remove(newRoomData);
+                        break;
+                    }
+
+
+                    //we did not break so far, so we assume we may need to delete it if it doesnt show up
+                    if (!roomsToRemove.Contains(oldRoom)) roomsToRemove.Add(oldRoom);
+                }
+            }
+
+            foreach (var oldRoom in roomsToRemove)
+            {
+                for (int j = oldRoom.GetRoomAnchors().Count - 1; j >= 0; j--)
+                {
+                    var anchor = oldRoom.GetRoomAnchors()[j];
+                    oldRoom.GetRoomAnchors().Remove(anchor);
+                    oldRoom.AnchorRemovedEvent?.Invoke(anchor);
+                    Utilities.DestroyGameObjectAndChildren(anchor.gameObject);
+                }
+
+                _sceneRooms.Remove(oldRoom);
+                RoomRemovedEvent?.Invoke(oldRoom);
+
+                Utilities.DestroyGameObjectAndChildren(oldRoom.gameObject);
+
+            }
+
+            foreach (var newRoomData in newRoomsToCreate)
+            {
+                //create room and throw events for room and anchors
+                var room = CreateRoom(newRoomData);
+                rooms.Add(room);
+                RoomCreatedEvent?.Invoke(room);
+            }
+
+            _sceneRooms = rooms;
+
+            foreach (var room in _sceneRooms)
+            {
+                // after everything, we need to let the room computation run
+                room.ComputeRoomInfo();
+            }
+        }
+
+        /// <summary>
+        /// Creates a new room with the specified parameters.
+        /// </summary>
+        /// <param name="roomData">The data for the new room.</param>
+        /// <returns>The created MRUKRoom object.</returns>
+        private MRUKRoom CreateRoom(Data.RoomData roomData)
+        {
+            GameObject sceneRoom = new GameObject($"Room - {roomData.UUID}");
+            MRUKRoom roomInfo = sceneRoom.AddComponent<MRUKRoom>();
+
+            roomInfo.Anchor = roomData.Anchor;
+
+            foreach (Data.AnchorData anchorData in roomData.Anchors)
+            {
+                roomInfo.CreateAnchor(anchorData);
+            }
+
+            return roomInfo;
         }
     }
 }

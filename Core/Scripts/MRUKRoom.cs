@@ -18,11 +18,10 @@
  * limitations under the License.
  */
 
-using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.CompilerServices;
-using System;
+using UnityEngine.Events;
 
 [assembly: InternalsVisibleTo("meta.xr.mrutilitykit.tests")]
 namespace Meta.XR.MRUtilityKit
@@ -38,11 +37,6 @@ namespace Meta.XR.MRUtilityKit
         MRUKAnchor _globalMeshAnchor = null;
         List<MRUKAnchor> _wallAnchors = new();
 
-        // a CCW list of bottom-left corner points of each wall
-        private List<Vector3> _corners = new List<Vector3>();
-
-        Bounds _roomBounds;
-
         // a list of seat poses in the room:
         // suggested placements for remote avatars, that exist only on COUCH objects
         // see GetClosestSeatPose for details
@@ -51,10 +45,7 @@ namespace Meta.XR.MRUtilityKit
             public MRUKAnchor couchAnchor;
             public List<Pose> couchPoses;
         };
-        List<CouchSeat> _seatPoses = new List<CouchSeat>();
-
-        // A triangle mesh of anchors used for world locking
-        internal AnchorMesh _anchorMesh = new AnchorMesh();
+        List<CouchSeat> _seatPoses = new();
 
         struct Surface
         {
@@ -65,23 +56,97 @@ namespace Meta.XR.MRUtilityKit
             public Matrix4x4 Transform;
         }
 
+        Bounds _roomBounds;
+        // a CCW list of bottom-left corner points of each wall
+        private List<Vector3> _corners = new();
+
         /// <summary>
-        /// Compute further information to the room.
-        ///
-        /// Important: requires that the room's child <seealso cref="MRUKAnchor"/>
-        /// has been properly instantiated and data populated.
+        /// Gets fired when a new anchor of this room has been created
         /// </summary>
-        internal void ComputeRoomInfo()
+        public UnityEvent<MRUKAnchor> AnchorCreatedEvent = new();
+        /// <summary>
+        /// Gets fired after a component of the corresponding anchor has changed
+        /// </summary>
+        public UnityEvent<MRUKAnchor> AnchorUpdatedEvent = new();
+        /// <summary>
+        /// Gets fired when the anchor has been deleted.
+        /// </summary>
+        public UnityEvent<MRUKAnchor> AnchorRemovedEvent = new();
+
+        /// <summary>
+        /// Registers a callback function to be called when an anchor is created.
+        /// </summary>
+        /// <param name="callback">
+        /// The function to be called when an anchor is created. It takes one parameter:
+        /// - `MRUKAnchor` The created anchor object.
+        ///</param>
+        public void RegisterAnchorCreatedCallback(UnityAction<MRUKAnchor> callback)
         {
-            _anchors.Clear();
-            _wallAnchors.Clear();
+            AnchorCreatedEvent.AddListener(callback);
+        }
 
-            foreach (Transform child in transform)
-            {
-                if (child.TryGetComponent(out MRUKAnchor info))
-                    _anchors.Add(info);
-            }
+        /// <summary>
+        /// Registers a callback function to be called before an anchor is updated.
+        /// </summary>
+        /// <param name="callback">
+        /// The function to be called when an anchor is updated. It takes one parameter:
+        /// - `MRUKAnchor` The updated anchor object.
+        /// </param>
+        public void RegisterAnchorUpdatedCallback(UnityAction<MRUKAnchor> callback)
+        {
+            AnchorUpdatedEvent.AddListener(callback);
+        }
 
+        /// <summary>
+        /// Registers a callback function to be called when an anchor is removed.
+        /// </summary>
+        /// <param name="callback">
+        /// The function to be called when an anchor is removed. It takes one parameter:
+        /// - `MRUKAnchor` The removed anchor object.
+        /// </param>
+        public void RegisterAnchorRemovedCallback(UnityAction<MRUKAnchor> callback)
+        {
+            AnchorRemovedEvent.AddListener(callback);
+        }
+
+        /// <summary>
+        /// UnRegisters a callback function to be called when an anchor is created.
+        /// </summary>
+        /// <param name="callback">
+        /// The function to be called when an anchor is created. It takes one parameter:
+        /// - `MRUKAnchor` The created anchor object.
+        ///</param>
+        public void UnRegisterAnchorCreatedCallback(UnityAction<MRUKAnchor> callback)
+        {
+            AnchorCreatedEvent.RemoveListener(callback);
+        }
+
+        /// <summary>
+        /// UnRegisters a callback function to be called before an anchor is updated.
+        /// </summary>
+        /// <param name="callback">
+        /// The function to be called when an anchor is updated. It takes one parameter:
+        /// - `MRUKAnchor` The updated anchor object.
+        /// </param>
+        public void UnRegisterAnchorUpdatedCallback(UnityAction<MRUKAnchor> callback)
+        {
+            AnchorUpdatedEvent.RemoveListener(callback);
+        }
+
+        /// <summary>
+        /// UnRegisters a callback function to be called when an anchor is removed.
+        /// </summary>
+        /// <param name="callback">
+        /// The function to be called when an anchor is removed. It takes one parameter:
+        /// - `MRUKAnchor` The removed anchor object.
+        /// </param>
+        public void UnRegisterAnchorRemovedCallback(UnityAction<MRUKAnchor> callback)
+        {
+            AnchorRemovedEvent.RemoveListener(callback);
+        }
+
+        private float GetAvgRoomHeight()
+        {
             float averageRoomHeight = 0.0f;
 
             for (int i = 0; i < _anchors.Count; i++)
@@ -106,13 +171,34 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
             averageRoomHeight /= _wallAnchors.Count;
+            return averageRoomHeight;
+        }
+
+        /// <summary>
+        /// Compute further information to the room.
+        ///
+        /// Important: requires that the room's child <seealso cref="MRUKAnchor"/>
+        /// has been properly instantiated and data populated.
+        /// </summary>
+        internal void ComputeRoomInfo()
+        {
+            _anchors.Clear();
+            _wallAnchors.Clear();
+
+            foreach (Transform child in transform)
+            {
+                if (child.TryGetComponent(out MRUKAnchor info))
+                {
+                    _anchors.Add(info);
+                }
+            }
+
+            var averageRoomHeight = GetAvgRoomHeight();
 
             CalculateRoomOutline();
             CalculateRoomBounds(averageRoomHeight);
             CalculateSeatPoses();
             CalculateHierarchyReferences();
-
-            _anchorMesh.CreateMesh(_wallAnchors);
         }
 
         /// <summary>
@@ -260,7 +346,7 @@ namespace Meta.XR.MRUtilityKit
             // TODO: this is probably expensive, and shouldn't be called every frame. Cache them?
             List<MRUKAnchor> sortedWalls = new List<MRUKAnchor>(_wallAnchors);
             MRUKAnchor keyWall = null;
-            sortedWalls = sortedWalls.OrderBy(w => w.PlaneRect.Value.size.x).ToList();
+            sortedWalls = SortWallsByWidth(sortedWalls);
 
             // second, find the first one with no other walls behind it
             // count down because the default sorting is from shortest to longest
@@ -296,6 +382,23 @@ namespace Meta.XR.MRUtilityKit
             }
 
             return keyWall;
+        }
+
+        public static List<MRUKAnchor> SortWallsByWidth(List<MRUKAnchor> walls)
+        {
+            List<MRUKAnchor> sortedWalls = new List<MRUKAnchor>();
+            for (int i = 0; i < walls.Count; i++)
+            {
+                for (int j = i + 1; j < walls.Count; j++)
+                {
+                    if (walls[i].PlaneRect.Value.size.x > walls[j].PlaneRect.Value.size.x)
+                    {
+                        (walls[i], walls[j]) = (walls[j], walls[i]);
+                    }
+                }
+            }
+            sortedWalls.AddRange(walls);
+            return sortedWalls;
         }
 
         /// <summary>
@@ -449,6 +552,9 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public bool IsPositionInRoom(Vector3 queryPosition, bool testVerticalBounds = true)
         {
+            //this is a fallback because the anchor can be deleted but this gets only updated once per frame
+            if (_floorAnchor == null) return false;
+
             var localPos = _floorAnchor.transform.InverseTransformPoint(queryPosition);
             bool isInRoom = _floorAnchor.IsPositionInBoundary(new Vector2(localPos.x, localPos.y));
 
@@ -469,21 +575,21 @@ namespace Meta.XR.MRUtilityKit
             return _roomBounds;
         }
 
-        void CalculateRoomBounds(float roomHeight)
+        private static Bounds GetRoomBounds(float roomHeight, List<Vector3> corners)
         {
             Vector3 roomSize = Vector3.one;
             float xMin = 0.0f;
             float xMax = 0.0f;
             float zMin = 0.0f;
             float zMax = 0.0f;
-            if (_corners != null)
+            if (corners != null)
             {
-                for (int i = 0; i < _corners.Count; i++)
+                for (int i = 0; i < corners.Count; i++)
                 {
-                    xMin = Mathf.Min(xMin, _corners[i].x);
-                    xMax = Mathf.Max(xMax, _corners[i].x);
-                    zMin = Mathf.Min(zMin, _corners[i].z);
-                    zMax = Mathf.Max(zMax, _corners[i].z);
+                    xMin = Mathf.Min(xMin, corners[i].x);
+                    xMax = Mathf.Max(xMax, corners[i].x);
+                    zMin = Mathf.Min(zMin, corners[i].z);
+                    zMax = Mathf.Max(zMax, corners[i].z);
                 }
             }
             roomSize.x = xMax - xMin;
@@ -491,7 +597,12 @@ namespace Meta.XR.MRUtilityKit
             roomSize.z = zMax - zMin;
 
             Vector3 roomCenter = new Vector3((xMax + xMin) * 0.5f, roomHeight * 0.5f, (zMax + zMin) * 0.5f);
-            _roomBounds = new Bounds(roomCenter, roomSize);
+            return new Bounds(roomCenter, roomSize);
+        }
+
+        void CalculateRoomBounds(float roomHeight)
+        {
+            _roomBounds = GetRoomBounds(roomHeight, _corners);
         }
 
         /// <summary>
@@ -774,15 +885,23 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
 
-            IEnumerable<string> both = labels.Intersect(roomLabels);
+            // Create a set of labels that are not present in the room
+            HashSet<string> missingLabels = new HashSet<string>(labels);
+            foreach (string roomLabel in roomLabels)
+            {
+                if (missingLabels.Contains(roomLabel))
+                {
+                    missingLabels.Remove(roomLabel);
+                }
+            }
 
-            return labels.Count() > 0 && both.Count() == labels.Count();
+            return missingLabels.Count == 0;
         }
 
         /// <summary>
         /// The closest position on a SceneAPI surface.
         /// </summary>
-        public float TryGetClosestSurfacePosition(Vector3 worldPosition, out Vector3 surfacePosition, out MRUKAnchor closestAnchor, LabelFilter labelFilter = new LabelFilter())
+        public float TryGetClosestSurfacePosition(Vector3 worldPosition, out Vector3 surfacePosition, out MRUKAnchor closestAnchor, LabelFilter labelFilter = new())
         {
             float distance = Mathf.Infinity;
             surfacePosition = Vector3.zero;
@@ -1122,12 +1241,81 @@ namespace Meta.XR.MRUtilityKit
 
         internal void UpdateWorldLock(OVRCameraRig camera)
         {
-            _anchorMesh.UpdateWorldLock(camera);
+            var anchor = _floorAnchor;
+
+            if (anchor.Anchor != OVRAnchor.Null &&
+                anchor.Anchor.TryGetComponent<OVRLocatable>(out var locatable) &&
+                locatable.TryGetSceneAnchorPose(out var pose))
+            {
+                var anchorTransform = Matrix4x4.TRS(pose.Position.Value, pose.Rotation.Value, Vector3.one);
+
+                var adjustment = anchor.transform.localToWorldMatrix * anchorTransform.inverse;
+
+                // Only use the Yaw component of the rotation, we don't want to introduce any errors with
+                // pitch or roll.
+                float yaw = adjustment.rotation.eulerAngles.y;
+                camera.trackingSpace.SetPositionAndRotation(adjustment.GetPosition(), Quaternion.Euler(0, yaw, 0));
+            }
         }
 
         void OnDestroy()
         {
             MRUK.Instance?.OnRoomDestroyed(this);
+        }
+
+        /// <summary>
+        /// Creates an anchor in the specified room using the provided data and coordinate system.
+        /// </summary>
+        /// <param name="anchorData">The data for the anchor.</param>
+        /// <returns>The created anchor.</returns>
+        internal MRUKAnchor CreateAnchor(Data.AnchorData anchorData)
+        {
+            string anchorName = Utilities.GetAnchorName(anchorData);
+            var anchorGO = new GameObject(anchorName);
+            anchorGO.transform.SetParent(transform);
+
+            anchorGO.transform.localPosition = anchorData.Transform.Translation;
+            anchorGO.transform.localRotation = Quaternion.Euler(anchorData.Transform.Rotation);
+            anchorGO.transform.localScale = anchorData.Transform.Scale;
+
+            var createdAnchor = anchorGO.AddComponent<MRUKAnchor>();
+
+            createdAnchor.Anchor = anchorData.Anchor;
+
+            createdAnchor.UpdateAnchor(anchorData);
+
+            _anchors.Add(createdAnchor);
+            AnchorCreatedEvent.Invoke(createdAnchor);
+            return createdAnchor;
+        }
+
+        /// <summary>
+        /// Compares the current MRUKRoom data to another room data.
+        /// </summary>
+        /// <param name="roomData">The other room data.</param>
+        /// <returns>True if the two rooms are equal, false otherwise.</returns>
+        public bool Equals(Data.RoomData roomData)
+        {
+            bool allAnchorsEqual = true;
+            foreach (var anchor in _anchors)
+            {
+                bool anchorEqual = false;
+                foreach (var anchorData in roomData.Anchors)
+                {
+                    if (anchor.Equals(anchorData))
+                    {
+                        anchorEqual = true;
+                        break;
+                    }
+                }
+
+                if (!anchorEqual)
+                {
+                    allAnchorsEqual = false;
+                    break;
+                }
+            }
+            return Anchor == roomData.Anchor && allAnchorsEqual && roomData.Anchors.Count == _anchors.Count;
         }
     }
 }

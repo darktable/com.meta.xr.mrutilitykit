@@ -20,6 +20,7 @@
 
 using Meta.XR.MRUtilityKit;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -50,15 +51,18 @@ public class FindSpawnPositions : MonoBehaviour
     [SerializeField, Tooltip("When using surface spawning, use this to filter which anchor labels should be included. Eg, spawn only on TABLE or OTHER.")]
     public MRUKAnchor.SceneLabels Labels = ~(MRUKAnchor.SceneLabels)0;
 
-    [SerializeField, Tooltip("If enabled then the spawn position will check colliders to make sure there is no overlap.")]
+    [SerializeField, Tooltip("If enabled then the spawn position will be checked to make sure there is no overlap with physics colliders including themselves.")]
     public bool CheckOverlaps = true;
 
     [SerializeField, Tooltip("Required free space for the object (Set negative to auto-detect using GetPrefabBounds)")]
-    public float OverrideBounds = -1; // default to auto-detect. This value is doubled when generating bounds (assume user wants X distance away from objects)
+    public float OverrideBounds = -1; // default to auto-detect. This value represents the extents of the bounding box
 
     [FormerlySerializedAs("layerMask")]
     [SerializeField, Tooltip("Set the layer(s) for the physics bounding box checks, collisions will be avoided with these layers.")]
     public LayerMask LayerMask = -1;
+
+    [SerializeField, Tooltip("The clearance distance required in front of the surface in order for it to be considered a valid spawn position")]
+    public float SurfaceClearanceDistance = 0.1f;
 
     private void Start()
     {
@@ -95,8 +99,8 @@ public class FindSpawnPositions : MonoBehaviour
             if (OverrideBounds > 0)
             {
                 Vector3 center = new Vector3(0f, clearanceDistance, 0f);
-                Vector3 extents = new Vector3((OverrideBounds * 2f), clearanceDistance, (OverrideBounds * 2f)); // assuming user intends to input X distance from other colliders
-                adjustedBounds = new Bounds(center, extents);
+                Vector3 size = new Vector3(OverrideBounds * 2f, clearanceDistance * 2f, OverrideBounds * 2f); // OverrideBounds represents the extents, not the size
+                adjustedBounds = new Bounds(center, size);
             }
         }
 
@@ -140,9 +144,20 @@ public class FindSpawnPositions : MonoBehaviour
                     {
                         spawnPosition = pos + normal * baseOffset;
                         spawnNormal = normal;
+                        var center = spawnPosition + normal * centerOffset;
                         // In some cases, surfaces may protrude through walls and end up outside the room
                         // check to make sure the center of the prefab will spawn inside the room
-                        if (!room.IsPositionInRoom(spawnPosition + normal * centerOffset))
+                        if (!room.IsPositionInRoom(center))
+                        {
+                            continue;
+                        }
+                        // Ensure the center of the prefab will not spawn inside a scene volume
+                        if (room.IsPositionInSceneVolume(center))
+                        {
+                            continue;
+                        }
+                        // Also make sure there is nothing close to the surface that would obstruct it
+                        if (room.Raycast(new Ray(pos, normal), SurfaceClearanceDistance, out _))
                         {
                             continue;
                         }
@@ -160,10 +175,7 @@ public class FindSpawnPositions : MonoBehaviour
 
                 if (SpawnObject.gameObject.scene.path == null)
                 {
-                    GameObject spawnedObject = Instantiate(SpawnObject);
-                    spawnedObject.transform.parent = transform;
-                    spawnedObject.transform.position = spawnPosition;
-                    spawnedObject.transform.rotation = spawnRotation;
+                    Instantiate(SpawnObject, spawnPosition, spawnRotation, transform);
                 }
                 else
                 {

@@ -926,12 +926,20 @@ namespace Meta.XR.MRUtilityKit
             if (MeshMaterial != null)
             {
                 renderer.material = MeshMaterial;
-                renderer.enabled = !hideMesh;
             }
+            renderer.enabled = !hideMesh;
             renderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
             effectMeshObject.mesh = trimesh;
             effectMeshObjects.Add(effectMeshObject);
             return;
+        }
+
+        public void SetEffectObjectsParent(Transform newParent)
+        {
+            foreach (var effectMeshObject in effectMeshObjects)
+            {
+                effectMeshObject.effectMeshGO.transform.SetParent(newParent);
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 {
   "name": "com.meta.xr.mrutilitykit",
   "displayName": "Meta MR Utility Kit",
-  "version": "62.0.0",
+  "version": "63.0.0",
   "description": "Helper tools & functions to simplify development with Scene API. Works on Mac & PC, without a device attached.",
   "samples": [
     {
@@ -51,9 +51,9 @@
   "dependencies": {
     "com.unity.ai.navigation": "1.1.4",
     "com.unity.nuget.newtonsoft-json": "3.0.2",
-    "com.meta.xr.sdk.core": "62.0.0",
+    "com.meta.xr.sdk.core": "63.0.0",
     "com.unity.textmeshpro": "3.0.6",
-    "com.meta.xr.sdk.interaction": "62.0.0",
-    "com.meta.xr.sdk.interaction.ovr": "62.0.0"
+    "com.meta.xr.sdk.interaction": "63.0.0",
+    "com.meta.xr.sdk.interaction.ovr": "63.0.0"
   }
 }

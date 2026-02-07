@@ -17,10 +17,12 @@ MonoBehaviour:
   blockName: Room Guardian
   description: Creates a Guardian-like protective mesh
   tags:
-    array: []
+    array:
+    - name: Scene
   thumbnail: {fileID: 2800000, guid: a7f4c54f9844aef41a0f9c29c538e084, type: 3}
   order: 5
   prefab: {fileID: 5456522116536683071, guid: 5d3c52234cffb412595fe970f51c6342, type: 3}
+  externalBlockDependencies: []
   dependencies:
   - d4413f4f-542f-451f-92ee-4801f27d676a
   packageDependencies: []
