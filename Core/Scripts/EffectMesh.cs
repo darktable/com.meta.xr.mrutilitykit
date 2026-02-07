@@ -27,6 +27,9 @@ using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// This class handles dynamic mesh and collider generation based on scene elements.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class EffectMesh : MonoBehaviour
     {
@@ -36,36 +39,35 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
         internal bool TrackUpdates = true;
 
-        [Tooltip("The material applied to the generated mesh.")]
-        [FormerlySerializedAs("_MeshMaterial")]
+        [Tooltip("The material applied to the generated mesh.")] [FormerlySerializedAs("_MeshMaterial")]
         public Material MeshMaterial;
 
-        [Tooltip("The inset vertex spacing on each polygon.")]
-        [FormerlySerializedAs("_borderSize")]
+        [Tooltip("The inset vertex spacing on each polygon.")] [FormerlySerializedAs("_borderSize")]
         public float BorderSize = 0.0f;
 
-        [Tooltip("Generate a BoxCollider for each mesh component.")]
-        [FormerlySerializedAs("addColliders")]
+        [Tooltip("Generate a BoxCollider for each mesh component.")] [FormerlySerializedAs("addColliders")]
         public bool Colliders = false;
 
         [Tooltip("Cut holes in the mesh for door frames and/or window frames. NOTE: This does not apply if border size is non-zero.")]
         public MRUKAnchor.SceneLabels CutHoles;
 
-        [Tooltip("Whether the effect mesh objects will cast a shadow.")]
-        [SerializeField]
+        [Tooltip("Whether the effect mesh objects will cast a shadow.")] [SerializeField]
         private bool castShadows = true;
 
-        [Tooltip("Hide the effect mesh.")]
-        [SerializeField]
+        [Tooltip("Hide the effect mesh.")] [SerializeField]
         private bool hideMesh = false;
 
 
         private MRUK.SceneTrackingSettings SceneTrackingSettings;
 
+        [HideInInspector] public int Layer = 0; // the layer to assign the effect objects to
 
-        [HideInInspector]
-        public int Layer = 0;
-
+        /// <summary>
+        /// Gets or sets a value indicating whether the effect mesh objects should cast shadows.
+        /// </summary>
+        /// <value>
+        /// <c>true</c> if effect mesh objects should cast shadows; otherwise, <c>false</c>.
+        /// </value>
         public bool CastShadow
         {
             get => castShadows;
@@ -76,6 +78,12 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the effect mesh objects should be hidden.
+        /// </summary>
+        /// <value>
+        /// <c>true</c> if effect mesh objects should be hidden; otherwise, <c>false</c>.
+        /// </value>
         public bool HideMesh
         {
             get => hideMesh;
@@ -86,6 +94,12 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether colliders for the effect mesh objects should be active.
+        /// </summary>
+        /// <value>
+        /// <c>true</c> if colliders for effect mesh objects should be active; otherwise, <c>false</c>.
+        /// </value>
         public bool ToggleColliders
         {
             get => Colliders;
@@ -96,6 +110,9 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Defines the modes for calculating texture coordinates along the U-axis for wall textures.
+        /// </summary>
         public enum WallTextureCoordinateModeU
         {
             METRIC, // The texture coordinates start at 0 and increase by 1 unit every meter.
@@ -106,6 +123,9 @@ namespace Meta.XR.MRUtilityKit
             STRETCH_SECTION, // The texture coordinates start at 0 and increase to 1 for each individual wall section.
         };
 
+        /// <summary>
+        /// Defines the modes for calculating texture coordinates along the V-axis for wall textures.
+        /// </summary>
         public enum WallTextureCoordinateModeV
         {
             METRIC, // The texture coordinates start at 0 and increase by 1 unit every meter.
@@ -113,27 +133,37 @@ namespace Meta.XR.MRUtilityKit
             STRETCH, // The texture coordinates range from 0 to 1.
         };
 
+        /// <summary>
+        /// Defines the modes for calculating texture coordinates for anchor surfaces
+        /// </summary>
         public enum AnchorTextureCoordinateMode
         {
             METRIC, // The texture coordinates start at 0 and increase by 1 unit every meter.
             STRETCH, // The texture coordinates range from 0 to 1 across the anchor surface.
         };
 
+        /// <summary>
+        /// Represents the texture coordinate modes for walls and anchors and defines how texture coordinates
+        /// are calculated for different surfaces based on specified modes.
+        /// </summary>
         [Serializable]
         public class TextureCoordinateModes
         {
-            [FormerlySerializedAs("U")]
-            public WallTextureCoordinateModeU WallU = WallTextureCoordinateModeU.METRIC;
+            // Specifies the texture coordinate mode for the U-axis of wall textures.
+            [FormerlySerializedAs("U")] public WallTextureCoordinateModeU WallU = WallTextureCoordinateModeU.METRIC;
 
-            [FormerlySerializedAs("V")]
-            public WallTextureCoordinateModeV WallV = WallTextureCoordinateModeV.METRIC;
+            // Specifies the texture coordinate mode for the V-axis of wall textures.
+            [FormerlySerializedAs("V")] public WallTextureCoordinateModeV WallV = WallTextureCoordinateModeV.METRIC;
 
+            // Specifies the texture coordinate mode for anchor surfaces.
             public AnchorTextureCoordinateMode AnchorUV = AnchorTextureCoordinateMode.METRIC;
         };
 
         [Tooltip("Can not exceed 8.")]
-        public TextureCoordinateModes[] textureCoordinateModes = new TextureCoordinateModes[1] { new TextureCoordinateModes() };
+        public TextureCoordinateModes[] textureCoordinateModes = new TextureCoordinateModes[1] { new() };
 
+        [Tooltip(
+            "Specifies the scene labels that determine which anchors representations are created by the effect mesh.")]
         [FormerlySerializedAs("_include")]
         public MRUKAnchor.SceneLabels Labels;
 
@@ -142,11 +172,18 @@ namespace Meta.XR.MRUtilityKit
         Dictionary<MRUKAnchor, EffectMeshObject> effectMeshObjects = new();
 
 
+        /// <summary>
+        /// Represents an object that holds the components necessary for an effect mesh.
+        /// Encapsulates the GameObject, Mesh, and Collider components used to create and manage effect meshes.
+        /// </summary>
         public class EffectMeshObject
         {
-            public GameObject effectMeshGO;
-            public Mesh mesh;
-            public Collider collider;
+            public GameObject effectMeshGO; //  The GameObject associated with the effect mesh
+
+            public Mesh
+                mesh; // The Mesh component of the effect mesh. This mesh is dynamically generated based on scene data
+
+            public Collider collider; // The Collider component associated with the effect mesh
         }
 
         private void Start()
@@ -258,10 +295,18 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     For 2 walls defined by 3 corner points, get the inset position from the inside corner.
-        ///     Inset Position is "border" meters away from the corner, and relative to point2
-        ///     It will always point to the "inside" of the room
+        /// Calculates the inset position offset for a corner defined by three points, ensuring the inset is towards the interior of the room.
         /// </summary>
+        /// <param name="point1">The first corner point of the wall.</param>
+        /// <param name="point2">The middle point at the corner where the inset is calculated.</param>
+        /// <param name="point3">The third corner point of the wall.</param>
+        /// <param name="border">The distance from the corner to the inset position.</param>
+        /// <returns>A Vector3 representing the offset from point2 to the inset position inside the room.</returns>
+        /// <remarks>
+        /// The method calculates the direction of the inset based on the vectors formed between the three points.
+        /// It adjusts the inset direction to ensure it points towards the inside of the room and normalizes the inset distance
+        /// to be consistent regardless of the angle between the walls.
+        /// </remarks>
         public Vector3 GetInsetPositionOffset(Vector2 point1, Vector2 point2, Vector2 point3, float border)
         {
             Vector2 vec1 = (point2 - point1).normalized;
@@ -287,7 +332,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Given a clockwise set of points (outer then inner), set up triangle indices accordingly
+        ///     Given a counter-clockwise set of points (outer then inner), set up triangle indices accordingly
         /// </summary>
         void CreateBorderPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, int pointsInLoop)
         {
@@ -307,12 +352,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Given a clockwise set of points, triangulate the interior
+        ///     Given a counter-clockwise set of points, triangulate the interior
         /// </summary>
         void CreateInteriorPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, List<Vector2> points)
         {
-            List<int> indices = Triangulator.TriangulatePoints(points);
-            int capTriCount = indices.Count / 3;
+            Triangulator.TriangulatePoints(points, null, out var vertices, out var indices);
+            int capTriCount = indices.Length / 3;
             for (int j = 0; j < capTriCount; j++)
             {
                 int id0 = indices[j * 3];
@@ -454,6 +499,12 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Toggles the shadow casting behavior of effect mesh objects based on the specified label filter.
+        /// </summary>
+        /// <param name="shouldCast">Determines whether shadows should be cast by the effect mesh objects.</param>
+        /// <param name="label">A filter that specifies which effect mesh objects should have their shadow casting toggled.
+        /// The default is a new instance of LabelFilter, which includes all labels.</param>
         public void ToggleShadowCasting(bool shouldCast, LabelFilter label = new LabelFilter())
         {
             foreach (var kv in effectMeshObjects)
@@ -704,6 +755,12 @@ namespace Meta.XR.MRUtilityKit
             return randomWalls[thisID];
         }
 
+        /// <summary>
+        /// Creates an effect mesh for a specified anchor using the default border size.
+        /// </summary>
+        /// <param name="anchorInfo">The anchor information used to create the effect mesh.</param>
+        /// <returns>An instance of <see cref="EffectMeshObject"/> representing the created effect mesh
+        /// or null if the mesh could not be created.</returns>
         public EffectMeshObject CreateEffectMesh(MRUKAnchor anchorInfo)
         {
             return CreateEffectMesh(anchorInfo, BorderSize);
@@ -1070,7 +1127,7 @@ namespace Meta.XR.MRUtilityKit
 
             bool createBorder = border > 0.0f;
 
-            List<List<Vector2>> holes = new();
+            List<List<Vector2>> holes = null;
 
             Rect wallRect = anchorInfo.PlaneRect.Value;
 
@@ -1100,14 +1157,16 @@ namespace Meta.XR.MRUtilityKit
                             childOutline.Add(child.PlaneBoundary2D[i] + relativePos);
                         }
 
+                        holes ??= new List<List<Vector2>>();
                         holes.Add(childOutline);
                     }
                 }
             }
 
-            var outline = Triangulator.CreateOutline(anchorInfo.PlaneBoundary2D, holes);
+            Triangulator.TriangulatePoints(anchorInfo.PlaneBoundary2D, holes, out var vertices, out var triangles);
 
-            int totalVertices = outline.vertices.Count;
+            int totalVertices = vertices.Length;
+
             if (createBorder)
             {
                 totalVertices += 4;
@@ -1116,6 +1175,12 @@ namespace Meta.XR.MRUtilityKit
             int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
 
             Vector3[] MeshVertices = new Vector3[totalVertices];
+
+            for (int i = 0; i < vertices.Length; ++i)
+            {
+                MeshVertices[i] = vertices[i];
+            }
+
             Vector2[][] MeshUVs = new Vector2[UVChannelCount][];
             for (int x = 0; x < UVChannelCount; x++)
             {
@@ -1138,9 +1203,9 @@ namespace Meta.XR.MRUtilityKit
 
             var wallCenter = wallRect.center;
 
-            for (int j = 0; j < outline.vertices.Count; j++)
+            for (int j = 0; j < vertices.Length; j++)
             {
-                var vert = outline.vertices[j];
+                var vert = MeshVertices[j];
 
                 float u = vert.x - wallRect.xMin;
                 float v = vert.y - wallRect.yMin;
@@ -1231,8 +1296,7 @@ namespace Meta.XR.MRUtilityKit
             }
             else
             {
-                var triangles = Triangulator.TriangulateMesh(outline);
-                MeshTriangles = triangles.ToArray();
+                MeshTriangles = triangles;
             }
 
             newMesh.Clear();
@@ -1351,6 +1415,10 @@ namespace Meta.XR.MRUtilityKit
             effectMeshObjects.Add(globalMeshAnchor, effectMeshObject);
         }
 
+        /// <summary>
+        /// Utility function that sets the parent transform for all effect mesh objects managed by this class.
+        /// </summary>
+        /// <param name="newParent">The new parent transform to which all effect mesh objects will be attached.</param>
         public void SetEffectObjectsParent(Transform newParent)
         {
             foreach (var kv in effectMeshObjects)

@@ -64,6 +64,9 @@ namespace Meta.XR.MRUtilityKit
     [ExecuteInEditMode]
     public class GridSliceResizer : MonoBehaviour
     {
+        /// <summary>
+        /// Defines the method of scaling to be applied to different sections of the mesh.
+        /// </summary>
         public enum Method
         {
             SLICE,
@@ -78,7 +81,7 @@ namespace Meta.XR.MRUtilityKit
         ///     as a doorknob. By keeping the center vertices in place, you can avoid unwanted stretching effects,
         ///     resulting in a more visually appealing outcome.
         ///     However, it's important to note that for a convincing visual effect, the texture applied to the object
-        ///     should also not stretch. If you encounter issues with texture stretching, consider adding an additional loop cut.
+        ///     should also not stretch. If you encounter issues with texture stretching, consider adding a loop cut.
         ///     This can help maintain the texture's proportions and prevent it from distorting.
         /// </summary>
         [Flags]
@@ -89,23 +92,53 @@ namespace Meta.XR.MRUtilityKit
             Z = 1 << 2
         }
 
+
+        [Tooltip(
+            "Represents the offset from the pivot point of the mesh. This offset is used to adjust the origin of scaling operations.")]
         public Vector3 PivotOffset;
 
+        [Tooltip("Specifies the proportion of the mesh along the positive X-axis that is protected from scaling.")]
+
         [Space(15)] public Method ScalingX;
+
+        [Tooltip("Specifies the proportion of the mesh along the negative X-axis that is protected from scaling.")]
         [Range(0, 1f)] public float BorderXNegative;
+
+
+        [Tooltip("Specifies the proportion of the mesh along the positive X-axis that is protected from scaling.")]
         [Range(0, 1f)] public float BorderXPositive;
 
+        [Tooltip(" Defines the scaling method to be applied along the Y-axis of the mesh.")]
         [Space(15)] public Method ScalingY;
+
+        [Tooltip("Specifies the proportion of the mesh along the negative Y-axis that is protected from scaling.")]
         [Range(0, 1f)] public float BorderYNegative;
+
+        [Tooltip("Specifies the proportion of the mesh along the positive Y-axis that is protected from scaling.")]
         [Range(0, 1f)] public float BorderYPositive;
 
+        [Tooltip("Defines the scaling method to be applied along the Z-axis of the mesh.")]
         [Space(15)] public Method ScalingZ;
+
+        [Tooltip("Specifies the proportion of the mesh along the negative Z-axis that is protected from scaling.")]
         [Range(0, 1f)] public float BorderZNegative;
+
+        [Tooltip("Specifies the proportion of the mesh along the positive Z-axis that is protected from scaling.")]
         [Range(0, 1f)] public float BorderZPositive;
 
+        [Tooltip("Specifies which axes should allow the center part of the object to stretch." +
+                 "This setting is used to control the stretching behavior of the central section of the mesh" +
+                 " allowing for selective stretching along specified axes.")]
         public StretchCenterAxis StretchCenter = 0;
 
+        [Tooltip(
+            "Indicates whether the resizer should update the mesh in play mode." +
+            "When set to true, the mesh will continue to be updated based on the scaling settings during runtime." +
+            "This can be useful for dynamic scaling effects but may impact performance if used excessively.")]
         public bool UpdateInPlayMode = true;
+
+        [Tooltip(
+            "The original mesh before any modifications. This mesh is used as the baseline for all scaling operations")]
         public Mesh OriginalMesh;
 
         private readonly Color[] _axisGizmosColors =

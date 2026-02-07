@@ -26,15 +26,27 @@ using UnityEngine.Events;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Manages the creation and updating of a <see cref="SpaceMap"/> using GPU resources. This class is designed to handle
+    /// dynamic environments, providing real-time updates to the spatial map.
+    /// </summary>
     public class SpaceMapGPU : MonoBehaviour
     {
-        [field: SerializeField] public UnityEvent SpaceMapCreatedEvent
+        /// <summary>
+        /// Event triggered when the space map is initially created
+        /// </summary>
+        [field: SerializeField]
+        public UnityEvent SpaceMapCreatedEvent
         {
             get;
             private set;
         } = new();
 
-        [field: SerializeField] public UnityEvent SpaceMapUpdatedEvent
+        /// <summary>
+        /// Event triggered when the space map is updated.
+        /// </summary>
+        [field: SerializeField]
+        public UnityEvent SpaceMapUpdatedEvent
         {
             get;
             private set;
@@ -135,6 +147,13 @@ namespace Meta.XR.MRUtilityKit
             SourceID = Shader.PropertyToID("Source"),
             ResultID = Shader.PropertyToID("Result");
 
+        /// <summary>
+        /// Initiates the space mapping process based on the specified room filter. This method sets up the necessary components
+        /// and configurations to generate the space map, including updating textures, initializing effect meshes, setting up the capture camera,
+        /// and applying materials.
+        /// </summary>
+        /// <param name="roomFilter">The <see cref="MRUK.RoomFilter"/> that determines which rooms are included in the space map,
+        /// influencing how the space map is generated.</param>
         public async void StartSpaceMap(MRUK.RoomFilter roomFilter)
         {
             _isDirty = true;
@@ -311,9 +330,11 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Color clamps to edge color if worldPosition is off-grid.
-        ///     getBilinear blends the color between pixels.
+        /// Color clamps to edge color if worldPosition is off-grid.
+        /// getBilinear blends the color between pixels.
         /// </summary>
+        /// <param name="worldPosition">The world position to sample the color from.</param>
+        /// <returns>The color at the specified world position. Returns black if the capture camera is not initialized.</returns>
         public Color GetColorAtPosition(Vector3 worldPosition)
         {
             if (_captureCamera == null)

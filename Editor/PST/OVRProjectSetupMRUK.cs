@@ -29,6 +29,8 @@ namespace Meta.XR.MRUtilityKit.Editor
     {
         static OVRProjectSetupMRUK()
         {
+            // Add components that depend on DepthAPI to PST
+
             // Scene requirement support
             OVRProjectSetup.AddTask(
                 level: OVRProjectSetup.TaskLevel.Required,

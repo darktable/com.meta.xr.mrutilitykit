@@ -24,6 +24,10 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Draws a visual representation of the scene boundaries similarly to what the guardian does at a system level
+    /// to indicate the limit of the physical space defined by the user.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class RoomGuardian : MonoBehaviour
     {

@@ -25,6 +25,10 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Space Map generates a 2D top-down texture of the room’s layout.
+    /// Parameters are exposed for complete RGBA control of the texture creation.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SpaceMap : MonoBehaviour
     {
@@ -36,18 +40,19 @@ namespace Meta.XR.MRUtilityKit
         // The trade-off for this simplicity is that the texture must have certain import settings, shown here
         // NOTE: You shouldn't be using a large texture size here for performance reasons.
         // Performance will be improved in future versions.
-        [Tooltip("Texture requirements: Read/Write enabled, RGBA 32 bit format. Texture suggestions: Wrap Mode = Clamped, size small (<128x128)")]
+        [Tooltip(
+            "Texture requirements: Read/Write enabled, RGBA 32 bit format. Texture suggestions: Wrap Mode = Clamped, size small (<128x128)")]
         public Texture2D TextureMap;
 
         Bounds MapBounds = new Bounds();
 
         /// <summary>
-        ///     The center of the texture. Note that Offset.y aligns with Unity's Z.
+        /// The center of the texture. Note that Offset.y aligns with Unity's Z.
         /// </summary>
         public Vector2 Offset => new Vector2(MapBounds.center.x, MapBounds.center.z);
 
         /// <summary>
-        ///     The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
+        /// The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
         /// </summary>
         public Vector2 Scale => new Vector2(
             Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2,
@@ -56,15 +61,19 @@ namespace Meta.XR.MRUtilityKit
         Color[,] Pixels;
         int PixelDimensions = 128;
 
-        public Gradient MapGradient = new Gradient();
+        [Tooltip("The gradient of the generated map.")]
+        public Gradient MapGradient = new();
 
-        [Tooltip("How far inside the room the left end of the Texture Gradient should appear. 0 is at the surface, negative is inside the room.")]
+        [Tooltip(
+            "How far inside the room the left end of the Texture Gradient should appear. 0 is at the surface, negative is inside the room.")]
         public float InnerBorder = -0.5f;
 
-        [Tooltip("How far outside the room the right end of the Texture Gradient should appear. 0 is at the surface, positive is outside the room.")]
+        [Tooltip(
+            "How far outside the room the right end of the Texture Gradient should appear. 0 is at the surface, positive is outside the room.")]
         public float OuterBorder = 0.0f;
 
-        [Tooltip("How much the texture map should extend from the room bounds, in meters. Should ideally be greater than or equal to outerPosition.")]
+        [Tooltip(
+            "How much the texture map should extend from the room bounds, in meters. Should ideally be greater than or equal to outerPosition.")]
         public float MapBorder = 0.0f;
 
         const string MATERIAL_PROPERTY_NAME = "_SpaceMap";
@@ -90,6 +99,11 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Calculates the space map for the specified room or all rooms if no room is specified.
+        /// Initializes map values, starts the pixel calculation process, and updates global shader properties.
+        /// </summary>
+        /// <param name="room">The room to calculate the map for. If null, calculates for all rooms.</param>
         public void CalculateMap(MRUKRoom room = null)
         {
             if (TextureMap == null)
@@ -132,9 +146,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     A surface-relative value of how far a position is from all SceneAPI surfaces
-        ///     negative values are behind the surface i.e. outside of the room or inside a volume
+        ///  A surface-relative value of how far a position is from all SceneAPI surfaces
+        ///  negative values are behind the surface i.e. outside of the room or inside a volume
         /// </summary>
+        /// <param name="room">The room to check the surface distance in.</param>
+        /// <param name="worldPosition">The world position to check.</param>
+        /// <returns>The distance to the nearest surface.</returns>
         public float GetSurfaceDistance(MRUKRoom room, Vector3 worldPosition)
         {
             float closestDist = Mathf.Infinity;
@@ -188,6 +205,9 @@ namespace Meta.XR.MRUtilityKit
             yield return null;
         }
 
+        // <summary>
+        /// Resets the pixel colors of the space map to black, effectively clearing any previously calculated data.
+        /// </summary>
         public void ResetFreespace()
         {
             for (int x = 0; x < PixelDimensions; x++)
@@ -200,9 +220,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Color clamps to edge color if worldPosition is off-grid.
-        ///     getBilinear blends the color between pixels.
+        /// Color clamps to edge color if worldPosition is off-grid.
+        /// getBilinear blends the color between pixels.
         /// </summary>
+        /// <param name="worldPosition">The world position to get the color for.</param>
+        /// <param name="getBilinear">If true, blends the color between pixels. If false, clamps to the nearest pixel color.</param>
+        /// <returns>The color at the specified position.</returns>
         public Color GetColorAtPosition(Vector3 worldPosition, bool getBilinear = true)
         {
             // GetPixelBilinear requires UV coordinates (0...1)

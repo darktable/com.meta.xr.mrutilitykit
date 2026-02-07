@@ -4,7 +4,8 @@
     "references": [
         "Oculus.VR",
         "Unity.AI.Navigation",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Meta.XR.EnvironmentDepth"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

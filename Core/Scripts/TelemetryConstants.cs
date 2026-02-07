@@ -18,6 +18,8 @@
  * limitations under the License.
  */
 
+/// @cond
+
 namespace Meta.XR.MRUtilityKit
 {
     public static class TelemetryConstants
@@ -44,3 +46,4 @@ namespace Meta.XR.MRUtilityKit
         }
     }
 }
+/// @endcond

@@ -26,9 +26,15 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Represents an anchor within MR Utility Kit, providing spatial and semantic information.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class MRUKAnchor : MonoBehaviour
     {
+        /// <summary>
+        /// Flags enumeration for scene labels, indicating the type of object represented by an anchor and its classification.
+        /// </summary>
         [Flags]
         public enum SceneLabels
         {
@@ -54,33 +60,65 @@ namespace Meta.XR.MRUtilityKit
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public List<string> AnchorLabels => Utilities.SceneLabelsEnumToList(Label);
 
+        /// <summary>
+        /// The scene label categorizing the anchor.
+        /// </summary>
         public SceneLabels Label
         {
             get;
             internal set;
         }
 
+        /// <summary>
+        /// Optional rectangular bounds on a plane associated with the anchor.
+        /// </summary>
         public Rect? PlaneRect;
+
+        /// <summary>
+        /// Optional volumetric bounds associated with the anchor.
+        /// </summary>
         public Bounds? VolumeBounds;
+
+        /// <summary>
+        /// A list of local-space points defining the boundary of the plane associated with the anchor.
+        /// </summary>
         public List<Vector2> PlaneBoundary2D;
 
-        // Link to the tracked object
+        /// <summary>
+        /// Reference to the scene anchor associated with this anchor.
+        /// </summary>
         public OVRAnchor Anchor = OVRAnchor.Null;
 
-        // Link to the parent room object. Gets set on construction.
+        /// <summary>
+        /// Reference to the parent room object. This is set during construction.
+        /// </summary>
         public MRUKRoom Room;
 
-        // these are populated via MRUKRoom.CalculateHierarchyReferences
-        // (shouldn't be manually set in Inspector)
+        /// <summary>
+        /// References to child anchors, populated via <see cref="MRUKRoom.CalculateHierarchyReferences"/>.
+        /// </summary>
+        [NonSerialized]
         public MRUKAnchor ParentAnchor;
+        /// <summary>
+        /// A list of child anchors associated with this anchor.
+        /// </summary>
         public List<MRUKAnchor> ChildAnchors = new List<MRUKAnchor>();
 
         [Obsolete("Use PlaneRect.HasValue instead.")]
-        public bool HasPlane => PlaneRect != null;
+        public bool HasPlane => PlaneRect != null; //!< Use PlaneRect.HasValue instead.
 
         [Obsolete("Use VolumeBounds.HasValue instead.")]
-        public bool HasVolume => VolumeBounds != null;
+        public bool HasVolume => VolumeBounds != null; //!< Use VolumeBounds.HasValue instead.
 
+        /// <summary>
+        ///     An anchor is considered local if it was loaded from device. If it was loaded from some other source,
+        ///     e.g. JSON or Prefab then it is not local.
+        /// </summary>
+        public bool IsLocal => Anchor.Handle != 0;
+
+        /// <summary>
+        /// The triangle mesh which covers the entire space, associated to the global mesh anchor.
+        /// </summary>
         public Mesh GlobalMesh
         {
             get
@@ -99,12 +137,25 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        ///     We prefer to avoid colliders and Physics.Raycast because: <br />
-        ///     1. It requires tags/layers to filter out Scene API object hits from general raycasts. This can be intrusive to a dev's pipeline by altering their project settings <br />
-        ///     2. It requires specific Plane & Volume prefabs that MRUK instantiates with colliders as children <br />
-        ///     3. It seems like overkill, since we already "know" where all the Scene API primitives are; no need to raycast everywhere to find them <br />
-        ///     Instead, we use Plane.Raycast and other methods to see if the ray has hit the surface of the object <br />
+        /// Performs a raycast against the anchor's plane and volume to determine if and where a ray intersects.
+        /// This method avoids using colliders and Physics.Raycast for several reasons:
+        /// <list type="bullet">
+        /// <item>
+        /// <description>It requires tags/layers to filter out Scene API object hits from general raycasts, which can be intrusive to a developer's pipeline by altering their project settings.</description>
+        /// </item>
+        /// <item>
+        /// <description>It necessitates specific Plane and Volume prefabs that MRUK instantiates with colliders as children.</description>
+        /// </item>
+        /// <item>
+        /// <description>Using Physics.Raycast is considered overkill since the locations of all Scene API primitives are already known; thus, there's no need to raycast everywhere to find them.</description>
+        /// </item>
+        /// </list>
+        /// Instead, this method uses Plane.Raycast and other custom methods to determine if the ray has hit the surface of the object.
         /// </summary>
+        /// <param name="ray">The ray to test for intersections.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for intersections.</param>
+        /// <param name="hitInfo">Output parameter that will contain the hit information if an intersection occurs.</param>
+        /// <returns>True if the ray hits either the plane or the volume, false otherwise.</returns>
         public bool Raycast(Ray ray, float maxDist, out RaycastHit hitInfo)
         {
             var localOrigin = transform.InverseTransformPoint(ray.origin);
@@ -143,6 +194,11 @@ namespace Meta.XR.MRUtilityKit
             return false;
         }
 
+        /// <summary>
+        /// Determines if a given position is within the boundary of the plane associated with the anchor.
+        /// </summary>
+        /// <param name="position">The local space point to check.</param>
+        /// <returns>True if the position is within the boundary, false otherwise.</returns>
         public bool IsPositionInBoundary(Vector2 position)
         {
             if (PlaneBoundary2D == null || PlaneBoundary2D.Count == 0)
@@ -153,6 +209,10 @@ namespace Meta.XR.MRUtilityKit
             return Utilities.IsPositionInPolygon(position, PlaneBoundary2D);
         }
 
+        /// <summary>
+        /// Adds a reference to a child anchor.
+        /// </summary>
+        /// <param name="childObj">The child anchor to add.</param>
         public void AddChildReference(MRUKAnchor childObj)
         {
             if (childObj != null)
@@ -161,17 +221,38 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Clears all references to child anchors.
+        /// </summary>
         public void ClearChildReferences()
         {
             ChildAnchors.Clear();
         }
 
+        /// <summary>
+        /// Calculates the distance from a specified position to the closest surface of the anchor.
+        /// </summary>
+        /// <param name="position">The position from which to measure.</param>
+        /// <returns>The distance to the closest surface.</returns>
         public float GetDistanceToSurface(Vector3 position) =>
             GetClosestSurfacePosition(position, out _);
 
+        /// <summary>
+        /// Finds the closest surface position from a given point and returns the distance to it.
+        /// </summary>
+        /// <param name="testPosition">The position to test.</param>
+        /// <param name="closestPosition">The closest position on the surface.</param>
+        /// <returns>The distance to the closest surface position.</returns>
         public float GetClosestSurfacePosition(Vector3 testPosition, out Vector3 closestPosition) =>
             GetClosestSurfacePosition(testPosition, out closestPosition, out _);
 
+        /// <summary>
+        /// Finds the closest surface position from a given point, providing the position, normal at that position, and the distance.
+        /// </summary>
+        /// <param name="testPosition">The position to test.</param>
+        /// <param name="closestPosition">The closest position on the surface.</param>
+        /// <param name="normal">The normal at the closest position.</param>
+        /// <returns>The distance to the closest surface position.</returns>
         public float GetClosestSurfacePosition(Vector3 testPosition, out Vector3 closestPosition, out Vector3 normal)
         {
             float candidateDistance = Mathf.Infinity;
@@ -228,6 +309,10 @@ namespace Meta.XR.MRUtilityKit
             return Mathf.Abs(candidateDistance);
         }
 
+        /// <summary>
+        /// Gets the center position of the anchor. If volume bounds are defined, it returns the center of the volume; otherwise, it returns the anchor's position.
+        /// </summary>
+        /// <returns>The center position of the anchor.</returns>
         public Vector3 GetAnchorCenter()
         {
             if (VolumeBounds.HasValue)
@@ -239,9 +324,10 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     A convenience function to get a transform-friendly Vector3 size of an anchor.
-        ///     If you'd like the size of the quad or volume instead, use <seealso cref="MRUKAnchor.PlaneRect" /> or <seealso cref="MRUKAnchor.VolumeBounds" />
+        /// A convenience function to get a transform-friendly Vector3 size of an anchor.
+        /// If you'd like the size of the quad or volume instead, use <seealso cref="MRUKAnchor.PlaneRect" /> or <seealso cref="MRUKAnchor.VolumeBounds" />
         /// </summary>
+        /// <returns>The size of the anchor</returns>
         [Obsolete("Use PlaneRect and VolumeBounds properties instead")]
         public Vector3 GetAnchorSize()
         {
@@ -361,6 +447,10 @@ namespace Meta.XR.MRUtilityKit
             return false;
         }
 
+        /// <summary>
+        /// Retrieves the centers of the bounding box faces if a volume is defined, or the center of the plane if only a plane is defined.
+        /// </summary>
+        /// <returns>An array of Vector3 representing the centers of the bounding box faces or the plane center.</returns>
         public Vector3[] GetBoundsFaceCenters()
         {
             if (VolumeBounds.HasValue)
@@ -390,8 +480,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Test if a position is inside of this volume (couch, desk, etc.)
+        /// Tests if a given world position is inside the volume of the anchor, considering an optional distance buffer and whether to test vertical bounds.
         /// </summary>
+        /// <param name="worldPosition">The world position to test.</param>
+        /// <param name="testVerticalBounds">Whether to include vertical bounds in the test.</param>
+        /// <param name="distanceBuffer">An optional buffer distance to expand the volume for the test.</param>
+        /// <returns>True if the position is inside the volume, false otherwise.</returns>
         public bool IsPositionInVolume(Vector3 worldPosition, bool testVerticalBounds, float distanceBuffer = 0.0f)
         {
             if (!VolumeBounds.HasValue)
@@ -413,6 +507,10 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Loads a mesh representing the global mesh associated with the anchor, if available.
+        /// </summary>
+        /// <returns>A Mesh object containing the triangles of the global mesh, or null if not available.</returns>
         public Mesh LoadGlobalMeshTriangles()
         {
             if (!HasAnyLabel(SceneLabels.GLOBAL_MESH))
@@ -444,15 +542,29 @@ namespace Meta.XR.MRUtilityKit
             return trimesh;
         }
 
+        /// <summary>
+        /// Checks if the current object has a specific label. This method is obsolete.
+        /// String-based labels are deprecated as of version 65. Please use the equivalent enum-based method.
+        /// </summary>
+        /// <param name="label">The label to check, provided as a string.</param>
+        /// <returns>True if the object has the specified label, false otherwise.</returns>
         [Obsolete(OVRSemanticLabels.DeprecationMessage)]
         public bool HasLabel(string label) => HasAnyLabel(Utilities.StringLabelToEnum(label));
 
+        /// <summary>
+        /// Checks if the current object has any of the specified labels. This method is obsolete.
+        /// String-based labels are deprecated as of version 65. Please use the equivalent enum-based method.
+        /// </summary>
+        /// <param name="labels">A list of labels to check, provided as strings.</param>
+        /// <returns>True if the object has any of the specified labels, false otherwise.</returns>
         [Obsolete(OVRSemanticLabels.DeprecationMessage)]
         public bool HasAnyLabel(List<string> labels) => HasAnyLabel(Utilities.StringLabelsToEnum(labels));
 
         /// <summary>
-        ///     See if an anchor contains any of the SceneLabels passed as a parameter.
+        /// Checks if the anchor has any of the specified scene labels.
         /// </summary>
+        /// <param name="labelFlags">The scene labels to check against the anchor's labels.</param>
+        /// <returns>True if the anchor has any of the specified labels, false otherwise.</returns>
         public bool HasAnyLabel(SceneLabels labelFlags) => (Label & labelFlags) != 0;
 
         internal void UpdateAnchor(Data.AnchorData newData)
@@ -464,12 +576,17 @@ namespace Meta.XR.MRUtilityKit
             Label = Utilities.StringLabelsToEnum(newData.SemanticClassifications);
         }
 
+        /// <summary>
+        /// Retrieves the labels associated with this object as an enum. This method is obsolete.
+        /// Use the 'Label' property directly instead.
+        /// </summary>
+        /// <returns>The labels as an enum of type SceneLabels.</returns>
         /// <see cref="OVRSemanticLabels.DeprecationMessage" />
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public SceneLabels GetLabelsAsEnum() => Label;
 
         /// <summary>
-        ///     Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
+        /// Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
         /// </summary>
         /// <param name="anchorData">The Data.AnchorData object to compare with.</param>
         /// <returns>True if both objects are equal, false otherwise.</returns>

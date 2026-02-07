@@ -33,6 +33,9 @@ namespace Meta.XR.MRUtilityKit
     [Feature(Feature.Scene)]
     public static class SerializationHelpers
     {
+        /// <summary>
+        /// Defines the coordinate systems that can be used for serialization.
+        /// </summary>
         [Serializable, JsonConverter(typeof(StringEnumConverter))]
         public enum CoordinateSystem
         {
@@ -222,7 +225,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        public const float UnrealWorldToMeters = 100f;
+        public const float UnrealWorldToMeters = 100f; // The conversion factor from Unreal Engine units to Unity.
 
         private static List<JsonConverter> _converters = new()
         {

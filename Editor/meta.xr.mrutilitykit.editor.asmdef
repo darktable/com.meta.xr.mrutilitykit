@@ -6,7 +6,8 @@
         "Oculus.VR",
         "meta.xr.mrutilitykit",
         "UnityEditor.TestRunner",
-        "Meta.XR.BuildingBlocks.Editor"
+        "Meta.XR.BuildingBlocks.Editor",
+        "Meta.XR.EnvironmentDepth.Editor"
     ],
     "includePlatforms": [
         "Editor"

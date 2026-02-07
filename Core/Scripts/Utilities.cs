@@ -25,13 +25,21 @@ using Meta.XR.MRUtilityKit.Extensions;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Provides utility functions for various operations within the MR Utility Kit.
+    /// </summary>
     public static class Utilities
     {
-        static Dictionary<GameObject, Bounds?> prefabBoundsCache = new();
+        private static Dictionary<GameObject, Bounds?> prefabBoundsCache = new();
 
-        public static readonly float Sqrt2 = Mathf.Sqrt(2f);
-        public static readonly float InvSqrt2 = 1f / Mathf.Sqrt(2f);
+        public static readonly float Sqrt2 = Mathf.Sqrt(2f);  // Square root of 2, commonly used in mathematical calculations.
+        public static readonly float InvSqrt2 = 1f / Mathf.Sqrt(2f); // Inverse of the square root of 2.
 
+        /// <summary>
+        /// Retrieves the bounds of a prefab, calculating them if not already cached.
+        /// </summary>
+        /// <param name="prefab">The prefab GameObject to calculate bounds for.</param>
+        /// <returns>The bounds of the prefab, or null if no Renderer is found.</returns>
         public static Bounds? GetPrefabBounds(GameObject prefab)
         {
             if (prefabBoundsCache.TryGetValue(prefab, out Bounds? cachedBounds))
@@ -78,7 +86,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Gets the name of an anchor based on its semantic classification.
+        /// Gets the name of an anchor based on its semantic classification.
         /// </summary>
         /// <param name="anchorData">The Data.AnchorData object representing the anchor.</param>
         /// <returns>The name of the anchor, or "UNDEFINED_ANCHOR" if no semantic classification is available.</returns>
@@ -142,8 +150,13 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Replacement for LINQ
+        /// Compares two lists for equality, checking if they contain the same elements in the same order.
+        /// This method replaces the LINQ dependency.
         /// </summary>
+        /// <typeparam name="T">The type of elements in the lists.</typeparam>
+        /// <param name="list1">The first list to compare.</param>
+        /// <param name="list2">The second list to compare.</param>
+        /// <returns>True if the lists are equal, false otherwise.</returns>
         public static bool SequenceEqual<T>(this List<T> list1, List<T> list2)
         {
             if (list1 == null && list2 == null)
@@ -177,6 +190,12 @@ namespace Meta.XR.MRUtilityKit
             return true;
         }
 
+        /// <summary>
+        /// Checks if a given position is inside a polygon defined by a list of vertices.
+        /// </summary>
+        /// <param name="position">The position to check.</param>
+        /// <param name="polygon">The list of vertices defining the polygon.</param>
+        /// <returns>True if the position is inside the polygon, false otherwise.</returns>
         public static bool IsPositionInPolygon(Vector2 position, List<Vector2> polygon)
         {
             int lineCrosses = 0;

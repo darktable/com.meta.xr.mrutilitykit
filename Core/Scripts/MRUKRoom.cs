@@ -31,13 +31,25 @@ using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Represents a room within MR Utility Kit, containing various anchors and providing a set of utility functions.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class MRUKRoom : MonoBehaviour
     {
+        /// <summary>
+        /// The primary anchor associated with the room.
+        /// </summary>
         public OVRAnchor Anchor = OVRAnchor.Null;
 
         /// <summary>
-        ///     Contains all the scene anchors in the room.
+        ///     A room is considered local if it was loaded from device. If it was loaded from some other source,
+        ///     e.g. JSON or Prefab then it is not local.
+        /// </summary>
+        public bool IsLocal => Anchor.Handle != 0;
+
+        /// <summary>
+        /// Contains all the scene anchors in the room.
         /// </summary>
         public List<MRUKAnchor> Anchors
         {
@@ -45,7 +57,7 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
         /// <summary>
-        ///     Contains all the wall anchors in the room.
+        /// Contains all the wall anchors in the room.
         /// </summary>
         public List<MRUKAnchor> WallAnchors
         {
@@ -53,7 +65,7 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
         /// <summary>
-        ///     The floor anchor in the room.
+        /// The floor anchor in the room.
         /// </summary>
         public MRUKAnchor FloorAnchor
         {
@@ -62,7 +74,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     The ceiling anchor in the room.
+        /// The ceiling anchor in the room.
         /// </summary>
         public MRUKAnchor CeilingAnchor
         {
@@ -71,7 +83,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     The global mesh anchor in the room.
+        /// The global mesh anchor in the room.
         /// </summary>
         public MRUKAnchor GlobalMeshAnchor
         {
@@ -80,16 +92,20 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     A list of seat poses in the room:
-        ///     suggested placements for remote avatars, that exist only on COUCH objects
-        ///     couchPoses are in couchAnchor space
+        /// A list of seat poses in the room:
+        /// suggested placements for remote avatars, that exist only on COUCH objects
+        /// couchPoses are in couchAnchor space
         /// </summary>
         public struct CouchSeat
         {
-            public MRUKAnchor couchAnchor;
-            public List<Pose> couchPoses;
+            public MRUKAnchor couchAnchor; // The anchor associated with the couch. This anchor provides the spatial context for the seat poses.
+            public List<Pose> couchPoses; // A list of poses representing suggested placements for avatars or users on the couch. Each pose is relative to the couch anchor's space.
         };
 
+        /// <summary>
+        /// Contains a list of suggested seat placements within the room, specifically on couch objects.
+        /// Each seat pose is defined relative to the couch anchor's space.
+        /// </summary>
         public List<CouchSeat> SeatPoses
         {
             get;
@@ -221,6 +237,12 @@ namespace Meta.XR.MRUtilityKit
             AnchorRemovedEvent.RemoveListener(callback);
         }
 
+        /// <summary>
+        /// Updates the room's label and the GameObject's name based on the provided room data.
+        /// If a room label is available, it sets the GameObject's name to include the label.
+        /// Otherwise, it uses the room's anchor UUID for the GameObject's name.
+        /// </summary>
+        /// <param name="roomData">The data containing information about the room, including the label and anchor.</param>
         internal void UpdateRoomLabel(Data.RoomData roomData)
         {
             {
@@ -285,9 +307,10 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        ///     Returns all the Scene objects in the room. <br />
-        ///     Useful if you want to do your own calculations within the Mixed Reality Utility Kit framework.
+        /// Returns all the Scene objects (anchors) in the room.
+        /// Useful if you want to do your own calculations within the Mixed Reality Utility Kit framework.
         /// </summary>
+        /// <returns>A list of MRUKAnchor objects representing the anchors in the room.</returns>
         [Obsolete("Use Anchors property instead")]
         public List<MRUKAnchor> GetRoomAnchors()
         {
@@ -310,8 +333,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Get the floor anchor of this room
+        /// Retrieves the floor anchor of this room.
         /// </summary>
+        /// <returns>The floor anchor.</returns>
         [Obsolete("Use FloorAnchor property instead")]
         public MRUKAnchor GetFloorAnchor()
         {
@@ -319,8 +343,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Get the ceiling anchor of this room
+        /// Retrieves the ceiling anchor of this room.
         /// </summary>
+        /// <returns>The ceiling anchor.</returns>
         [Obsolete("Use CeilingAnchor property instead")]
         public MRUKAnchor GetCeilingAnchor()
         {
@@ -328,17 +353,18 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Get the global mesh anchor of this room
+        /// Retrieves the global mesh anchor of this room.
         /// </summary>
-        [Obsolete("Use GlobalMeshAnchor property instead")]
+        /// <returns>The global mesh anchor.</returns>stead")]
         public MRUKAnchor GetGlobalMeshAnchor()
         {
             return GlobalMeshAnchor;
         }
 
         /// <summary>
-        ///     Get the wall anchors of this room
+        /// Retrieves the list of wall anchors of this room.
         /// </summary>
+        /// <returns>A list of wall anchors.</returns>
         [Obsolete("Use WallAnchors property instead")]
         public List<MRUKAnchor> GetWallAnchors()
         {
@@ -408,8 +434,10 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Returns a clockwise (when viewed top-down) list of wall corner points, at floor level.
+        /// Retrieves a clockwise (when viewed top-down) list of wall corner points at floor level.
+        /// This method is useful for obtaining the geometric outline of a room based on its walls.
         /// </summary>
+        /// <returns>A list of Vector3 points representing the corners of the room's walls at floor level, arranged in a clockwise order.</returns>
         public List<Vector3> GetRoomOutline()
         {
             CalculateRoomOutlineAndBounds();
@@ -418,10 +446,13 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     A Key Wall has two requirements: <br />
-        ///     It's the longest wall in the room, and more importantly, has NO other room points behind it. <br />
-        ///     With a Key Wall, an artist can craft a more "stage-like" environment, avoiding the obligation of procedural art. <br />
+        /// Identifies the key wall in the room. A key wall is the longest wall with no other room points behind it,
+        /// allowing for a more controlled artistic environment, akin to a stage. This method is useful for scenarios
+        /// where a clear, unobstructed view of one wall is necessary. Can be used to craft a "stage-like" environment.
         /// </summary>
+        /// <param name="wallScale">Outputs the scale of the key wall, if found.</param>
+        /// <param name="tolerance">A tolerance value to account for precision issues in determining if points are behind the wall.</param>
+        /// <returns>The anchor representing the key wall, or null if no suitable wall is found.</returns>
         public MRUKAnchor GetKeyWall(out Vector2 wallScale, float tolerance = 0.1f)
         {
             wallScale = Vector3.one;
@@ -470,6 +501,13 @@ namespace Meta.XR.MRUtilityKit
             return keyWall;
         }
 
+        /// <summary>
+        /// Sorts a list of wall anchors based on the width of their associated planes.
+        /// This method is useful for organizing walls in ascending order of their widths, which can be helpful
+        /// for operations that require processing walls from narrowest to widest or for selecting specific walls based on their size.
+        /// </summary>
+        /// <param name="walls">The list of wall anchors to sort.</param>
+        /// <returns>A new list of wall anchors sorted by the width of their planes.</returns>
         public static List<MRUKAnchor> SortWallsByWidth(List<MRUKAnchor> walls)
         {
             List<MRUKAnchor> sortedWalls = new List<MRUKAnchor>();
@@ -489,9 +527,15 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Cast a ray against ONLY Scene API objects, returning all results. <br />
-        ///     Use as a replacement for Physics.RaycastAll.
+        /// Casts a ray against ONLY Scene API objects, returning all results.
+        /// This method is used as a replacement for Physics.RaycastAll, specifically tailored to interact with Scene API objects.
         /// </summary>
+        /// <param name="ray">The ray to cast.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="labelFilter">The filter to apply to scene anchors to determine which ones should be considered.</param>
+        /// <param name="raycastHits">A list to store the RaycastHit results.</param>
+        /// <param name="anchorList">A list to store the MRUKAnchor objects hit by the ray.</param>
+        /// <returns>True if one or more objects were hit, false otherwise.</returns>
         public bool RaycastAll(Ray ray, float maxDist, LabelFilter labelFilter, List<RaycastHit> raycastHits, List<MRUKAnchor> anchorList)
         {
             RaycastHit outHit;
@@ -510,9 +554,15 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Cast a ray against ONLY Scene API objects, returning the closest result. <br />
-        ///     Use as a replacement for Physics.Raycast.
+        /// Casts a ray against ONLY Scene API objects, returning the closest result.
+        /// This method is used as a replacement for Physics.Raycast, specifically tailored to interact with Scene API objects.
         /// </summary>
+        /// <param name="ray">The ray to cast.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="labelFilter">The filter to apply to scene anchors to determine which ones should be considered.</param>
+        /// <param name="hit">The closest RaycastHit result, if any.</param>
+        /// <param name="anchor">The MRUKAnchor associated with the closest hit, if any.</param>
+        /// <returns>True if an object was hit, false otherwise.</returns>
         public bool Raycast(Ray ray, float maxDist, LabelFilter labelFilter, out RaycastHit hit, out MRUKAnchor anchor)
         {
             hit = new RaycastHit();
@@ -535,38 +585,70 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Cast a ray against ONLY Scene API objects, returning the closest result. <br />
-        ///     Use as a replacement for Physics.Raycast.
+        /// Casts a ray against ONLY Scene API objects, returning the closest result.
+        /// This method is used as a replacement for Physics.Raycast, without specifying a label filter.
         /// </summary>
+        /// <param name="ray">The ray to cast.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="hit">The closest RaycastHit result, if any.</param>
+        /// <param name="anchor">The MRUKAnchor associated with the closest hit, if any.</param>
+        /// <returns>True if an object was hit, false otherwise.</returns>
         public bool Raycast(Ray ray, float maxDist, out RaycastHit hit, out MRUKAnchor anchor)
         {
             return Raycast(ray, maxDist, new LabelFilter(), out hit, out anchor);
         }
 
         /// <summary>
-        ///     Cast a ray against ONLY Scene API objects, returning the closest result. <br />
-        ///     Use as a replacement for Physics.Raycast.
+        /// Casts a ray against ONLY Scene API objects, returning the closest result.
+        /// This method is used as a replacement for Physics.Raycast, allowing for a specified label filter but not returning the anchor.
         /// </summary>
+        /// <param name="ray">The ray to cast.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="labelFilter">The filter to apply to scene anchors to determine which ones should be considered.</param>
+        /// <param name="hit">The closest RaycastHit result, if any.</param>
+        /// <returns>True if an object was hit, false otherwise.</returns>
         public bool Raycast(Ray ray, float maxDist, LabelFilter labelFilter, out RaycastHit hit)
         {
             return Raycast(ray, maxDist, labelFilter, out hit, out var _);
         }
 
         /// <summary>
-        ///     Cast a ray against ONLY Scene API objects, returning the closest result. <br />
-        ///     Use as a replacement for Physics.Raycast.
+        /// Casts a ray against ONLY Scene API objects, returning the closest result.
+        /// This method is used as a replacement for Physics.Raycast, without specifying a label filter or returning the anchor.
         /// </summary>
+        /// <param name="ray">The ray to cast.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="hit">The closest RaycastHit result, if any.</param>
+        /// <returns>True if an object was hit, false otherwise.</returns>
         public bool Raycast(Ray ray, float maxDist, out RaycastHit hit)
         {
             return Raycast(ray, maxDist, new LabelFilter(), out hit, out var _);
         }
 
+
         /// <summary>
-        ///     Use this if you want a "suggested" transform from hitting a Scene anchor, i.e. how best to "place an app/widget" on a surface. <br />
-        ///     When hitting vertical surfaces; Y is world-up, Z is surface normal. <br />
-        ///     When hitting horizontal surfaces; Y is world-up, Z is best-guess at player-facing. <br />
-        ///     "best guess" = when on ceiling/floor, Z faces player; when on surface (desk/couch), Z faces closest edge to player
+        /// Calculates the best pose based on a raycast, considering specific label filters and positioning methods.
+        /// This method is useful for determining the optimal position and orientation for placing objects in a scene based on surface interactions.
+        /// i.e. how best to "place an app/widget" on a surface.
         /// </summary>
+        /// <remarks> <list type="bullet">
+        /// <item>
+        /// When hitting vertical surfaces; Y is world-up, Z is surface normal.
+        /// </item>
+        /// <item>
+        /// When hitting horizontal surfaces; Y is world-up, Z is best-guess at player-facing.
+        /// </item>
+        /// <item>
+        ///  "best guess" = when on ceiling/floor, Z faces player; when on surface (desk/couch), Z faces closest edge to player
+        /// </item>
+        /// </list></remarks>
+        /// <param name="ray">The ray to cast into the scene.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="labelFilter">The filter to apply to scene anchors to determine which ones should be considered.</param>
+        /// <param name="sceneAnchor">The scene anchor that the raycast hit, if any.</param>
+        /// <param name="surfaceNormal">The normal of the surface at the hit point.</param>
+        /// <param name="positioningMethod">The method to use for positioning the pose. Defaults to <see cref="MRUK.PositioningMethod.DEFAULT"/>.</param>
+        /// <returns>The best pose calculated from the raycast, or a default pose if no suitable surface is found.</returns>
         public Pose GetBestPoseFromRaycast(Ray ray, float maxDist, LabelFilter labelFilter, out MRUKAnchor sceneAnchor, out Vector3 surfaceNormal,
             MRUK.PositioningMethod positioningMethod = MRUK.PositioningMethod.DEFAULT)
         {
@@ -628,6 +710,16 @@ namespace Meta.XR.MRUtilityKit
             return bestPose;
         }
 
+        /// <summary>
+        /// Calculates the best pose based on a raycast, considering specific label filters and positioning methods.
+        /// This version of the method does not return the surface normal explicitly.
+        /// </summary>
+        /// <param name="ray">The ray to cast into the scene.</param>
+        /// <param name="maxDist">The maximum distance the ray should check for collisions.</param>
+        /// <param name="labelFilter">The filter to apply to scene anchors to determine which ones should be considered.</param>
+        /// <param name="sceneAnchor">The scene anchor that the raycast hit, if any.</param>
+        /// <param name="positioningMethod">The method to use for positioning the pose. Defaults to <see cref="MRUK.PositioningMethod.DEFAULT"/>.</param>
+        /// <returns>The best pose calculated from the raycast, or a default pose if no suitable surface is found.</returns>
         public Pose GetBestPoseFromRaycast(Ray ray, float maxDist, LabelFilter labelFilter, out MRUKAnchor sceneAnchor, MRUK.PositioningMethod positioningMethod = MRUK.PositioningMethod.DEFAULT)
         {
             Pose bestPose = GetBestPoseFromRaycast(ray, maxDist, labelFilter, out sceneAnchor, out Vector3 surfaceNormal, positioningMethod);
@@ -635,9 +727,13 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Test if a position is inside the floor outline of the walls. <br />
-        ///     Optionally, test floor/ceiling so the room isn't an "infinity column"
+        /// Tests if a given position is inside the floor outline of the room's walls. This method can optionally test the vertical bounds
+        /// to ensure the position is not outside the room's floor or ceiling, preventing the room from being treated as an "infinite column."
         /// </summary>
+        /// <param name="queryPosition">The world position to test.</param>
+        /// <param name="testVerticalBounds">If true, the method also checks if the position is within the vertical bounds of the room (floor and ceiling).
+        /// Defaults to true.</param>
+        /// <returns>True if the position is within the room's boundaries, false otherwise.</returns>
         public bool IsPositionInRoom(Vector3 queryPosition, bool testVerticalBounds = true)
         {
             //this is a fallback because the anchor can be deleted but this gets only updated once per frame
@@ -653,15 +749,17 @@ namespace Meta.XR.MRUtilityKit
             // to truly be a 3D test, also check the floor/ceiling
             if (testVerticalBounds)
             {
-                isInRoom &= (queryPosition.y <= GetRoomBounds().size.y && queryPosition.y >= 0);
+                var roomBounds = GetRoomBounds();
+                isInRoom &= (queryPosition.y <= roomBounds.max.y && queryPosition.y >= roomBounds.min.y);
             }
 
             return isInRoom;
         }
 
         /// <summary>
-        ///     Get a world-oriented bounding box of the room
+        /// Get a world-oriented bounding box of the room
         /// </summary>
+        /// <returns>The bounding box that encapsulates the entire room.</returns>
         public Bounds GetRoomBounds()
         {
             CalculateRoomOutlineAndBounds();
@@ -685,7 +783,8 @@ namespace Meta.XR.MRUtilityKit
 
             _prevRoomPose = new(transform.position, transform.rotation);
 
-            float roomHeight = CeilingAnchor.transform.position.y - FloorAnchor.transform.position.y;
+            float yMin = FloorAnchor.transform.position.y;
+            float yMax = CeilingAnchor.transform.position.y;
             float xMin = Mathf.Infinity;
             float xMax = Mathf.NegativeInfinity;
             float zMin = Mathf.Infinity;
@@ -704,15 +803,20 @@ namespace Meta.XR.MRUtilityKit
                 _corners.Add(pos);
             }
 
-            _roomBounds.center = new Vector3((xMax + xMin) * 0.5f, roomHeight * 0.5f, (zMax + zMin) * 0.5f);
-            _roomBounds.size = new Vector3(xMax - xMin, roomHeight, zMax - zMin);
+            _roomBounds.center = new Vector3((xMax + xMin) * 0.5f, (yMax + yMin) * 0.5f, (zMax + zMin) * 0.5f);
+            _roomBounds.size = new Vector3(xMax - xMin, yMax - yMin, zMax - zMin);
         }
 
         /// <summary>
-        ///     Test if a position is inside of a Scene volume, and optionally return the object. <br />
-        ///     To also check if a position is inside the room walls, use IsPositionInRoom(). <br />
-        ///     Use distanceBuffer as a cheap way to check volume intersection.
+        ///  Test if a position is inside of a Scene volume, and optionally return the object. <br />
+        ///  To also check if a position is inside the room walls, use IsPositionInRoom(). <br />
+        ///  Use distanceBuffer as a cheap way to check volume intersection.
         /// </summary>
+        /// <param name="worldPosition">The world position to test.</param>
+        /// <param name="sceneObject">The scene object that the position is inside of, if any.</param>
+        /// <param name="testVerticalBounds">Whether to test vertical bounds of the volume.</param>
+        /// <param name="distanceBuffer">A buffer distance for volume intersection tests.</param>
+        /// <returns>True if the position is inside a scene volume, false otherwise.</returns>
         public bool IsPositionInSceneVolume(Vector3 worldPosition, out MRUKAnchor sceneObject, bool testVerticalBounds, float distanceBuffer = 0.0f)
         {
             bool isInObject = false;
@@ -732,10 +836,12 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        ///     Get a "likely" direction this anchor is facing. For planes, this is always the normal (Z-forward).
-        ///     For volumes, we use contextual clues; primarily, the closest wall is the "back" of the volume,
-        ///     and the facing direction is its axis most aligned with this wall normal.
+        ///  Get a "likely" direction this anchor is facing. For planes, this is always the normal (Z-forward).
+        ///  For volumes, we use contextual clues; primarily, the closest wall is the "back" of the volume,
+        ///  and the facing direction is its axis most aligned with this wall normal.
         /// </summary>
+        /// <param name="anchor">The anchor to evaluate.</param>
+        /// <returns>The facing direction of the anchor.</returns>
         public Vector3 GetFacingDirection(MRUKAnchor anchor)
         {
             // For planes, just use the anchor Z
@@ -780,10 +886,13 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Test if a position is inside of a Scene volume (couch, desk, etc.). <br />
-        ///     To also check if a position is inside the room walls, use IsPositionInRoom(). <br />
-        ///     Use distanceBuffer as a cheap way to check volume intersection.
+        ///  Test if a position is inside of a Scene volume (couch, desk, etc.). <br />
+        ///  To also check if a position is inside the room walls, use IsPositionInRoom(). <br />
+        ///  Use distanceBuffer as a cheap way to check volume intersection.
         /// </summary>
+        /// <param name="worldPosition">The world position to test.</param>
+        /// <param name="distanceBuffer">A buffer distance for volume intersection tests, defaults to 0.0f.</param>
+        /// <returns>True if the position is inside a scene volume, false otherwise.</returns>
         public bool IsPositionInSceneVolume(Vector3 worldPosition, float distanceBuffer = 0.0f)
         {
             bool isInObject = IsPositionInSceneVolume(worldPosition, out _, true, distanceBuffer);
@@ -791,10 +900,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Test if a position is inside of a Scene volume (couch, desk, etc.). <br />
-        ///     To also check if a position is inside the room walls, use IsPositionInRoom(). <br />
-        ///     Use distanceBuffer as a cheap way to check volume intersection.
+        ///  Test if a position is inside of a Scene volume (couch, desk, etc.). <br />
+        ///  To also check if a position is inside the room walls, use IsPositionInRoom(). <br />
+        ///  Use distanceBuffer as a cheap way to check volume intersection.
         /// </summary>
+        /// /// <param name="worldPosition">The world position to test.</param>
+        /// <param name="testVerticalBounds">Whether to test vertical bounds of the volume.</param>
+        /// <param name="distanceBuffer">A buffer distance for volume intersection tests, defaults to 0.0f.</param>
+        /// <returns>True if the position is inside a scene volume, false otherwise.</returns>
         public bool IsPositionInSceneVolume(Vector3 worldPosition, bool testVerticalBounds, float distanceBuffer = 0.0f)
         {
             bool isInObject = IsPositionInSceneVolume(worldPosition, out _, testVerticalBounds, distanceBuffer);
@@ -802,8 +915,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Returns the best-suggested seat, for something like remote caller placement.
+        /// Returns the best-suggested seat, for scenarios like remote caller placement.
         /// </summary>
+        /// <param name="ray">The ray to use for finding the closest seat.</param>
+        /// <param name="seatPose">The pose of the closest seat.</param>
+        /// <param name="couch">The anchor associated with the closest seat.</param>
+        /// <returns>True if a seat is found, false otherwise.</returns>
         public bool TryGetClosestSeatPose(Ray ray, out Pose seatPose, out MRUKAnchor couch)
         {
             Pose bestPose = new Pose();
@@ -836,8 +953,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Returns all seats in the room (a human-spaced position on a COUCH).
+        /// Returns all seats in the room (a human-spaced position on a couch).
         /// </summary>
+        /// <returns>An array of poses representing all seats in the room.</returns>
         public Pose[] GetSeatPoses()
         {
             List<Pose> poses = new List<Pose>();
@@ -856,9 +974,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Return the parent of an anchor, if it exists. <br />
-        ///     This hierarchical relationship is by reference, not literally in the scene. <br />
+        /// Attempts to return the parent of an anchor, if it exists.
+        /// This hierarchical relationship is by reference, not literally in the scene.
         /// </summary>
+        /// <param name="queryAnchor">The anchor for which to find the parent.</param>
+        /// <param name="parentAnchor">The parent anchor, if one exists.</param>
+        /// <returns>True if the parent anchor exists, otherwise false.</returns>
         [Obsolete("Use ParentAnchor property instead")]
         public bool TryGetAnchorParent(MRUKAnchor queryAnchor, out MRUKAnchor parentAnchor)
         {
@@ -867,9 +988,12 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Returns the logical children of an anchor, if there are any. <br />
-        ///     This hierarchical relationship is by reference, not literally in the scene. <br />
+        /// Attempts to return the logical children of an anchor, if there are any.
+        /// This hierarchical relationship is by reference, not literally in the scene.
         /// </summary>
+        /// <param name="queryAnchor">The anchor for which to find the children.</param>
+        /// <param name="childAnchors">An array of child anchors, if any exist.</param>
+        /// <returns>True if there are one or more child anchors, otherwise false.</returns>
         [Obsolete("Use ChildAnchors property instead")]
         public bool TryGetAnchorChildren(MRUKAnchor queryAnchor, out MRUKAnchor[] childAnchors)
         {
@@ -1010,13 +1134,21 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Checks if the room contains all specified labels. This method is obsolete.
+        /// Use <see cref="HasAllLabels"/> instead.
         /// <see cref="OVRSemanticLabels.DeprecationMessage" />
+        /// </summary>
+        /// <param name="labels">Array of label names to check.</param>
+        /// <returns>True if the room contains all specified labels, otherwise false.</returns>
         [Obsolete("Use '" + nameof(HasAllLabels) + "()' instead.")]
         public bool DoesRoomHave(string[] labels) => HasAllLabels(Utilities.StringLabelsToEnum(labels));
 
         /// <summary>
-        ///     See if a room has all the provided Scene API labels.
+        /// Determines whether a room contains all the provided Scene API labels.
         /// </summary>
+        /// <param name="labelFlags">The labels to check, represented as a combination of MRUKAnchor.SceneLabels.</param>
+        /// <returns>True if the room contains all specified labels, otherwise false.</returns>
         public bool HasAllLabels(MRUKAnchor.SceneLabels labelFlags)
         {
             foreach (var anchor in Anchors)
@@ -1032,8 +1164,13 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     The closest position on a SceneAPI surface.
+        /// Attempts to find the closest surface position to a given world position within the room, considering only anchors that pass the specified label filter.
         /// </summary>
+        /// <param name="worldPosition">The world position from which to find the closest surface.</param>
+        /// <param name="surfacePosition">The closest surface position to the specified world position, if found.</param>
+        /// <param name="closestAnchor">The anchor associated with the closest surface position, if found.</param>
+        /// <param name="labelFilter">A filter to apply to the anchors when searching for the closest surface. Defaults to an empty filter, which includes all labels.</param>
+        /// <returns>The distance to the closest surface position. Returns <see cref="Mathf.Infinity"/> if no valid surface is found.</returns>
         public float TryGetClosestSurfacePosition(Vector3 worldPosition, out Vector3 surfacePosition, out MRUKAnchor closestAnchor, LabelFilter labelFilter = new())
         {
             float distance = Mathf.Infinity;
@@ -1059,13 +1196,21 @@ namespace Meta.XR.MRUtilityKit
             return distance;
         }
 
+        /// <summary>
+        /// Finds the largest surface within the room based on the specified anchor label.
+        /// This method is obsolete and should not be used in new code.
+        /// </summary>
+        /// <param name="anchorLabel">The label of the anchor as a string.</param>
+        /// <returns>The MRUKAnchor associated with the largest surface that matches the specified label.</returns>
         [Obsolete(OVRSemanticLabels.DeprecationMessage)]
         public MRUKAnchor FindLargestSurface(string anchorLabel) => FindLargestSurface(Utilities.StringLabelToEnum(anchorLabel));
 
         /// <summary>
-        ///     Returns the anchor with the largest available surface area.
-        ///     A bit more flexible than HasTableSpace, can be adapted for other usage
+        /// Finds the anchor with the largest available surface area that matches the specified label flags.
+        /// This method is more flexible than checking for specific conditions like table space and can be adapted for various usage scenarios.
         /// </summary>
+        /// <param name="labelFlags">The labels to consider when searching for the largest surface. These are represented as a combination of MRUKAnchor.SceneLabels.</param>
+        /// <returns>The MRUKAnchor with the largest surface area that matches the specified labels, or null if no suitable anchor is found.</returns>
         public MRUKAnchor FindLargestSurface(MRUKAnchor.SceneLabels labelFlags)
         {
             MRUKAnchor largestAnchor = null;
@@ -1415,9 +1560,9 @@ namespace Meta.XR.MRUtilityKit
 
             var anchor = FloorAnchor;
 
-            // In some cases the Handle may be 0 (invalid handle) and we should not attempt to locate it.
+            // If an anchor is not local then we should not try to locate it.
             // This will happen when loading a scene from Prefab or JSON string.
-            if (anchor.Anchor.Handle != 0 &&
+            if (anchor.IsLocal &&
                 anchor.Anchor.TryGetComponent<OVRLocatable>(out var locatable) &&
                 locatable.TryGetSceneAnchorPose(out var pose) &&
                 pose.Position.HasValue && pose.Rotation.HasValue)

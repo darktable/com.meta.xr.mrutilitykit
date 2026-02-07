@@ -28,10 +28,16 @@ using Random = System.Random;
 
 namespace Meta.XR.MRUtilityKit
 {
-    // tool for swapping scene prefabs with standardized unity objects
+    /// <summary>
+    /// Manages the spawning of prefabs based on anchor data within a scene, providing various customization options
+    /// for scaling, alignment, and selection modes.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class AnchorPrefabSpawner : MonoBehaviour, ICustomAnchorPrefabSpawner
     {
+        /// <summary>
+        /// Defines the scaling modes available for adjusting prefab sizes to fit the anchor's dimensions.
+        /// </summary>
         public enum ScalingMode
         {
             /// Stretch each axis to exactly match the size of the Plane/Volume.
@@ -50,6 +56,9 @@ namespace Meta.XR.MRUtilityKit
             Custom
         }
 
+        /// <summary>
+        /// Defines the alignment modes available for positioning prefabs relative to the anchor's dimensions.
+        /// </summary>
         public enum AlignMode
         {
             /// For volumes align to the base, for planes align to the center.
@@ -68,6 +77,9 @@ namespace Meta.XR.MRUtilityKit
             Custom
         }
 
+        /// <summary>
+        /// Defines the selection modes available for choosing prefabs from a list.
+        /// </summary>
         public enum SelectionMode
         {
             // Randomly choose a prefab from the list every time
@@ -80,6 +92,9 @@ namespace Meta.XR.MRUtilityKit
             Custom
         }
 
+        /// <summary>
+        /// Represents a group of prefabs associated with specific scene labels, along with settings for how they should be spawned.
+        /// </summary>
         [Serializable]
         public struct AnchorPrefabGroup : IEquatable<AnchorPrefabGroup>
         {
@@ -93,18 +108,15 @@ namespace Meta.XR.MRUtilityKit
             [Tooltip("The logic that determines what prefab to chose when spawning the relative labels' game objects")]
             public SelectionMode PrefabSelection;
 
-            [SerializeField,
-             Tooltip(
+            [SerializeField, Tooltip(
                  "When enabled, the prefab will be rotated to try and match the aspect ratio of the volume as closely as possible. This is most useful for long and thin volumes, keep this disabled for objects with an aspect ratio close to 1:1. Only applies to volumes.")]
             public bool MatchAspectRatio;
 
-            [SerializeField,
-             Tooltip(
+            [SerializeField, Tooltip(
                  "When calculate facing direction is enabled the prefab will be rotated to face away from the closest wall. If match aspect ratio is also enabled then that will take precedence and it will be constrained to a choice between 2 directions only.Only applies to volumes.")]
             public bool CalculateFacingDirection;
 
-            [SerializeField,
-             Tooltip(
+            [SerializeField, Tooltip(
                  "Set what scaling mode to apply to the prefab. By default the prefab will be stretched to fit the size of the plane/volume. But in some cases this may not be desirable and can be customized here.")]
             public ScalingMode Scaling;
 
@@ -114,6 +126,7 @@ namespace Meta.XR.MRUtilityKit
             [SerializeField, Tooltip("Don't analyze prefab, just assume a default scale of 1.")]
             public bool IgnorePrefabSize;
 
+            /// @cond
             public bool Equals(AnchorPrefabGroup other)
             {
                 return Labels == other.Labels && Equals(Prefabs, other.Prefabs) &&
@@ -142,8 +155,8 @@ namespace Meta.XR.MRUtilityKit
             {
                 return !left.Equals(right);
             }
+            /// @endcond
         }
-
 
         [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
         public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
@@ -154,6 +167,7 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Specify a seed value for consistent prefab selection (0 = Random).")]
         public int SeedValue;
 
+        // Gets a dictionary that maps MRUKAnchor instances to their corresponding spawned GameObjects.
         public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects { get; private set; } = new();
 
         [Obsolete("Event onPrefabSpawned will be deprecated in a future version"), NonSerialized]
@@ -163,10 +177,13 @@ namespace Meta.XR.MRUtilityKit
             "Use AnchorPrefabSpawnerObjects property instead. This property is inefficient because it will generate a new list each time it is accessed")]
         public List<GameObject> SpawnedPrefabs => new(AnchorPrefabSpawnerObjects.Values);
 
-        private MRUK.SceneTrackingSettings SceneTrackingSettings;
-
+        /// <summary>
+        /// The list of AnchorPrefabGroup configurations that determine how prefabs are spawned based on anchor data.
+        /// </summary>
         public List<AnchorPrefabGroup> PrefabsToSpawn;
-        protected Random _random;
+
+        protected Random _random; // An instance of the Random class used to generate random numbers.
+        private MRUK.SceneTrackingSettings SceneTrackingSettings;
         private static readonly string Suffix = "(PrefabSpawner Clone)";
         private Func<Vector3, Vector3> _customPrefabScalingVolume;
         private Func<Bounds, Bounds?, (Vector3, Vector3)> _customPrefabAlignmentVolume;
@@ -215,6 +232,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+
         protected virtual void OnEnable()
         {
             if (MRUK.Instance)
@@ -233,12 +251,22 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Handles the event when a room is removed from the scene. This method clears all prefabs associated with the room
+        /// and unregisters updates for anchors within the room.
+        /// </summary>
+        /// <param name="room">The room that has been removed.</param>
         protected virtual void ReceiveRemovedRoom(MRUKRoom room)
         {
             ClearPrefabs(room);
             UnRegisterAnchorUpdates(room);
         }
 
+        /// <summary>
+        /// Unregisters the anchor update events for a specific room. This method stops listening for anchor creation, removal,
+        /// and update events within the specified room.
+        /// </summary>
+        /// <param name="room">The room for which to unregister anchor update events.</param>
         protected virtual void UnRegisterAnchorUpdates(MRUKRoom room)
         {
             room.AnchorCreatedEvent.RemoveListener(ReceiveAnchorCreatedEvent);
@@ -246,6 +274,11 @@ namespace Meta.XR.MRUtilityKit
             room.AnchorUpdatedEvent.RemoveListener(ReceiveAnchorUpdatedCallback);
         }
 
+        /// <summary>
+        /// Registers the anchor update events for a specific room. This method starts listening for anchor creation, removal,
+        /// and update events within the specified room.
+        /// </summary>
+        /// <param name="room">The room for which to register anchor update events.</param>
         protected virtual void RegisterAnchorUpdates(MRUKRoom room)
         {
             room.AnchorCreatedEvent.AddListener(ReceiveAnchorCreatedEvent);
@@ -253,6 +286,12 @@ namespace Meta.XR.MRUtilityKit
             room.AnchorUpdatedEvent.AddListener(ReceiveAnchorUpdatedCallback);
         }
 
+        /// <summary>
+        /// Responds to the event of an anchor being updated within the scene. This method clears existing prefabs and triggers
+        /// the spawning of new prefabs based on the updated anchor information, provided that updates are being tracked and
+        /// the anchor or its parent room is not marked as untracked.
+        /// </summary>
+        /// <param name="anchorInfo">The anchor that has been updated.</param>
         protected virtual void ReceiveAnchorUpdatedCallback(MRUKAnchor anchorInfo)
         {
             // only update the anchor when we track updates
@@ -269,11 +308,20 @@ namespace Meta.XR.MRUtilityKit
             SpawnPrefabs(anchorInfo);
         }
 
+        /// <summary>
+        /// Responds to the event of an anchor being removed from the scene. This method clears all prefabs spawned by this spawner.
+        /// </summary>
+        /// <param name="anchorInfo">The anchor that has been removed.</param>
         protected virtual void ReceiveAnchorRemovedCallback(MRUKAnchor anchorInfo)
         {
             ClearPrefabs();
         }
 
+        /// <summary>
+        /// Responds to the event of a new anchor being created within the scene. This method triggers the spawning of prefabs
+        /// if the anchor's room is being tracked and updates are enabled.
+        /// </summary>
+        /// <param name="anchorInfo">The anchor that has been created.</param>
         protected virtual void ReceiveAnchorCreatedEvent(MRUKAnchor anchorInfo)
         {
             // only create the anchor when we track updates
@@ -288,6 +336,12 @@ namespace Meta.XR.MRUtilityKit
             SpawnPrefabs();
         }
 
+        /// <summary>
+        /// Responds to the event of a new room being created within the scene. This method triggers the spawning of prefabs
+        /// and registers for anchor updates within the room, provided that room updates are being tracked and the configuration
+        /// is set to handle all rooms.
+        /// </summary>
+        /// <param name="room">The room that has been created.</param>
         protected virtual void ReceiveCreatedRoom(MRUKRoom room)
         {
             //only create the room when we track room updates
@@ -300,7 +354,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Clears all the spawned gameobjects from this AnchorPrefabSpawner in the given room
+        ///  Clears all the spawned gameobjects from this AnchorPrefabSpawner in the given room
         /// </summary>
         /// <param name="room">The room from where to remove all the spawned objects</param>
         protected virtual void ClearPrefabs(MRUKRoom room)
@@ -325,14 +379,18 @@ namespace Meta.XR.MRUtilityKit
             SceneTrackingSettings.UnTrackedRooms.Add(room);
         }
 
+        /// <summary>
+        /// Destroys the specified GameObject, effectively removing the prefab from the scene.
+        /// </summary>
+        /// <param name="go">The GameObject to be destroyed.</param>
         protected virtual void ClearPrefab(GameObject go)
         {
             Destroy(go);
         }
 
         /// <summary>
-        ///     Clears the gameobject associated with the anchor. Useful when receiving an event that a
-        ///     specific anchor has been removed
+        /// Clears the gameobject associated with the anchor. Useful when receiving an event that a
+        /// specific anchor has been removed
         /// </summary>
         /// <param name="anchorInfo">The anchor reference</param>
         protected virtual void ClearPrefab(MRUKAnchor anchorInfo)
@@ -348,7 +406,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Clears all the gameobjects created with the PrefabSpawner
+        /// Clears all the gameobjects created with the PrefabSpawner
         /// </summary>
         protected virtual void ClearPrefabs()
         {
@@ -362,7 +420,7 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        ///     Spawns prefabs according to the settings
+        /// Spawns prefabs according to the settings
         /// </summary>
         /// <param name="clearPrefabs">Clear already existing prefabs before.</param>
         protected virtual void SpawnPrefabs(bool clearPrefabs = true)
@@ -383,7 +441,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Creates gameobjects for the given room.
+        /// Creates gameobjects for the given room.
         /// </summary>
         /// <param name="room">The room reference</param>
         /// <param name="clearPrefabs">clear all before adding them again</param>
@@ -410,6 +468,12 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Spawns a prefab based on the provided anchor information. This method determines the appropriate prefab to spawn
+        /// based on the anchor's label, checks for existing instances, and configures the spawned prefab's position, scale,
+        /// and orientation according to the anchor's properties and predefined settings.
+        /// </summary>
+        /// <param name="anchorInfo">The anchor based on which the prefab will be spawned.</param>
         protected virtual void SpawnPrefab(MRUKAnchor anchorInfo)
         {
             var prefabToCreate = LabelToPrefab(anchorInfo.Label, anchorInfo, out var prefabGroup);
@@ -527,8 +591,11 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Initializes a new instance of the Random class using the current seed.
+        /// Initializes a new instance of the Random class using the specified seed.
         /// </summary>
+        /// <param name="seed">The seed value to initialize the random number generator.
+        /// If zero, the seed will be set to the current system tick count.
+        /// </param>
         public void InitializeRandom(ref int seed)
         {
             if (seed == 0)

@@ -74,6 +74,9 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("A bitmask representing the layers to consider when selecting what that will be used for baking.")]
         public LayerMask Layers;
 
+        /// <summary>
+        /// Event triggered when the navigation mesh has been initialized.
+        /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(OnNavMeshInitialized)), Space(10)]
         public UnityEvent OnNavMeshInitialized
         {
@@ -81,12 +84,18 @@ namespace Meta.XR.MRUtilityKit
             private set;
         } = new();
 
+        /// <summary>
+        /// Gets a dictionary mapping <see cref="MRUKAnchor"/> objects to their corresponding GameObjects that represent obstacles in the environment.
+        /// </summary>
         public Dictionary<MRUKAnchor, GameObject> Obstacles
         {
             get;
             private set;
         } = new();
 
+        /// <summary>
+        /// Gets a dictionary mapping <see cref="MRUKAnchor"/> objects to their corresponding GameObjects that represent surfaces in the environment.
+        /// </summary>
         public Dictionary<MRUKAnchor, GameObject> Surfaces
         {
             get;

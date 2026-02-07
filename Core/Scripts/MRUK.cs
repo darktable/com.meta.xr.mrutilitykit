@@ -40,10 +40,12 @@ namespace Meta.XR.MRUtilityKit
     [Feature(Feature.Scene)]
     public class MRUK : MonoBehaviour
     {
-        // when interacting specifically with tops of volumes, this can be used to
-        // specify where the return position should be aligned on the surface
-        // e.g. some apps might want a position right in the center of the table (chess)
-        // for others, the edge may be more important (piano or pong)
+        /// <summary>
+        /// when interacting specifically with tops of volumes, this can be used to
+        /// specify where the return position should be aligned on the surface
+        /// e.g. some apps  might want a position right in the center of the table (chess)
+        /// for others, the edge may be more important (piano or pong)
+        /// </summary>
         public enum PositioningMethod
         {
             DEFAULT,
@@ -84,6 +86,9 @@ namespace Meta.XR.MRUtilityKit
             DeviceWithJsonFallback,
         }
 
+        /// <summary>
+        ///     Specifies the filtering options for selecting rooms within the scene data.
+        /// </summary>
         public enum RoomFilter
         {
             None,
@@ -165,6 +170,9 @@ namespace Meta.XR.MRUtilityKit
             FailureTooBright = OVRAnchor.FetchResult.FailureTooBright,
         };
 
+        /// <summary>
+        /// This struct is used to manage which rooms and anchors are not being tracked.
+        /// </summary>
         [Serializable]
         public struct SceneTrackingSettings
         {
@@ -172,6 +180,9 @@ namespace Meta.XR.MRUtilityKit
             internal HashSet<MRUKAnchor> UnTrackedAnchors;
         }
 
+        /// <summary>
+        ///  Defines flags for different types of surfaces that can be identified or used within a scene.
+        /// </summary>
         [Flags]
         public enum SurfaceType
         {
@@ -187,6 +198,9 @@ namespace Meta.XR.MRUtilityKit
             VOLUME = 1 << 1,
         }
 
+        /// <summary>
+        /// Gets a value indicating whether the component has been initialized.
+        /// </summary>
         public bool IsInitialized
         {
             get;
@@ -318,23 +332,26 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Get a list of all the rooms in the scene.
+        /// Get a list of all the rooms in the scene.
         /// </summary>
+        /// <returns>A list of MRUKRoom objects representing all the rooms in the scene.</returns>
         [Obsolete("Use Rooms property instead")]
         public List<MRUKRoom> GetRooms() => Rooms;
 
         /// <summary>
-        ///     Get a flat list of all Anchors in the scene
+        /// Get a flat list of all Anchors in the scene
         /// </summary>
+        /// <returns>A list of MRUKAnchor objects representing all the anchors in the current room.</returns>
         [Obsolete("Use GetCurrentRoom().Anchors instead")]
         public List<MRUKAnchor> GetAnchors() => GetCurrentRoom().Anchors;
 
         /// <summary>
-        ///     Returns the current room the headset is in. If the headset is not in any given room
-        ///     then it will return the room the headset was last in when this function was called.
-        ///     If the headset hasn't been in a valid room yet then return the first room in the list.
-        ///     If no rooms have been loaded yet then return null.
+        ///  Returns the current room the headset is in. If the headset is not in any given room
+        ///  then it will return the room the headset was last in when this function was called.
+        ///  If the headset hasn't been in a valid room yet then return the first room in the list.
+        ///  If no rooms have been loaded yet then return null.
         /// </summary>
+        /// <returns>The current <see cref="MRUKRoom"/> based on the headset's position, or null if no rooms are available.</returns>
         public MRUKRoom GetCurrentRoom()
         {
             // This is a rather expensive operation, we should only do it at most once per frame.
@@ -349,9 +366,8 @@ namespace Meta.XR.MRUtilityKit
                         {
                             currentRoom = room;
                             // In some cases the user may be in multiple rooms at once. If this happens
-                            // then we give precedence to rooms which have been loaded locally (i.e.
-                            // they have a non-zero anchor Handle)
-                            if (room.Anchor.Handle != 0)
+                            // then we give precedence to rooms which have been loaded locally
+                            if (room.IsLocal)
                             {
                                 break;
                             }
@@ -399,6 +415,10 @@ namespace Meta.XR.MRUtilityKit
             return result.Success && rooms.Count > 0;
         }
 
+        /// <summary>
+        /// Represents the settings for the MRUK instance,
+        /// including data source configurations, startup behaviors, and other scene related settings.
+        /// </summary>
         [Serializable]
         public class MRUKSettings
         {
@@ -446,6 +466,9 @@ namespace Meta.XR.MRUtilityKit
         } = new();
 
 
+        /// <summary>
+        /// Gets the singleton instance of the MRUK class.
+        /// </summary>
         public static MRUK Instance
         {
             get;
@@ -464,6 +487,18 @@ namespace Meta.XR.MRUtilityKit
                 Instance = this;
             }
 
+            MRUKNative.LoadMRUKSharedLibrary();
+
+#if UNITY_EDITOR
+            EditorApplication.playModeStateChanged += change =>
+            {
+                if (change == PlayModeStateChange.ExitingPlayMode)
+                {
+                    // Free the shared library when exiting play mode so that it can be recompiled
+                    MRUKNative.FreeMRUKSharedLibrary();
+                }
+            };
+#endif
 
 
             if (SceneSettings == null)
@@ -918,7 +953,7 @@ namespace Meta.XR.MRUtilityKit
                         {
                             var position = pose.ComputeWorldPosition(_cameraRig.trackingSpace);
                             var rotation = pose.ComputeWorldRotation(_cameraRig.trackingSpace);
-                            if (rotation.HasValue && rotation.HasValue)
+                            if (position.HasValue && rotation.HasValue)
                             {
                                 anchorData.Transform.Translation = position.Value;
                                 anchorData.Transform.Rotation = rotation.Value.eulerAngles;
@@ -965,8 +1000,10 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     This simulates the creation of a scene in the Editor, using transforms and names from our prefab rooms.
+        /// Simulates the creation of a scene in the Editor, using transforms and names from our prefab rooms.
         /// </summary>
+        /// <param name="scenePrefab">The prefab GameObject representing the scene or a collection of rooms.</param>
+        /// <param name="clearSceneFirst">If true, clears the current scene before loading the new one.</param>
         public void LoadSceneFromPrefab(GameObject scenePrefab, bool clearSceneFirst = true)
         {
 #if UNITY_EDITOR

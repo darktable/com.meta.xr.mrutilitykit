@@ -33,10 +33,15 @@ using UnityEngine.UI;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Provides debugging tools for visualizing and interacting with the scene data.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SceneDebugger : MonoBehaviour
     {
+        [Tooltip("Material used for visual helpers in debugging")]
         public Material visualHelperMaterial;
+
         [Tooltip("Visualize anchors")] public bool ShowDebugAnchors;
 
         [Tooltip("On start, place the canvas in front of the user")]
@@ -45,16 +50,37 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("When false, use the interaction system already present in the scene")]
         public bool SetupInteractions;
 
+        [Tooltip(" Text field for displaying logs")]
         public TextMeshProUGUI logs;
+
+        [Tooltip("Dropdown to select what surface types to debug")]
         public TMP_Dropdown surfaceTypeDropdown;
+
+        [Tooltip("Dropdown to select whether to export the global mesh with the scene JSON")]
         public TMP_Dropdown exportGlobalMeshJSONDropdown;
+
+        [Tooltip("Dropdown to select what positioning methods to debug")]
         public TMP_Dropdown positioningMethodDropdown;
+
+        [Tooltip("Text field for displaying room details")]
         public TextMeshProUGUI RoomDetails;
+
+        [Tooltip("List of navigable tabs representing sub menus accessible from the top of the debug menu")]
         public List<Image> Tabs = new();
+
+        [Tooltip("List of canvas groups for different menus")]
         public List<CanvasGroup> Menus = new();
+
+        [Tooltip("Helper for ray interactions")]
         public OVRRayHelper RayHelper;
+
+        [Tooltip("Input module for handling VR input")]
         public OVRInputModule InputModule;
+
+        [Tooltip("Raycaster for handling ray interactions")]
         public OVRRaycaster Raycaster;
+
+        [Tooltip("Gaze pointer for VR interactions")]
         public OVRGazePointer GazePointer;
 
         private readonly Color _foregroundColor = new(0.2039f, 0.2549f, 0.2941f, 1f);
@@ -233,8 +259,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Shows information about the rooms loaded.
+        /// Shows information about the rooms loaded.
         /// </summary>
+        /// <param name="isOn">If set to true, room details will be shown.</param>
         public void ShowRoomDetailsDebugger(bool isOn)
         {
             try
@@ -258,8 +285,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Highlights the room's key wall.
+        /// Highlights the room's key wall, defined as the longest wall in the room which has no other room points behind it
         /// </summary>
+        /// <param name="isOn">If set to true, the key wall will be highlighted.</param>
         public void GetKeyWallDebugger(bool isOn)
         {
             try
@@ -300,8 +328,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Highlights the anchor with the largest available surface area.
+        ///  Highlights the anchor with the largest available surface area.
         /// </summary>
+        /// <param name="isOn">If set to true, the largest surface will be highlighted.</param>
         public void GetLargestSurfaceDebugger(bool isOn)
         {
             try
@@ -368,8 +397,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Highlights the best-suggested seat, for something like remote caller placement.
+        /// Highlights the best-suggested seat, for something like remote caller placement.
         /// </summary>
+        /// <param name="isOn">If set to true, the closest seat pose will be highlighted.</param>
         public void GetClosestSeatPoseDebugger(bool isOn)
         {
             try
@@ -426,8 +456,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Highlights the closest position on a SceneAPI surface.
+        /// Highlights the closest position on a SceneAPI surface.
         /// </summary>
+        /// <param name="isOn">If set to true, the closest surface position will be highlighted.</param>
         public void GetClosestSurfacePositionDebugger(bool isOn)
         {
             try
@@ -477,8 +508,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Highlights the the best suggested transform to place a widget on a surface.
+        /// Highlights the best suggested transform to place a widget on a surface.
         /// </summary>
+        /// <param name="isOn">If set to true, the best pose from raycast will be highlighted.</param>
         public void GetBestPoseFromRaycastDebugger(bool isOn)
         {
             try
@@ -531,8 +563,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Casts a ray cast forward from the right controller position and draws the normal of the first Scene API object hit.
+        /// Casts a ray cast forward from the right controller position and draws the normal of the first Scene API object hit.
         /// </summary>
+        /// <param name="isOn">If set to true, the raycast hits with scene objects will be visualized.</param>
         public void RayCastDebugger(bool isOn)
         {
             try
@@ -578,9 +611,10 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Moves the debug sphere to the controller position and colors it in green if its position is in the room,
-        ///     red otherwise.
+        /// Moves the debug sphere to the controller position and colors it in green if its position is in the room,
+        /// red otherwise.
         /// </summary>
+        /// <param name="isOn">If set to true, the position of the debug sphere will be checked.</param>
         public void IsPositionInRoomDebugger(bool isOn)
         {
             try
@@ -621,8 +655,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Shows the debug anchor visualization mode for the anchor being pointed at.
+        /// Shows the debug anchor visualization mode for the anchor being pointed at.
         /// </summary>
+        /// <param name="isOn">If set to true, debug anchors will be visualized.</param>
         public void ShowDebugAnchorsDebugger(bool isOn)
         {
             try
@@ -672,8 +707,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Displays the global mesh anchor if one is found in the scene.
+        /// Displays the global mesh anchor if one is found in the scene.
         /// </summary>
+        /// <param name="isOn">If set to true, the global mesh will be displayed.</param>
         public void DisplayGlobalMesh(bool isOn)
         {
             try
@@ -732,8 +768,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Toggles the global mesh anchor's collision.
+        /// Toggles the global mesh anchor's collision.
         /// </summary>
+        /// <param name="isOn">If set to true, collisions for the global mesh anchor will be enabled </param>
         public void ToggleGlobalMeshCollisions(bool isOn)
         {
             try
@@ -790,6 +827,10 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Exports the current scene data to a JSON file if the specified condition is met.
+        /// </summary>
+        /// <param name="isOn">If set to true, the scene data will be exported to JSON.</param>
         public void ExportJSON(bool isOn)
         {
             try
@@ -806,7 +847,6 @@ namespace Meta.XR.MRUtilityKit
                     var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
                     var path = Path.Combine(Application.persistentDataPath, filename);
                     File.WriteAllText(path, scene);
-
                 }
             }
             catch (Exception e)
@@ -820,16 +860,18 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Displays a texture in  the right info panel about your spacemap
+        /// Displays a texture in the right info panel about your spacemap
         /// </summary>
+        /// <param name="isOn">No action needed as the SpaceMap does not need additional logic </param>
         public void DisplaySpaceMap(bool isOn)
         {
             //we do not need to call additional logic, this is just for completeness
         }
 
         /// <summary>
-        ///     Displays the nav mesh, if present.
+        /// Displays the nav mesh, if present.
         /// </summary>
+        /// <param name="isOn">If set to true, the navigation mesh will be displayed, if present</param>
         public void DisplayNavMesh(bool isOn)
         {
             try
@@ -1198,6 +1240,10 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Activates the selected tab by changing its color and sets all other tabs to the background color.
+        /// </summary>
+        /// <param name="selectedTab">The tab image to activate.</param>
         public void ActivateTab(Image selectedTab)
         {
             foreach (var tab in Tabs)
@@ -1208,6 +1254,10 @@ namespace Meta.XR.MRUtilityKit
             selectedTab.color = _foregroundColor;
         }
 
+        /// <summary>
+        /// Activates the specified menu by enabling its canvas group and disables all other menus.
+        /// </summary>
+        /// <param name="menuToActivate">The canvas group of the menu to activate.</param>
         public void ActivateMenu(CanvasGroup menuToActivate)
         {
             foreach (var menu in Menus)

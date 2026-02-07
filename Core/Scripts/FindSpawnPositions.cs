@@ -25,8 +25,10 @@ using Meta.XR.Util;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-// Allows for fast generation of valid (inside the room, outside furniture bounds) random positions for content spawning.
-// Optional method to pin directly to surfaces
+/// <summary>
+/// Allows for fast generation of valid (inside the room, outside furniture bounds) random positions for content spawning.
+/// Optional method to pin directly to surfaces.
+/// </summary>
 [Feature(Feature.Scene)]
 public class FindSpawnPositions : MonoBehaviour
 {
@@ -42,6 +44,9 @@ public class FindSpawnPositions : MonoBehaviour
     [SerializeField, Tooltip("Maximum number of times to attempt spawning/moving an object before giving up.")]
     public int MaxIterations = 1000;
 
+    /// <summary>
+    /// Defines possible locations where objects can be spawned.
+    /// </summary>
     public enum SpawnLocation
     {
         Floating, // Spawn somewhere floating in the free space within the room
@@ -93,6 +98,9 @@ public class FindSpawnPositions : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Starts the spawning process for all rooms.
+    /// </summary>
     public void StartSpawn()
     {
         foreach (var room in MRUK.Instance.Rooms)
@@ -101,6 +109,10 @@ public class FindSpawnPositions : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Starts the spawning process for a specific room.
+    /// </summary>
+    /// <param name="room">The room to spawn objects in.</param>
     public void StartSpawn(MRUKRoom room)
     {
         var prefabBounds = Utilities.GetPrefabBounds(SpawnObject);

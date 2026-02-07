@@ -26,14 +26,32 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// This class is now obsolete. Please register events directly with the MRUK class.
+    /// It was previously used to handle scene and room-related events.
+    /// </summary>
     [Obsolete("This class is now obsolete, please register events directly with the MRUK class", true)]
     [Feature(Feature.Scene)]
     public class MRUKStart : MonoBehaviour
     {
+        /// <summary>
+        /// Event triggered when the scene is fully loaded.
+        /// </summary>
         public UnityEvent sceneLoadedEvent = new();
 
+        /// <summary>
+        /// Event triggered when a new room is created.
+        /// </summary>
         public UnityEvent<MRUKRoom> roomCreatedEvent = new();
+
+        /// <summary>
+        /// Event triggered when a room is updated.
+        /// </summary>
         public UnityEvent<MRUKRoom> roomUpdatedEvent = new();
+
+        /// <summary>
+        /// Event triggered when a room is removed.
+        /// </summary>
         public UnityEvent<MRUKRoom> roomRemovedEvent = new();
 
         private void Start()
