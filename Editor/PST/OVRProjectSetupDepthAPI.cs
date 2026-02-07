@@ -59,7 +59,9 @@ namespace Meta.XR.MRUtilityKit.Editor
             foreach (var rootGameObject in rootGameObjects)
             {
                 if (rootGameObject.TryGetComponent(out T foundComponent))
+                {
                     return foundComponent;
+                }
             }
             return null;
         }

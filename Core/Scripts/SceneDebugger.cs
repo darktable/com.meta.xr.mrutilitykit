@@ -80,13 +80,17 @@ namespace Meta.XR.MRUtilityKit
         private Action _debugAction;
         private Canvas _canvas;
         private const float _spawnDistanceFromCamera = 0.75f;
+        private SpaceMapGPU _spaceMapGPU;
+
 
         private void Awake()
         {
             _cameraRig = FindObjectOfType<OVRCameraRig>();
             _canvas = GetComponentInChildren<Canvas>();
             if (SetupInteractions)
+            {
                 SetupInteractionDependencies();
+            }
         }
 
         private void Start()
@@ -96,6 +100,7 @@ namespace Meta.XR.MRUtilityKit
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDebugger).Send();
 #endif
             _globalMeshEffectMesh = GetGlobalMeshEffectMesh();
+            _spaceMapGPU = GetSpaceMapGPU();
             if (MoveCanvasInFrontOfCamera)
             {
                 StartCoroutine(SnapCanvasInFrontOfCamera());
@@ -152,13 +157,18 @@ namespace Meta.XR.MRUtilityKit
         private void SetupInteractionDependencies()
         {
             if (!_cameraRig)
+            {
                 return;
+            }
 
             GazePointer.rayTransform = _cameraRig.centerEyeAnchor;
             InputModule.rayTransform = _cameraRig.rightControllerAnchor;
             Raycaster.pointer = _cameraRig.rightControllerAnchor.gameObject;
             if (_cameraRig.GetComponentsInChildren<OVRRayHelper>(false).Length > 0)
+            {
                 return;
+            }
+
             var rightControllerHelper =
                 _cameraRig.rightControllerAnchor.GetComponentInChildren<OVRControllerHelper>();
             if (rightControllerHelper)
@@ -221,16 +231,20 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Shows information about the rooms loaded.
+        ///     Shows information about the rooms loaded.
         /// </summary>
         public void ShowRoomDetailsDebugger(bool isOn)
         {
             try
             {
                 if (isOn)
+                {
                     _debugAction += ShowRoomDetails;
+                }
                 else
+                {
                     _debugAction -= ShowRoomDetails;
+                }
             }
             catch (Exception e)
             {
@@ -242,7 +256,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Highlights the room's key wall.
+        ///     Highlights the room's key wall.
         /// </summary>
         public void GetKeyWallDebugger(bool isOn)
         {
@@ -284,7 +298,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///  Highlights the anchor with the largest available surface area.
+        ///     Highlights the anchor with the largest available surface area.
         /// </summary>
         public void GetLargestSurfaceDebugger(bool isOn)
         {
@@ -294,7 +308,10 @@ namespace Meta.XR.MRUtilityKit
                 {
                     var surfaceType = MRUKAnchor.SceneLabels.TABLE; // using table as the default value
                     if (surfaceTypeDropdown)
+                    {
                         surfaceType = Utilities.StringLabelToEnum(surfaceTypeDropdown.options[surfaceTypeDropdown.value].text.ToUpper());
+                    }
+
                     var largestSurface = MRUK.Instance?.GetCurrentRoom()?.FindLargestSurface(surfaceType);
                     if (largestSurface != null)
                     {
@@ -349,13 +366,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Highlights the best-suggested seat, for something like remote caller placement.
+        ///     Highlights the best-suggested seat, for something like remote caller placement.
         /// </summary>
         public void GetClosestSeatPoseDebugger(bool isOn)
         {
             try
             {
                 if (isOn)
+                {
                     _debugAction = () =>
                     {
                         MRUKAnchor seat = null;
@@ -385,8 +403,12 @@ namespace Meta.XR.MRUtilityKit
                             );
                         }
                     };
+                }
                 else
+                {
                     _debugAction = null;
+                }
+
                 if (_debugCube != null)
                 {
                     _debugCube.SetActive(isOn);
@@ -402,13 +424,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Highlights the closest position on a SceneAPI surface.
+        ///     Highlights the closest position on a SceneAPI surface.
         /// </summary>
         public void GetClosestSurfacePositionDebugger(bool isOn)
         {
             try
             {
                 if (isOn)
+                {
                     _debugAction = () =>
                     {
                         var origin = GetControllerRay().origin;
@@ -431,8 +454,12 @@ namespace Meta.XR.MRUtilityKit
                             );
                         }
                     };
+                }
                 else
+                {
                     _debugAction = null;
+                }
+
                 if (_debugSphere != null)
                 {
                     _debugSphere.SetActive(isOn);
@@ -448,20 +475,24 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Highlights the the best suggested transform to place a widget on a surface.
+        ///     Highlights the the best suggested transform to place a widget on a surface.
         /// </summary>
         public void GetBestPoseFromRaycastDebugger(bool isOn)
         {
             try
             {
                 if (isOn)
+                {
                     _debugAction = () =>
                     {
                         var ray = GetControllerRay();
                         MRUKAnchor sceneAnchor = null;
                         var positioningMethod = MRUK.PositioningMethod.DEFAULT;
                         if (positioningMethodDropdown)
+                        {
                             positioningMethod = (MRUK.PositioningMethod)positioningMethodDropdown.value;
+                        }
+
                         var bestPose = MRUK.Instance?.GetCurrentRoom()?.GetBestPoseFromRaycast(ray, Mathf.Infinity,
                             new LabelFilter(), out sceneAnchor, positioningMethod);
                         if (bestPose.HasValue && sceneAnchor && _debugCube)
@@ -477,8 +508,12 @@ namespace Meta.XR.MRUtilityKit
                             );
                         }
                     };
+                }
                 else
+                {
                     _debugAction = null;
+                }
+
                 if (_debugCube != null)
                 {
                     _debugCube.SetActive(isOn);
@@ -494,13 +529,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Casts a ray cast forward from the right controller position and draws the normal of the first Scene API object hit.
+        ///     Casts a ray cast forward from the right controller position and draws the normal of the first Scene API object hit.
         /// </summary>
         public void RayCastDebugger(bool isOn)
         {
             try
             {
                 if (isOn)
+                {
                     _debugAction = () =>
                     {
                         var ray = GetControllerRay();
@@ -509,15 +545,21 @@ namespace Meta.XR.MRUtilityKit
                         MRUK.Instance?.GetCurrentRoom()?.Raycast(ray, Mathf.Infinity, out hit, out anchorHit);
                         ShowHitNormal(hit);
                         if (anchorHit != null)
+                        {
                             SetLogsText("\n[{0}]\nAnchor: {1}\nHit point: {2}\nHit normal: {3}\n",
                                 nameof(RayCastDebugger),
                                 anchorHit.name,
                                 hit.point,
                                 hit.normal
                             );
+                        }
                     };
+                }
                 else
+                {
                     _debugAction = null;
+                }
+
                 if (_debugNormal != null)
                 {
                     _debugNormal.SetActive(isOn);
@@ -534,14 +576,15 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Moves the debug sphere to the controller position and colors it in green if its position is in the room,
-        /// red otherwise.
+        ///     Moves the debug sphere to the controller position and colors it in green if its position is in the room,
+        ///     red otherwise.
         /// </summary>
         public void IsPositionInRoomDebugger(bool isOn)
         {
             try
             {
                 if (isOn)
+                {
                     _debugAction = () =>
                     {
                         var ray = GetControllerRay();
@@ -559,6 +602,8 @@ namespace Meta.XR.MRUtilityKit
                             );
                         }
                     };
+                }
+
                 if (_debugSphere != null)
                 {
                     _debugSphere.SetActive(isOn);
@@ -574,7 +619,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Shows the debug anchor visualization mode for the anchor being pointed at.
+        ///     Shows the debug anchor visualization mode for the anchor being pointed at.
         /// </summary>
         public void ShowDebugAnchorsDebugger(bool isOn)
         {
@@ -625,7 +670,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///  Displays the global mesh anchor if one is found in the scene.
+        ///     Displays the global mesh anchor if one is found in the scene.
         /// </summary>
         public void DisplayGlobalMesh(bool isOn)
         {
@@ -653,7 +698,10 @@ namespace Meta.XR.MRUtilityKit
                             new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
                         _globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
                         if (visualHelperMaterial)
+                        {
                             _globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
+                        }
+
                         _globalMeshEffectMesh.CreateMesh();
                     }
                     else
@@ -682,7 +730,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Toggles the global mesh anchor's collision.
+        ///     Toggles the global mesh anchor's collision.
         /// </summary>
         public void ToggleGlobalMeshCollisions(bool isOn)
         {
@@ -710,7 +758,10 @@ namespace Meta.XR.MRUtilityKit
                             new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
                         _globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
                         if (visualHelperMaterial)
+                        {
                             _globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
+                        }
+
                         _globalMeshEffectMesh.HideMesh = true;
                         _globalMeshEffectMesh.CreateMesh();
                     }
@@ -738,7 +789,15 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Displays the nav mesh, if present.
+        ///     Displays a texture in  the right info panel about your spacemap
+        /// </summary>
+        public void DisplaySpaceMap(bool isOn)
+        {
+            //we do not need to call additional logic, this is just for completeness
+        }
+
+        /// <summary>
+        ///     Displays the nav mesh, if present.
         /// </summary>
         public void DisplayNavMesh(bool isOn)
         {
@@ -803,10 +862,18 @@ namespace Meta.XR.MRUtilityKit
             foreach (var effectMesh in effectMeshes)
             {
                 if ((effectMesh.Labels & MRUKAnchor.SceneLabels.GLOBAL_MESH) != 0)
+                {
                     return effectMesh;
+                }
             }
 
             return null;
+        }
+
+        private SpaceMapGPU GetSpaceMapGPU()
+        {
+            var spaceMaps = FindObjectsByType<SpaceMapGPU>(FindObjectsSortMode.None);
+            return spaceMaps.Length > 0 ? spaceMaps[0] : null;
         }
 
         private void ShowRoomDetails()
@@ -819,7 +886,7 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        /// Creates an object to help visually debugging a specific anchor.
+        ///     Creates an object to help visually debugging a specific anchor.
         /// </summary>
         private GameObject GenerateDebugAnchor(MRUKAnchor anchor)
         {
@@ -874,7 +941,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// By creating our reference PLANE and VOLUME prefabs in code, we can avoid linking them via Inspector.
+        ///     By creating our reference PLANE and VOLUME prefabs in code, we can avoid linking them via Inspector.
         /// </summary>
         private GameObject CreateDebugPrefabSource(bool isPlane)
         {
@@ -892,10 +959,15 @@ namespace Meta.XR.MRUtilityKit
             prefabMesh.transform.SetParent(meshParent.transform);
             if (isPlane)
                 // Unity quad's normal doesn't align with transform's Z-forward
+            {
                 prefabMesh.transform.localRotation = Quaternion.Euler(0, 180, 0);
+            }
             else
                 // Anchor cubes don't have a center pivot
+            {
                 prefabMesh.transform.localPosition = new Vector3(0, 0, -0.5f);
+            }
+
             SetMaterialProperties(prefabMesh.GetComponent<MeshRenderer>());
             DestroyImmediate(prefabMesh.GetComponent<Collider>());
 
@@ -1042,7 +1114,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Creates the debug primitives for visual debugging purposes and to avoid inspector linking.
+        ///     Creates the debug primitives for visual debugging purposes and to avoid inspector linking.
         /// </summary>
         private void CreateDebugPrimitives()
         {
@@ -1069,7 +1141,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Convenience method to show the normal of a hit collision.
+        ///     Convenience method to show the normal of a hit collision.
         /// </summary>
         /// <param name="hit"></param>
         private void ShowHitNormal(RaycastHit hit)
@@ -1126,7 +1198,9 @@ namespace Meta.XR.MRUtilityKit
         private void Billboard()
         {
             if (!_canvas)
+            {
                 return;
+            }
 
             var direction = _canvas.transform.position - _cameraRig.centerEyeAnchor.transform.position;
             var rotation = Quaternion.LookRotation(direction);
@@ -1136,7 +1210,9 @@ namespace Meta.XR.MRUtilityKit
         private void ToggleMenu(bool active)
         {
             if (!_canvas)
+            {
                 return;
+            }
 
             _canvas.gameObject.SetActive(active);
             StartCoroutine(SnapCanvasInFrontOfCamera());
@@ -1147,6 +1223,10 @@ namespace Meta.XR.MRUtilityKit
             yield return 0; // wait one frame to make sure the camera is set up
             if (_cameraRig)
             {
+                if (_cameraRig.centerEyeAnchor.transform.position == Vector3.zero)
+                {
+                    yield return 0; // wait until the camera is set up
+                }
                 transform.position = _cameraRig.centerEyeAnchor.transform.position +
                                      _cameraRig.centerEyeAnchor.transform.forward * _spawnDistanceFromCamera;
             }

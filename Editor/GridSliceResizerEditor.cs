@@ -73,7 +73,10 @@ public class GridSliceResizerEditor : Editor
     public override void OnInspectorGUI()
     {
         var resizable = target as GridSliceResizer;
-        if (!resizable) return;
+        if (!resizable)
+        {
+            return;
+        }
 
         serializedObject.Update();
         using (new EditorGUI.DisabledScope(true))

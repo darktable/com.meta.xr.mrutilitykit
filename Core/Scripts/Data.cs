@@ -57,7 +57,10 @@ namespace Meta.XR.MRUtilityKit
             // When serializing the Anchor, we only serialize its UUID. The handle is not preserved as this
             // is only valid on the device where it is loaded and not across sessions.
             [JsonProperty("UUID")] public OVRAnchor Anchor;
-            [JsonProperty("SemanticClassifications")] public List<String> SemanticClassifications;
+
+            [JsonProperty("SemanticClassifications")]
+            public List<String> SemanticClassifications;
+
             [JsonProperty("Transform")] public TransformData Transform;
             [JsonProperty("PlaneBounds")] public PlaneBoundsData? PlaneBounds;
             [JsonProperty("VolumeBounds")] public VolumeBoundsData? VolumeBounds;

@@ -22,7 +22,6 @@ namespace Meta.XR.MRUtilityKit.Editor
 {
     internal static class BlockDataIds
     {
-        public const string AnchorColliderSpawner = "3bd6c700-1fcb-41ff-b30b-0bc001d43048";
         public const string EffectMesh = "65c6e778-10b3-4490-89da-008a18aa116a";
         public const string RoomGuardian = "715d6e5e-2d15-475d-9b2b-43ce3eca2f3d";
         public const string SceneDebugger = "8ac24146-90e9-4802-8a61-9d72ceaa2450";

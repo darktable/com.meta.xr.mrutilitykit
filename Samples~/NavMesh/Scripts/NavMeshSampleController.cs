@@ -32,7 +32,10 @@ public class NavMeshSampleController : MonoBehaviour
         if (OVRInput.GetDown(OVRInput.RawButton.B))
         {
             if (!SceneNavigation)
+            {
                 return;
+            }
+
             useGlobalMesh = !useGlobalMesh;
             SceneNavigation.ToggleGlobalMeshNavigation(useGlobalMesh);
         }

@@ -37,7 +37,10 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(SceneToLoad,
                 new LoadSceneParameters(LoadSceneMode.Single));
-            if(AwaitMRUKInit) yield return new WaitUntil(() => MRUK.Instance.IsInitialized);
+            if(AwaitMRUKInit)
+            {
+                yield return new WaitUntil(() => MRUK.Instance.IsInitialized);
+            }
         }
 
         protected IEnumerator TearDown()

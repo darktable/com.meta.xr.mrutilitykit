@@ -30,8 +30,12 @@ public class OppyLightGlow : MonoBehaviour
     public void SetGlowActive(bool active)
     {
         if (!active)
+        {
             oppyMaterial.SetColor(EmissionColorShaderPropertyName, _noGlowColor);
+        }
         else
+        {
             oppyMaterial.SetColor(EmissionColorShaderPropertyName, _glowColor);
+        }
     }
 }

@@ -26,47 +26,39 @@ using Vector3 = UnityEngine.Vector3;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    /// The GridSliceResizer is a versatile tool designed to maintain the proportions of
-    /// specific areas of 3D meshes while allowing others to stretch during scaling.
-    ///
-    /// The concept of the GridSliceResizer is similar to the popular 9-Slice-Scaling technique
-    /// used in 2D graphics, which keeps the borders of sprites unstretched while the inner rectangle is
-    /// stretched. In essence, the GridSliceResizer is a 27-Slice-Scaler for 3D meshes.
-    ///
-    /// The component operates by dividing the bounding box of a 3D mesh into 27 cuboids, as illustrated below.
-    /// Not all cuboids are visible in this picture. Only the once that are front facing:
-    ///
+    ///     The GridSliceResizer is a versatile tool designed to maintain the proportions of
+    ///     specific areas of 3D meshes while allowing others to stretch during scaling.
+    ///     The concept of the GridSliceResizer is similar to the popular 9-Slice-Scaling technique
+    ///     used in 2D graphics, which keeps the borders of sprites unstretched while the inner rectangle is
+    ///     stretched. In essence, the GridSliceResizer is a 27-Slice-Scaler for 3D meshes.
+    ///     The component operates by dividing the bounding box of a 3D mesh into 27 cuboids, as illustrated below.
+    ///     Not all cuboids are visible in this picture. Only the once that are front facing:
     ///     +-----+-----------+-----+
-    ///    /_____/___________/_____/|
-    ///   /_____/___________/_____/||
-    ///  /     /           /     /|||
-    /// +-----+-----------+-----+ |||
-    /// |  A  |     B     |  C  |/|||
-    /// +-----+-----------+-----+ |||
-    /// |     |           |     | |||
-    /// |  D  |     E     |  F  | |||
-    /// |     |           |     |/||/
-    /// +-----+-----------+-----+ |/
-    /// |  G  |     H     |  I  | /
-    /// +-----+-----+-----+-----+
-    ///
-    /// The scaling behaviour is as follows (assuming all other faces of the bounding box are divided as the
-    /// front facing one):
-    ///
-    /// Center Cuboid (E): Vertices within this cuboid stretch on two axes (Y, Z).
-    /// Corner Cuboids (A, C, G, I): These cuboids do not stretch on any axis.
-    /// Middle Cuboids (B, H): These cuboids stretch horizontally but not vertically.
-    /// Middle Cuboids (D, F): These cuboids stretch vertically but not horizontally.
-    ///
-    /// The slicing areas are defined by the PivotOffset and BorderXNegative, BorderXPositive, etc.
-    /// These border values range from 0 to 1 and extend from the mesh's pivot (which may be offset by PivotOffset)
-    /// to the maximum or minimum of the bounding box's axis.
-    /// If all borders are set to 1, the mesh will stretch like a regular mesh during scaling. If set to 0, no stretching
-    /// will occur. Typically, you'll want the pivot in the middle of the mesh and the borders set to around 0.8.
-    ///
-    /// You can visualize the borders and pivot either in the editor, in the prefab mode and during play.
-    ///
-    /// This component is only compatible with meshes that have read/write access enabled.
+    ///     /_____/___________/_____/|
+    ///     /_____/___________/_____/||
+    ///     /     /           /     /|||
+    ///     +-----+-----------+-----+ |||
+    ///     |  A  |     B     |  C  |/|||
+    ///     +-----+-----------+-----+ |||
+    ///     |     |           |     | |||
+    ///     |  D  |     E     |  F  | |||
+    ///     |     |           |     |/||/
+    ///     +-----+-----------+-----+ |/
+    ///     |  G  |     H     |  I  | /
+    ///     +-----+-----+-----+-----+
+    ///     The scaling behaviour is as follows (assuming all other faces of the bounding box are divided as the
+    ///     front facing one):
+    ///     Center Cuboid (E): Vertices within this cuboid stretch on two axes (Y, Z).
+    ///     Corner Cuboids (A, C, G, I): These cuboids do not stretch on any axis.
+    ///     Middle Cuboids (B, H): These cuboids stretch horizontally but not vertically.
+    ///     Middle Cuboids (D, F): These cuboids stretch vertically but not horizontally.
+    ///     The slicing areas are defined by the PivotOffset and BorderXNegative, BorderXPositive, etc.
+    ///     These border values range from 0 to 1 and extend from the mesh's pivot (which may be offset by PivotOffset)
+    ///     to the maximum or minimum of the bounding box's axis.
+    ///     If all borders are set to 1, the mesh will stretch like a regular mesh during scaling. If set to 0, no stretching
+    ///     will occur. Typically, you'll want the pivot in the middle of the mesh and the borders set to around 0.8.
+    ///     You can visualize the borders and pivot either in the editor, in the prefab mode and during play.
+    ///     This component is only compatible with meshes that have read/write access enabled.
     /// </summary>
     [RequireComponent(typeof(MeshFilter))]
     [ExecuteInEditMode]
@@ -80,14 +72,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// This parameter determines whether the center part of the object should be scaled.
-        /// If set to false, the center vertices will remain stationary. This is particularly useful when
-        /// you want to maintain the proportions of certain geometrical features in the center part, such
-        /// as a doorknob. By keeping the center vertices in place, you can avoid unwanted stretching effects,
-        /// resulting in a more visually appealing outcome.
-        /// However, it's important to note that for a convincing visual effect, the texture applied to the object
-        /// should also not stretch. If you encounter issues with texture stretching, consider adding an additional loop cut.
-        /// This can help maintain the texture's proportions and prevent it from distorting.
+        ///     This parameter determines whether the center part of the object should be scaled.
+        ///     If set to false, the center vertices will remain stationary. This is particularly useful when
+        ///     you want to maintain the proportions of certain geometrical features in the center part, such
+        ///     as a doorknob. By keeping the center vertices in place, you can avoid unwanted stretching effects,
+        ///     resulting in a more visually appealing outcome.
+        ///     However, it's important to note that for a convincing visual effect, the texture applied to the object
+        ///     should also not stretch. If you encounter issues with texture stretching, consider adding an additional loop cut.
+        ///     This can help maintain the texture's proportions and prevent it from distorting.
         /// </summary>
         [Flags]
         public enum StretchCenterAxis
@@ -174,7 +166,10 @@ namespace Meta.XR.MRUtilityKit
             if ((Application.isPlaying && !UpdateInPlayMode)
                 || !_meshFilter
                 || !ShouldResize())
+            {
                 return;
+            }
+
             var resizedMesh = ProcessVertices();
             resizedMesh.RecalculateBounds();
             resizedMesh.RecalculateNormals();
@@ -187,7 +182,10 @@ namespace Meta.XR.MRUtilityKit
             if (!_meshCollider)
             {
                 TryGetComponent(out _meshCollider);
-                if (!_meshCollider) return;
+                if (!_meshCollider)
+                {
+                    return;
+                }
             }
 
             _meshCollider.sharedMesh = null;
@@ -220,7 +218,10 @@ namespace Meta.XR.MRUtilityKit
         private void OnDrawGizmosSelected()
         {
             if (_meshFilter == null)
+            {
                 return;
+            }
+
             Gizmos.matrix = transform.localToWorldMatrix;
             Method[] scaling = { ScalingX, ScalingY, ScalingZ };
             float[] negativeBorders = { BorderXNegative, BorderYNegative, BorderZNegative };
@@ -245,14 +246,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Processes the vertices of the given mesh, applying scaling and border adjustments.
+        ///     Processes the vertices of the given mesh, applying scaling and border adjustments.
         /// </summary>
         /// <remarks>
-        /// This function is expensive, as it access and modifies each vertex of the mesh.
-        /// Avoid calling it every frame.
+        ///     This function is expensive, as it access and modifies each vertex of the mesh.
+        ///     Avoid calling it every frame.
         /// </remarks>
         /// <returns>
-        /// A new Mesh with processed vertices.
+        ///     A new Mesh with processed vertices.
         /// </returns>
         public Mesh ProcessVertices()
         {
@@ -385,7 +386,9 @@ namespace Meta.XR.MRUtilityKit
                 for (var axis = 0; axis < 3; axis++)
                 {
                     if (bordersNeg[axis] == 0.0f || bordersPos[axis] == 0.0f)
+                    {
                         continue;
+                    }
 
                     if (0.0f <= newVertPosition[axis] && newVertPosition[axis] <= borderPosPosition[axis] &&
                         (stretchCenter[axis] || scaleCenter[axis]))
@@ -409,7 +412,9 @@ namespace Meta.XR.MRUtilityKit
                             // The mesh that would result from the linear transform above is still not small enough to
                             // fit into the expected scaled down bounding box. This means the stubs need to be scaled down
                             // to make them fit.
+                        {
                             newVertPosition[axis] *= downscaleMax[axis];
+                        }
                     }
                     else if (newVertPosition[axis] < borderNegPosition[axis])
                     {
@@ -421,7 +426,9 @@ namespace Meta.XR.MRUtilityKit
                             // The mesh that would result from the linear transform above is still not small enough to
                             // fit into the expected scaled down bounding box. This means the stubs need to be scaled down
                             // to make them fit.
+                        {
                             newVertPosition[axis] *= -downscaleMin[axis];
+                        }
                     }
 
                     // Undo pivot offset

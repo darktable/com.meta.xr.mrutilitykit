@@ -27,6 +27,7 @@ using System;
 public class ResizableObjectsList : ScriptableObject
 {
     public Labels label;
+
     [System.Serializable]
     public enum Labels
     {
@@ -45,8 +46,10 @@ public class ResizableObjectsList : ScriptableObject
         Materials,
         None
     }
+
     public List<FurniturePiece> objects;
     public Dictionary<string, FurniturePiece> book;
+
     [System.Serializable]
     public class FurniturePiece
     {
@@ -76,26 +79,26 @@ public class ResizableObjectsList : ScriptableObject
     }
 
 #if UNITY_EDITOR
-  public void OnEnable()
-  {
-    bool dirty = false;
-    foreach (FurniturePiece piece in objects)
+    public void OnEnable()
     {
-      if (piece.GUID == "")
-      {
-        piece.GUID = Guid.NewGuid().ToString();
-        dirty = true;
-      }
-    }
+        bool dirty = false;
+        foreach (FurniturePiece piece in objects)
+        {
+            if (piece.GUID == "")
+            {
+                piece.GUID = Guid.NewGuid().ToString();
+                dirty = true;
+            }
+        }
 
-    // These commands are needed in order for Unity to realize that
-    // the scriptable object has changed.
-    if (dirty)
-    {
-      UnityEditor.AssetDatabase.Refresh();
-      UnityEditor.EditorUtility.SetDirty(this);
-      UnityEditor.AssetDatabase.SaveAssets();
+        // These commands are needed in order for Unity to realize that
+        // the scriptable object has changed.
+        if (dirty)
+        {
+            UnityEditor.AssetDatabase.Refresh();
+            UnityEditor.EditorUtility.SetDirty(this);
+            UnityEditor.AssetDatabase.SaveAssets();
+        }
     }
-  }
 #endif
 }

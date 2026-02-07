@@ -63,6 +63,7 @@ public class NavMeshAgentController : MonoBehaviour
             {
                 return;
             }
+
             bool test = room.IsPositionInRoom(newPos, false); // occasionally NavMesh will generate areas outside the room, so we must test the value from RandomNavPoint
 
             if (!test)
@@ -150,8 +151,8 @@ public class NavMeshAgentController : MonoBehaviour
                 {
                     v = 1.0f - v;
                 }
-
             }
+
             return v0 + u * (v1 - v0) + v * (v2 - v0);
         }
     }

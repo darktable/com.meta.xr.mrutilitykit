@@ -19,15 +19,18 @@
  */
 
 using System;
+using System.Collections;
 using System.Linq;
 using NUnit.Framework;
+using UnityEngine.TestTools;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
     public class GeneralTests : MRUKTestBase
     {
-        [Test]
-        public void ClassificationToSceneLabelsConversion()
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator ClassificationToSceneLabelsConversion()
         {
             var allLabels = Enum.GetValues(typeof(MRUKAnchor.SceneLabels)) as MRUKAnchor.SceneLabels[];
             Assert.IsNotNull(allLabels);
@@ -42,6 +45,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                 })
                 .ToArray();
             Assert.IsTrue(allLabels.SequenceEqual(convertedLabels));
+            yield return true;
         }
     }
 }

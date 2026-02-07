@@ -53,7 +53,10 @@ public class DropTablePropertyDrawer : PropertyDrawer
             _ => sceneLabelsFlags.ToString()
         };
         if (propertyName.Split(',').Length > 4)
+        {
             propertyName = "Mixed..."; // to avoid overflowing the inspector
+        }
+
         label.text = propertyName;
 
         property.isExpanded =
@@ -75,7 +78,9 @@ public class DropTablePropertyDrawer : PropertyDrawer
             {
                 adjustedPropertyHeight += propertyHeight * 2;
                 for (var i = 0; i < prefabsProperty.arraySize - 1; i++)
+                {
                     adjustedPropertyHeight += EditorGUI.GetPropertyHeight(prefabsProperty.GetArrayElementAtIndex(i));
+                }
             }
 
             EditorGUI.PropertyField(
@@ -105,13 +110,23 @@ public class DropTablePropertyDrawer : PropertyDrawer
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
     {
         var totalHeight = EditorGUIUtility.singleLineHeight;
-        if (!property.isExpanded) return totalHeight;
+        if (!property.isExpanded)
+        {
+            return totalHeight;
+        }
+
         totalHeight += EditorGUIUtility.singleLineHeight * 11; // 8 properties + 1 for the label + 2 extra padding lines
         var prefabsProperty = property.FindPropertyRelative(nameof(AnchorPrefabSpawner.AnchorPrefabGroup.Prefabs));
-        if (!prefabsProperty.isExpanded) return totalHeight;
+        if (!prefabsProperty.isExpanded)
+        {
+            return totalHeight;
+        }
+
         totalHeight += EditorGUIUtility.singleLineHeight;
         for (var i = 0; i < prefabsProperty.arraySize - 1; i++)
+        {
             totalHeight += EditorGUI.GetPropertyHeight(prefabsProperty.GetArrayElementAtIndex(i));
+        }
 
         return totalHeight;
     }

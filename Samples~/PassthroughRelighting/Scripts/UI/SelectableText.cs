@@ -27,7 +27,7 @@ public class SelectableText : MonoBehaviour
     [SerializeField] private bool SelectedOnToggleOn;
     private TextMeshProUGUI selectedText;
     private Color selectedColor = Color.white;
-    private Color deselectedColor = new Color(0.3f,0.3f,0.3f);
+    private Color deselectedColor = new Color(0.3f, 0.3f, 0.3f);
 
     void Awake()
     {

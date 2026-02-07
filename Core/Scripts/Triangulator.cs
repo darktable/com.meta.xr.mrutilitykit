@@ -117,8 +117,8 @@ namespace Meta.XR.MRUtilityKit
         private struct MergedVertex
         {
             public Vector2 Position;
-            public int NextVertex;  // Linked list to the next vertex (or -1 if none)
-            public int NextHole;    // Linked list to the next hole (or -1 if none)
+            public int NextVertex; // Linked list to the next vertex (or -1 if none)
+            public int NextHole; // Linked list to the next hole (or -1 if none)
         }
 
         // Implements a simplified Weiler–Atherton clipping algorithm that does not deal with many edge cases

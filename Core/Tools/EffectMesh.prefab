@@ -52,6 +52,7 @@ MonoBehaviour:
   CutHoles: 0
   castShadows: 1
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 5
     WallV: 2

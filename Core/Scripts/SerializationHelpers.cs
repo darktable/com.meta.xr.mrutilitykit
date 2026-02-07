@@ -27,9 +27,8 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
-
     /// <summary>
-    /// This contains helpers to serialize/deserialze Scene data to/from JSON
+    ///     This contains helpers to serialize/deserialze Scene data to/from JSON
     /// </summary>
     [Feature(Feature.Scene)]
     public static class SerializationHelpers
@@ -95,6 +94,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     throw new Exception("Expected end of array");
                 }
+
                 return result;
             }
         }
@@ -127,6 +127,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     throw new Exception("Expected end of array");
                 }
+
                 return result;
             }
         }
@@ -143,6 +144,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     writer.WriteValue(item);
                 }
+
                 writer.WriteEndArray();
                 writer.Formatting = prevFormatting;
             }
@@ -158,9 +160,11 @@ namespace Meta.XR.MRUtilityKit
                         {
                             return list.ToArray();
                         }
+
                         list.Add((int)(long)reader.Value);
                     }
                 }
+
                 throw new JsonReaderException("Expected start of array.");
             }
         }
@@ -181,6 +185,7 @@ namespace Meta.XR.MRUtilityKit
                     writer.WriteValue(item.z);
                     writer.WriteEndArray();
                 }
+
                 writer.WriteEndArray();
                 writer.Formatting = prevFormatting;
             }
@@ -196,6 +201,7 @@ namespace Meta.XR.MRUtilityKit
                         {
                             return list.ToArray();
                         }
+
                         Vector3 result = new()
                         {
                             x = (float)reader.ReadAsDouble(),
@@ -207,9 +213,11 @@ namespace Meta.XR.MRUtilityKit
                         {
                             throw new Exception("Expected end of array");
                         }
+
                         list.Add(result);
                     }
                 }
+
                 throw new JsonReaderException("Expected start of array.");
             }
         }
@@ -227,8 +235,8 @@ namespace Meta.XR.MRUtilityKit
         };
 
         /// <summary>
-        /// Serializes the scene data into a JSON string. The scene data includes rooms, anchors, and their associated properties.
-        /// The method allows for the specification of the coordinate system (Unity or Unreal) and whether to include the global mesh data.
+        ///     Serializes the scene data into a JSON string. The scene data includes rooms, anchors, and their associated properties.
+        ///     The method allows for the specification of the coordinate system (Unity or Unreal) and whether to include the global mesh data.
         /// </summary>
         /// <param name="coordinateSystem">The coordinate system to use for the serialization (Unity or Unreal).</param>
         /// <param name="includeGlobalMesh">A boolean indicating whether to include the global mesh data in the serialization. Default is true.</param>
@@ -262,14 +270,17 @@ namespace Meta.XR.MRUtilityKit
                     {
                         roomData.RoomLayout.CeilingUuid = anchorData.Anchor.Uuid;
                     }
+
                     if (anchor == room.FloorAnchor)
                     {
                         roomData.RoomLayout.FloorUuid = anchorData.Anchor.Uuid;
                     }
+
                     if (room.WallAnchors.Contains(anchor))
                     {
                         roomData.RoomLayout.WallsUuid.Add(anchorData.Anchor.Uuid);
                     }
+
                     anchorData.SemanticClassifications = Utilities.SceneLabelsEnumToList(anchor.Label);
                     anchorData.Transform = new();
                     var localPosition = anchor.transform.localPosition;
@@ -279,6 +290,7 @@ namespace Meta.XR.MRUtilityKit
                         localPosition = new Vector3(localPosition.z * UnrealWorldToMeters, localPosition.x * UnrealWorldToMeters, localPosition.y * UnrealWorldToMeters);
                         localRotation = new Vector3(localRotation.x, 180f + localRotation.y, localRotation.z);
                     }
+
                     anchorData.Transform.Translation = localPosition;
                     anchorData.Transform.Rotation = localRotation;
                     anchorData.Transform.Scale = anchor.transform.localScale;
@@ -303,6 +315,7 @@ namespace Meta.XR.MRUtilityKit
                             };
                         }
                     }
+
                     if (anchor.PlaneBoundary2D != null)
                     {
                         anchorData.PlaneBoundary2D = new();
@@ -313,6 +326,7 @@ namespace Meta.XR.MRUtilityKit
                             {
                                 anchorData.PlaneBoundary2D.Add(new Vector2(-p.x * UnrealWorldToMeters, p.y * UnrealWorldToMeters));
                             }
+
                             anchorData.PlaneBoundary2D.Reverse();
                         }
                         else
@@ -320,6 +334,7 @@ namespace Meta.XR.MRUtilityKit
                             anchorData.PlaneBoundary2D = anchor.PlaneBoundary2D;
                         }
                     }
+
                     if (anchor.VolumeBounds.HasValue)
                     {
                         var min = anchor.VolumeBounds.Value.min;
@@ -341,6 +356,7 @@ namespace Meta.XR.MRUtilityKit
                             };
                         }
                     }
+
                     Mesh globalMesh = anchor.GlobalMesh;
                     if (includeGlobalMesh && globalMesh)
                     {
@@ -353,6 +369,7 @@ namespace Meta.XR.MRUtilityKit
                                 var vert = vertices[i];
                                 vertices[i] = new Vector3(-vert.z, -vert.x, vert.y);
                             }
+
                             Array.Reverse(triangles);
                         }
                         else
@@ -360,14 +377,17 @@ namespace Meta.XR.MRUtilityKit
                             vertices = globalMesh.vertices;
                             triangles = globalMesh.triangles;
                         }
+
                         anchorData.GlobalMesh = new Data.GlobalMeshData()
                         {
                             Positions = vertices,
                             Indices = triangles
                         };
                     }
+
                     roomData.Anchors.Add(anchorData);
                 }
+
                 sceneData.Rooms.Add(roomData);
             }
 
@@ -381,7 +401,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Deserializes a JSON string into a list of MRUKRoom objects.
+        ///     Deserializes a JSON string into a list of MRUKRoom objects.
         /// </summary>
         /// <param name="json">The JSON string representing the serialized scene data.</param>
         /// <returns>A list of MRUKRoom objects representing the deserialized scene data.</returns>
@@ -412,10 +432,13 @@ namespace Meta.XR.MRUtilityKit
                         {
                             anchor.VolumeBounds = new Data.VolumeBoundsData()
                             {
-                                Min = new Vector3(anchor.VolumeBounds.Value.Min.y / UnrealWorldToMeters, anchor.VolumeBounds.Value.Min.z / UnrealWorldToMeters, -anchor.VolumeBounds.Value.Max.x / UnrealWorldToMeters),
-                                Max = new Vector3(anchor.VolumeBounds.Value.Max.y / UnrealWorldToMeters, anchor.VolumeBounds.Value.Max.z / UnrealWorldToMeters, -anchor.VolumeBounds.Value.Min.x / UnrealWorldToMeters),
+                                Min = new Vector3(anchor.VolumeBounds.Value.Min.y / UnrealWorldToMeters, anchor.VolumeBounds.Value.Min.z / UnrealWorldToMeters,
+                                    -anchor.VolumeBounds.Value.Max.x / UnrealWorldToMeters),
+                                Max = new Vector3(anchor.VolumeBounds.Value.Max.y / UnrealWorldToMeters, anchor.VolumeBounds.Value.Max.z / UnrealWorldToMeters,
+                                    -anchor.VolumeBounds.Value.Min.x / UnrealWorldToMeters),
                             };
                         }
+
                         if (anchor.PlaneBounds != null)
                         {
                             anchor.PlaneBounds = new Data.PlaneBoundsData()
@@ -424,15 +447,18 @@ namespace Meta.XR.MRUtilityKit
                                 Max = new Vector2(-anchor.PlaneBounds.Value.Min.x / UnrealWorldToMeters, anchor.PlaneBounds.Value.Max.y / UnrealWorldToMeters),
                             };
                         }
+
                         if (anchor.PlaneBoundary2D != null)
                         {
-                            for (int k =0; k<anchor.PlaneBoundary2D.Count; ++k)
+                            for (int k = 0; k < anchor.PlaneBoundary2D.Count; ++k)
                             {
                                 var p = anchor.PlaneBoundary2D[k];
                                 anchor.PlaneBoundary2D[k] = new Vector2(-p.x / UnrealWorldToMeters, p.y / UnrealWorldToMeters);
                             }
+
                             anchor.PlaneBoundary2D.Reverse();
                         }
+
                         if (anchor.GlobalMesh != null)
                         {
                             for (int k = 0; k < anchor.GlobalMesh.Value.Positions.Length; k++)
@@ -440,13 +466,17 @@ namespace Meta.XR.MRUtilityKit
                                 var vert = anchor.GlobalMesh.Value.Positions[k];
                                 anchor.GlobalMesh.Value.Positions[k] = new Vector3(-vert.y, vert.z, -vert.x);
                             }
+
                             Array.Reverse(anchor.GlobalMesh.Value.Indices);
                         }
                     }
+
                     room.Anchors[j] = anchor;
                 }
+
                 sceneData.Rooms[i] = room;
             }
+
             // We converted the data to Unity coordinate system above
             sceneData.CoordinateSystem = CoordinateSystem.Unity;
             return sceneData;

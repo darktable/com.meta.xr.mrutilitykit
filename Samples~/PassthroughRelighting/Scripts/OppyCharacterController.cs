@@ -22,31 +22,31 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Listens to the user's input, moves and animates Oppy accordingly.
+///     Listens to the user's input, moves and animates Oppy accordingly.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 [RequireComponent(typeof(Animator))]
 public class OppyCharacterController : MonoBehaviour
 {
     /// <summary>
-    /// The transform whose the forward vector for Oppy's motion
+    ///     The transform whose the forward vector for Oppy's motion
     /// </summary>
     [SerializeField] private Transform movementFrameOfReference;
 
     /// <summary>
-    ///  The vertical speed that Oppy will have if the jump button is pressed
+    ///     The vertical speed that Oppy will have if the jump button is pressed
     /// </summary>
     [SerializeField] private float jumpSpeed = 4;
 
     /// <summary>
-    ///  The vertical acceleration applied to Oppy if the jump button is kept pressed
+    ///     The vertical acceleration applied to Oppy if the jump button is kept pressed
     /// </summary>
     [SerializeField] private float keepPressedJumpAcceleration = 1;
 
     [SerializeField] private OVRInput.Button jumpButton;
 
     /// <summary>
-    ///  The transform in front of which Oppy will be respawned
+    ///     The transform in front of which Oppy will be respawned
     /// </summary>
     [SerializeField] private Transform respawnTransform;
 

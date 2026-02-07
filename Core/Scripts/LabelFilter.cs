@@ -24,8 +24,8 @@ using System.Collections.Generic;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    /// A struct that can filter certain labels. The default is
-    /// to allow all labels.
+    ///     A struct that can filter certain labels. The default is
+    ///     to allow all labels.
     /// </summary>
     public struct LabelFilter
     {
@@ -38,7 +38,7 @@ namespace Meta.XR.MRUtilityKit
         [Obsolete(OVRSemanticLabels.DeprecationMessage)]
         public static LabelFilter Excluded(List<string> excluded) => Excluded(Utilities.StringLabelsToEnum(excluded));
 
-        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        /// <see cref="OVRSemanticLabels.DeprecationMessage" />
         [Obsolete("Use '" + nameof(Included) + "()' instead.")]
         public static LabelFilter FromEnum(MRUKAnchor.SceneLabels labels) => Included(labels);
 
@@ -52,9 +52,15 @@ namespace Meta.XR.MRUtilityKit
         public bool PassesFilter(MRUKAnchor.SceneLabels labelFlags)
         {
             if ((_excluded & labelFlags) != 0)
+            {
                 return false;
+            }
+
             if (_included.HasValue)
+            {
                 return (_included.Value & labelFlags) != 0;
+            }
+
             return true;
         }
     }

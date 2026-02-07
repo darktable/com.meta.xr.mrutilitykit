@@ -38,6 +38,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 return cachedBounds;
             }
+
             Bounds? bounds = CalculateBoundsRecursively(prefab.transform);
             prefabBoundsCache.Add(prefab, bounds);
             return bounds;
@@ -77,7 +78,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Gets the name of an anchor based on its semantic classification.
+        ///     Gets the name of an anchor based on its semantic classification.
         /// </summary>
         /// <param name="anchorData">The Data.AnchorData object representing the anchor.</param>
         /// <returns>The name of the anchor, or "UNDEFINED_ANCHOR" if no semantic classification is available.</returns>
@@ -90,13 +91,21 @@ namespace Meta.XR.MRUtilityKit
 
         internal static Rect? GetPlaneRectFromAnchorData(Data.AnchorData data)
         {
-            if (data.PlaneBounds == null) return null;
+            if (data.PlaneBounds == null)
+            {
+                return null;
+            }
+
             return new Rect(data.PlaneBounds.Value.Min, data.PlaneBounds.Value.Max - data.PlaneBounds.Value.Min);
         }
 
         internal static Bounds? GetVolumeBoundsFromAnchorData(Data.AnchorData data)
         {
-            if (data.VolumeBounds == null) return null;
+            if (data.VolumeBounds == null)
+            {
+                return null;
+            }
+
             Vector3 volumeBoundsMin = data.VolumeBounds.Value.Min;
             Vector3 volumeBoundsMax = data.VolumeBounds.Value.Max;
             Vector3 volumeBoundsCenterOffset = (volumeBoundsMin + volumeBoundsMax) * 0.5f;
@@ -105,7 +114,11 @@ namespace Meta.XR.MRUtilityKit
 
         internal static Mesh GetGlobalMeshFromAnchorData(Data.AnchorData data)
         {
-            if (data.GlobalMesh == null) return null;
+            if (data.GlobalMesh == null)
+            {
+                return null;
+            }
+
             return new Mesh()
             {
                 vertices = data.GlobalMesh.Value.Positions,
@@ -115,26 +128,44 @@ namespace Meta.XR.MRUtilityKit
 
         internal static void DestroyGameObjectAndChildren(GameObject gameObject)
         {
-            if (gameObject == null) return;
+            if (gameObject == null)
+            {
+                return;
+            }
+
             foreach (Transform child in gameObject.transform)
             {
                 UnityEngine.Object.DestroyImmediate(child.gameObject);
             }
+
             UnityEngine.Object.DestroyImmediate(gameObject.gameObject);
         }
 
         /// <summary>
-        /// Replacement for LINQ
+        ///     Replacement for LINQ
         /// </summary>
         public static bool SequenceEqual<T>(this List<T> list1, List<T> list2)
         {
-            if (list1 == null && list2 == null) return true;
-            if (list1 == null && list2 != null) return false;
-            if (list1 != null && list2 == null) return false;
+            if (list1 == null && list2 == null)
+            {
+                return true;
+            }
+
+            if (list1 == null && list2 != null)
+            {
+                return false;
+            }
+
+            if (list1 != null && list2 == null)
+            {
+                return false;
+            }
+
             if (list1.Count != list2.Count)
             {
                 return false;
             }
+
             for (int i = 0; i < list1.Count; i++)
             {
                 if (!Equals(list1[i], list2[i]))
@@ -142,6 +173,7 @@ namespace Meta.XR.MRUtilityKit
                     return false;
                 }
             }
+
             return true;
         }
 
@@ -183,6 +215,7 @@ namespace Meta.XR.MRUtilityKit
                     result.Add(label.ToString());
                 }
             }
+
             return result;
         }
 
@@ -193,6 +226,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 result |= StringLabelToEnum(label);
             }
+
             return result;
         }
 
@@ -203,6 +237,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 Debug.LogError($"Unknown scene label: {stringLabel}");
             }
+
             return ClassificationToSceneLabel(classification);
         }
 
@@ -213,6 +248,7 @@ namespace Meta.XR.MRUtilityKit
             int bitShift = (int)classification;
             return (MRUKAnchor.SceneLabels)(1 << bitShift);
         }
+
         internal static void DrawWireSphere(Vector3 center, float radius, Color color, float duration, int quality = 3)
         {
             quality = Mathf.Clamp(quality, 1, 10);
@@ -260,12 +296,14 @@ namespace Meta.XR.MRUtilityKit
         private Vector3 Row0;
         private Vector3 Row1;
         private Vector3 Row2;
+
         internal Float3X3(Vector3 row0, Vector3 row1, Vector3 row2)
         {
             Row0 = row0;
             Row1 = row1;
             Row2 = row2;
         }
+
         internal Float3X3(float m00, float m01, float m02,
             float m10, float m11, float m12,
             float m20, float m21, float m22)
@@ -285,6 +323,7 @@ namespace Meta.XR.MRUtilityKit
                     result[i, j] = a[i, 0] * b[0, j] + a[i, 1] * b[1, j] + a[i, 2] * b[2, j];
                 }
             }
+
             return result;
         }
 
@@ -311,9 +350,15 @@ namespace Meta.XR.MRUtilityKit
             {
                 switch (row)
                 {
-                    case 0: Row0[column] = value; break;
-                    case 1: Row1[column] = value; break;
-                    case 2: Row2[column] = value; break;
+                    case 0:
+                        Row0[column] = value;
+                        break;
+                    case 1:
+                        Row1[column] = value;
+                        break;
+                    case 2:
+                        Row2[column] = value;
+                        break;
                     default: throw new IndexOutOfRangeException("Row index out of range: " + row);
                 }
             }
@@ -373,20 +418,20 @@ namespace Meta.XR.MRUtilityKit
             var oy = (_mod7.Floor() * K).Subtract(Ko);
             var dx = ox * (Pf.x + 0.5f + jitter);
             var dy = of.Subtract(Pf.y) + jitter * oy;
-            var d1 = Vector3.Scale(dx,dx) + Vector3.Scale(dy,dy); // d11, d12 and d13, squared
+            var d1 = Vector3.Scale(dx, dx) + Vector3.Scale(dy, dy); // d11, d12 and d13, squared
             p = permute(oi.Add(px.y + Pi.y)); // p21, p22, p23
             ox = mod289(p * K).Subtract(Ko);
             _mod7 = mod7(p * K);
             oy = (_mod7.Floor() * K).Subtract(Ko);
             dx = ox * (Pf.x - 0.5f + jitter);
-            dy = Vector3.Scale(oy,of.Subtract(Pf.y)).Add(jitter);
-            var d2 = Vector3.Scale(dx,dx) + Vector3.Scale(dy,dy); // d21, d22 and d23, squared
+            dy = Vector3.Scale(oy, of.Subtract(Pf.y)).Add(jitter);
+            var d2 = Vector3.Scale(dx, dx) + Vector3.Scale(dy, dy); // d21, d22 and d23, squared
             p = permute(oi.Add(px.z + Pi.y)); // p31, p32, p33
-            ox = mod289(p *K).Subtract(Ko);
-            oy = mod7(p.Floor() *K *K).Subtract(Ko);
+            ox = mod289(p * K).Subtract(Ko);
+            oy = mod7(p.Floor() * K * K).Subtract(Ko);
             dx = ox * (Pf.x - 1.5f + jitter);
-            dy = Vector3.Scale(oy,of.Subtract(Pf.y).Add(jitter));
-            var d3 = Vector3.Scale(dx,dx) + Vector3.Scale(dy,dy); // d31, d32 and d33, squared
+            dy = Vector3.Scale(oy, of.Subtract(Pf.y).Add(jitter));
+            var d3 = Vector3.Scale(dx, dx) + Vector3.Scale(dy, dy); // d31, d32 and d33, squared
             // Sort out the two smallest distances (F1, F2)
             var d1a = Vector3.Min(d1, d2);
             d2 = Vector3.Max(d1, d2); // Swap to keep candidates for F2
@@ -405,13 +450,15 @@ namespace Meta.XR.MRUtilityKit
         }
     }
 
-    internal static class SimplexNoise {
-        internal static Vector3 srdnoise(Vector2 pos, float rot) {
+    internal static class SimplexNoise
+    {
+        internal static Vector3 srdnoise(Vector2 pos, float rot)
+        {
             // Scale the input position
             var p = pos * 100f;
 
             // Calculate the integer and fractional parts of the position
-            var ip = new  Vector2(Mathf.FloorToInt(p.x),Mathf.FloorToInt(p.y));
+            var ip = new Vector2(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.y));
             var fp = p - ip;
 
             // Calculate the dot product of the fractional part with the two basis vectors

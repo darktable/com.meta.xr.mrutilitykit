@@ -40,13 +40,14 @@ namespace Meta.XR.MRUtilityKit
         public Texture2D TextureMap;
 
         Bounds MapBounds = new Bounds();
+
         /// <summary>
-        /// The center of the texture. Note that Offset.y aligns with Unity's Z.
+        ///     The center of the texture. Note that Offset.y aligns with Unity's Z.
         /// </summary>
         public Vector2 Offset => new Vector2(MapBounds.center.x, MapBounds.center.z);
 
         /// <summary>
-        /// The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
+        ///     The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
         /// </summary>
         public Vector2 Scale => new Vector2(
             Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2,
@@ -56,10 +57,13 @@ namespace Meta.XR.MRUtilityKit
         int PixelDimensions = 128;
 
         public Gradient MapGradient = new Gradient();
+
         [Tooltip("How far inside the room the left end of the Texture Gradient should appear. 0 is at the surface, negative is inside the room.")]
         public float InnerBorder = -0.5f;
+
         [Tooltip("How far outside the room the right end of the Texture Gradient should appear. 0 is at the surface, positive is outside the room.")]
         public float OuterBorder = 0.0f;
+
         [Tooltip("How much the texture map should extend from the room bounds, in meters. Should ideally be greater than or equal to outerPosition.")]
         public float MapBorder = 0.0f;
 
@@ -128,8 +132,8 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// A surface-relative value of how far a position is from all SceneAPI surfaces
-        /// negative values are behind the surface i.e. outside of the room or inside a volume
+        ///     A surface-relative value of how far a position is from all SceneAPI surfaces
+        ///     negative values are behind the surface i.e. outside of the room or inside a volume
         /// </summary>
         public float GetSurfaceDistance(MRUKRoom room, Vector3 worldPosition)
         {
@@ -137,14 +141,16 @@ namespace Meta.XR.MRUtilityKit
             float sign = 1f;
             if (room != null)
             {
-                closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
+                closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor,
+                    LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
                 sign = room.IsPositionInRoom(worldPosition, false) ? 1 : -1;
             }
             else
             {
                 foreach (var currentRoom in MRUK.Instance.Rooms)
                 {
-                    var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
+                    var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor,
+                        LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
                     if (dist < closestDist)
                     {
                         closestDist = dist;
@@ -152,6 +158,7 @@ namespace Meta.XR.MRUtilityKit
                     }
                 }
             }
+
             float surfaceDistance = closestDist * sign;
             return surfaceDistance;
         }
@@ -175,6 +182,7 @@ namespace Meta.XR.MRUtilityKit
                     TextureMap.SetPixel(x, y, averageColor);
                 }
             }
+
             TextureMap.Apply();
 
             yield return null;
@@ -192,8 +200,8 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Color clamps to edge color if worldPosition is off-grid.
-        /// getBilinear blends the color between pixels.
+        ///     Color clamps to edge color if worldPosition is off-grid.
+        ///     getBilinear blends the color between pixels.
         /// </summary>
         public Color GetColorAtPosition(Vector3 worldPosition, bool getBilinear = true)
         {

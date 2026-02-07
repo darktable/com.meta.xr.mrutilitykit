@@ -50,11 +50,15 @@ namespace Meta.XR.MRUtilityKit
             INVISIBLE_WALL_FACE = 1 << OVRSemanticLabels.Classification.InvisibleWallFace,
         };
 
-        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        /// <see cref="OVRSemanticLabels.DeprecationMessage" />
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public List<string> AnchorLabels => Utilities.SceneLabelsEnumToList(Label);
 
-        public SceneLabels Label { get; internal set; }
+        public SceneLabels Label
+        {
+            get;
+            internal set;
+        }
 
         public Rect? PlaneRect;
         public Bounds? VolumeBounds;
@@ -73,6 +77,7 @@ namespace Meta.XR.MRUtilityKit
 
         [Obsolete("Use PlaneRect.HasValue instead.")]
         public bool HasPlane => PlaneRect != null;
+
         [Obsolete("Use VolumeBounds.HasValue instead.")]
         public bool HasVolume => VolumeBounds != null;
 
@@ -84,19 +89,21 @@ namespace Meta.XR.MRUtilityKit
                 {
                     _globalMesh = LoadGlobalMeshTriangles();
                 }
+
                 return _globalMesh;
             }
             set => _globalMesh = value;
         }
+
         Mesh _globalMesh;
 
 
         /// <summary>
-        /// We prefer to avoid colliders and Physics.Raycast because: <br/>
-        /// 1. It requires tags/layers to filter out Scene API object hits from general raycasts. This can be intrusive to a dev's pipeline by altering their project settings <br/>
-        /// 2. It requires specific Plane & Volume prefabs that MRUK instantiates with colliders as children <br/>
-        /// 3. It seems like overkill, since we already "know" where all the Scene API primitives are; no need to raycast everywhere to find them <br/>
-        /// Instead, we use Plane.Raycast and other methods to see if the ray has hit the surface of the object <br/>
+        ///     We prefer to avoid colliders and Physics.Raycast because: <br />
+        ///     1. It requires tags/layers to filter out Scene API object hits from general raycasts. This can be intrusive to a dev's pipeline by altering their project settings <br />
+        ///     2. It requires specific Plane & Volume prefabs that MRUK instantiates with colliders as children <br />
+        ///     3. It seems like overkill, since we already "know" where all the Scene API primitives are; no need to raycast everywhere to find them <br />
+        ///     Instead, we use Plane.Raycast and other methods to see if the ray has hit the surface of the object <br />
         /// </summary>
         public bool Raycast(Ray ray, float maxDist, out RaycastHit hitInfo)
         {
@@ -119,16 +126,19 @@ namespace Meta.XR.MRUtilityKit
                     return true;
                 }
             }
+
             if (hitPlane)
             {
                 hitInfo = hitInfoPlane;
                 return true;
             }
+
             if (hitVolume)
             {
                 hitInfo = hitInfoVolume;
                 return true;
             }
+
             hitInfo = new();
             return false;
         }
@@ -224,12 +234,13 @@ namespace Meta.XR.MRUtilityKit
             {
                 return transform.TransformPoint(VolumeBounds.Value.center);
             }
+
             return transform.position;
         }
 
         /// <summary>
-        /// A convenience function to get a transform-friendly Vector3 size of an anchor.
-        /// If you'd like the size of the quad or volume instead, use <seealso cref="MRUKAnchor.PlaneRect"/> or <seealso cref="MRUKAnchor.VolumeBounds"/>
+        ///     A convenience function to get a transform-friendly Vector3 size of an anchor.
+        ///     If you'd like the size of the quad or volume instead, use <seealso cref="MRUKAnchor.PlaneRect" /> or <seealso cref="MRUKAnchor.VolumeBounds" />
         /// </summary>
         [Obsolete("Use PlaneRect and VolumeBounds properties instead")]
         public Vector3 GetAnchorSize()
@@ -240,6 +251,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 returnSize = new Vector3(PlaneRect.Value.size.x, PlaneRect.Value.size.y, 1);
             }
+
             // prioritize the volume's size, since that is likely the desired value
             if (HasVolume)
             {
@@ -263,6 +275,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 return false;
             }
+
             Plane plane = new Plane(Vector3.forward, 0);
             if (plane.Raycast(localRay, out float entryDistance) && entryDistance < maxDist)
             {
@@ -278,6 +291,7 @@ namespace Meta.XR.MRUtilityKit
                     return true;
                 }
             }
+
             return false;
         }
 
@@ -290,6 +304,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 return false;
             }
+
             int hitAxis = 0;
             float distFar = Mathf.Infinity;
             float distNear = -Mathf.Infinity;
@@ -305,11 +320,13 @@ namespace Meta.XR.MRUtilityKit
                         // Swap as dist1 is the intersection with the plane
                         (dist1, dist2) = (dist2, dist1);
                     }
+
                     if (dist1 > distNear)
                     {
                         distNear = dist1;
                         hitAxis = i;
                     }
+
                     if (dist2 < distFar)
                     {
                         distFar = dist2;
@@ -326,6 +343,7 @@ namespace Meta.XR.MRUtilityKit
                     }
                 }
             }
+
             if (distNear >= 0 && distNear <= distFar && distNear < maxDist)
             {
                 Vector3 impactPos = localRay.GetPoint(distNear);
@@ -339,6 +357,7 @@ namespace Meta.XR.MRUtilityKit
                 hitInfo.distance = distNear;
                 return true;
             }
+
             return false;
         }
 
@@ -371,11 +390,14 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Test if a position is inside of this volume (couch, desk, etc.)
+        ///     Test if a position is inside of this volume (couch, desk, etc.)
         /// </summary>
         public bool IsPositionInVolume(Vector3 worldPosition, bool testVerticalBounds, float distanceBuffer = 0.0f)
         {
-            if (!VolumeBounds.HasValue) return false;
+            if (!VolumeBounds.HasValue)
+            {
+                return false;
+            }
 
             Vector3 localPosition = transform.InverseTransformPoint(worldPosition);
             var bounds = VolumeBounds.Value;
@@ -387,24 +409,34 @@ namespace Meta.XR.MRUtilityKit
             else
             {
                 return (localPosition.x >= bounds.min.x) && (localPosition.x <= bounds.max.x)
-                && (localPosition.z >= bounds.min.z) && (localPosition.z <= bounds.max.z);
+                                                         && (localPosition.z >= bounds.min.z) && (localPosition.z <= bounds.max.z);
             }
         }
 
         public Mesh LoadGlobalMeshTriangles()
         {
             if (!HasAnyLabel(SceneLabels.GLOBAL_MESH))
+            {
                 return null; // for now only global mesh is supported
+            }
+
             Anchor.TryGetComponent(out OVRTriangleMesh mesh);
             var trimesh = new Mesh
             {
                 indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
             };
-            if (!mesh.TryGetCounts(out var vcount, out var tcount)) return trimesh;
+            if (!mesh.TryGetCounts(out var vcount, out var tcount))
+            {
+                return trimesh;
+            }
+
             using var vs = new NativeArray<Vector3>(vcount, Allocator.Temp);
             using var ts = new NativeArray<int>(tcount * 3, Allocator.Temp);
 
-            if (!mesh.TryGetMesh(vs, ts)) return trimesh;
+            if (!mesh.TryGetMesh(vs, ts))
+            {
+                return trimesh;
+            }
 
             trimesh.SetVertices(vs);
             trimesh.SetIndices(ts, MeshTopology.Triangles, 0, true, 0);
@@ -419,7 +451,7 @@ namespace Meta.XR.MRUtilityKit
         public bool HasAnyLabel(List<string> labels) => HasAnyLabel(Utilities.StringLabelsToEnum(labels));
 
         /// <summary>
-        /// See if an anchor contains any of the SceneLabels passed as a parameter.
+        ///     See if an anchor contains any of the SceneLabels passed as a parameter.
         /// </summary>
         public bool HasAnyLabel(SceneLabels labelFlags) => (Label & labelFlags) != 0;
 
@@ -432,12 +464,12 @@ namespace Meta.XR.MRUtilityKit
             Label = Utilities.StringLabelsToEnum(newData.SemanticClassifications);
         }
 
-        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        /// <see cref="OVRSemanticLabels.DeprecationMessage" />
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public SceneLabels GetLabelsAsEnum() => Label;
 
         /// <summary>
-        /// Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
+        ///     Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
         /// </summary>
         /// <param name="anchorData">The Data.AnchorData object to compare with.</param>
         /// <returns>True if both objects are equal, false otherwise.</returns>

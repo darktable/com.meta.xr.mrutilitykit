@@ -52,13 +52,22 @@ public class DebugPanel : MonoBehaviour
         _geometryDropDown.onValueChanged.AddListener(GeometrySettingsChanged);
         _respawnButton.onClick.AddListener(_oppyController.Respawn);
         _lightIntensitySlider.onValueChanged.AddListener(
-            (val) => { _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val); }
+            (val) =>
+            {
+                _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val);
+            }
         );
         _lightBlendFactor.onValueChanged.AddListener(
-            (val) => { _sceneMaterial.SetFloat(HighLightOpaquenessShaderPropertyName, val); }
+            (val) =>
+            {
+                _sceneMaterial.SetFloat(HighLightOpaquenessShaderPropertyName, val);
+            }
         );
         _passthroughBrightnessSlider.onValueChanged.AddListener(
-            (brightness) => { _passthroughLayer.SetBrightnessContrastSaturation(brightness); }
+            (brightness) =>
+            {
+                _passthroughLayer.SetBrightnessContrastSaturation(brightness);
+            }
         );
         effectMeshes = FindObjectsOfType<EffectMesh>();
     }
@@ -67,11 +76,19 @@ public class DebugPanel : MonoBehaviour
     {
         ToggleGeometryDropDown();
         if (_highlightsToggle)
+        {
             _highlightsToggle.isOn = true;
+        }
+
         if (_lightIntensitySlider)
+        {
             _lightIntensitySlider.value = 0.5f;
+        }
+
         if (_geometryDropDown)
+        {
             _geometryDropDown.value = 0;
+        }
     }
 
     public void ToggleGeometryDropDown()

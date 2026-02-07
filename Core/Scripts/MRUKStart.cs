@@ -43,11 +43,11 @@ namespace Meta.XR.MRUtilityKit
                 Debug.LogWarning("Couldn't find instance of MRUK");
                 return;
             }
-            MRUK.Instance.RegisterSceneLoadedCallback(() => sceneLoadedEvent?.Invoke());
-            MRUK.Instance.RegisterRoomCreatedCallback(room=> roomCreatedEvent?.Invoke(room));
-            MRUK.Instance.RegisterRoomRemovedCallback(room=> roomRemovedEvent?.Invoke(room));
-            MRUK.Instance.RegisterRoomUpdatedCallback(room=> roomUpdatedEvent?.Invoke(room));
-        }
 
+            MRUK.Instance.RegisterSceneLoadedCallback(() => sceneLoadedEvent?.Invoke());
+            MRUK.Instance.RegisterRoomCreatedCallback(room => roomCreatedEvent?.Invoke(room));
+            MRUK.Instance.RegisterRoomRemovedCallback(room => roomRemovedEvent?.Invoke(room));
+            MRUK.Instance.RegisterRoomUpdatedCallback(room => roomUpdatedEvent?.Invoke(room));
+        }
     }
 }

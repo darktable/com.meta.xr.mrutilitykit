@@ -71,7 +71,10 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             _resizer = FindObjectOfType<GridSliceResizer>();
             if (_resizer)
+            {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;
+            }
+
             var newMesh = new ResizedMesh
             {
                 Scale = _resizer.transform.lossyScale,
@@ -97,7 +100,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return base.SetUp();
             _resizer = FindObjectOfType<GridSliceResizer>();
             if (_resizer)
+            {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;
+            }
         }
 
         [UnityTearDown]
@@ -9755,7 +9760,11 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var array = value;
             writer.WriteStartArray();
-            foreach (var item in array) writer.WriteValue(item);
+            foreach (var item in array)
+            {
+                writer.WriteValue(item);
+            }
+
             writer.WriteEndArray();
         }
 
@@ -9767,7 +9776,11 @@ namespace Meta.XR.MRUtilityKit.Tests
                 var list = new List<int>();
                 while (reader.Read())
                 {
-                    if (reader.TokenType == JsonToken.EndArray) return list.ToArray();
+                    if (reader.TokenType == JsonToken.EndArray)
+                    {
+                        return list.ToArray();
+                    }
+
                     list.Add((int)(long)reader.Value);
                 }
             }
@@ -9805,7 +9818,11 @@ namespace Meta.XR.MRUtilityKit.Tests
                 var list = new List<Vector3>();
                 while (reader.Read())
                 {
-                    if (reader.TokenType == JsonToken.EndArray) return list.ToArray();
+                    if (reader.TokenType == JsonToken.EndArray)
+                    {
+                        return list.ToArray();
+                    }
+
                     Vector3 result = new()
                     {
                         x = (float)reader.ReadAsDouble(),
@@ -9813,7 +9830,11 @@ namespace Meta.XR.MRUtilityKit.Tests
                         z = (float)reader.ReadAsDouble()
                     };
                     reader.Read();
-                    if (reader.TokenType != JsonToken.EndArray) throw new Exception("Expected end of array");
+                    if (reader.TokenType != JsonToken.EndArray)
+                    {
+                        throw new Exception("Expected end of array");
+                    }
+
                     list.Add(result);
                 }
             }
@@ -9858,6 +9879,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var gridSliceResizer = new GridSliceResizer();
             while (reader.Read())
+            {
                 if (reader.TokenType == JsonToken.PropertyName)
                 {
                     var propertyName = reader.Value.ToString();
@@ -9918,6 +9940,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                 {
                     break;
                 }
+            }
 
             return gridSliceResizer;
         }
@@ -9948,7 +9971,11 @@ namespace Meta.XR.MRUtilityKit.Tests
                 z = (float)reader.ReadAsDouble()
             };
             reader.Read();
-            if (reader.TokenType != JsonToken.EndArray) throw new Exception("Expected end of array");
+            if (reader.TokenType != JsonToken.EndArray)
+            {
+                throw new Exception("Expected end of array");
+            }
+
             return result;
         }
     }

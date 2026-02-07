@@ -44,12 +44,18 @@ namespace Meta.XR.MRUtilityKit
 
         void Update()
         {
-            if (GuardianMaterial == null) return;
+            if (GuardianMaterial == null)
+            {
+                return;
+            }
 
             // get the closest distance of all the surfaces
             // should avoid raycasting if possible
             var room = MRUK.Instance?.GetCurrentRoom();
-            if (!room) return;
+            if (!room)
+            {
+                return;
+            }
 
             bool insideRoom = room.IsPositionInRoom(Camera.main.transform.position);
 
@@ -57,7 +63,8 @@ namespace Meta.XR.MRUtilityKit
             // (to catch short volumes like a bed, which are a tripping hazard)
             Vector3 testPosition = new Vector3(Camera.main.transform.position.x, 0.2f, Camera.main.transform.position.z);
 
-            float closestDistance = room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
+            float closestDistance =
+                room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
 
             bool outsideVolume = !room.IsPositionInSceneVolume(testPosition);
 

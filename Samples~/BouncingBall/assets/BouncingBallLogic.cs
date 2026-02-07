@@ -36,7 +36,12 @@ public class BouncingBallLogic : MonoBehaviour
     private float timer = 0f;
     private bool isReleased = false;
     private bool isReadyForDestroy = false;
-    public Rigidbody Rigidbody { get; private set; }
+
+    public Rigidbody Rigidbody
+    {
+        get;
+        private set;
+    }
 
     private void OnCollisionEnter() => audioSource.PlayOneShot(bounce);
 
@@ -54,7 +59,11 @@ public class BouncingBallLogic : MonoBehaviour
 
     private void Update()
     {
-        if (!isReleased) return;
+        if (!isReleased)
+        {
+            return;
+        }
+
         UpdateVisibility();
         timer += Time.deltaTime;
         if (!isReadyForDestroy && timer >= TTL)

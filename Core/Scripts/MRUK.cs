@@ -30,13 +30,11 @@ using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
-
     /// <summary>
-    /// This class contains convenience functions that allow you to
-    /// query your scene.
-    ///
-    /// Use together with <seealso cref="MRUKLoader"/> to
-    /// load data via link, fake data, or on-device data.
+    ///     This class contains convenience functions that allow you to
+    ///     query your scene.
+    ///     Use together with <seealso cref="MRUKLoader" /> to
+    ///     load data via link, fake data, or on-device data.
     /// </summary>
     [Feature(Feature.Scene)]
     public class MRUK : MonoBehaviour
@@ -53,25 +51,28 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Specify the source of the scene data.
+        ///     Specify the source of the scene data.
         /// </summary>
         public enum SceneDataSource
         {
             /// <summary>
-            /// Load scene data from the device.
+            ///     Load scene data from the device.
             /// </summary>
             Device,
+
             /// <summary>
-            /// Load scene data from prefabs.
+            ///     Load scene data from prefabs.
             /// </summary>
             Prefab,
+
             /// <summary>
-            /// First try to load data from the device and if none can be found
-            /// fall back to loading from a prefab.
+            ///     First try to load data from the device and if none can be found
+            ///     fall back to loading from a prefab.
             /// </summary>
             DeviceWithPrefabFallback,
+
             /// <summary>
-            /// Load Scene from a Json file
+            ///     Load Scene from a Json file
             /// </summary>
             Json,
         }
@@ -84,75 +85,75 @@ namespace Meta.XR.MRUtilityKit
         };
 
         /// <summary>
-        /// Return value from the call to LoadSceneFromDevice
+        ///     Return value from the call to LoadSceneFromDevice
         /// </summary>
         public enum LoadDeviceResult
         {
             /// <summary>
-            /// Scene data loaded successfully.
+            ///     Scene data loaded successfully.
             /// </summary>
             Success = OVRAnchor.FetchResult.Success,
 
             /// <summary>
-            /// User did not grant scene permissions.
+            ///     User did not grant scene permissions.
             /// </summary>
             NoScenePermission = 1,
 
             /// <summary>
-            /// No rooms were found (e.g. User did not go through space setup)
+            ///     No rooms were found (e.g. User did not go through space setup)
             /// </summary>
             NoRoomsFound = 2,
 
             /// <summary>
-            /// Invalid data.
+            ///     Invalid data.
             /// </summary>
             FailureDataIsInvalid = OVRAnchor.FetchResult.FailureDataIsInvalid,
 
             /// <summary>
-            /// Resource limitation prevented this operation from executing.
+            ///     Resource limitation prevented this operation from executing.
             /// </summary>
             /// <remarks>
-            ///  Recommend retrying, perhaps after a short delay and/or reducing memory consumption.
+            ///     Recommend retrying, perhaps after a short delay and/or reducing memory consumption.
             /// </remarks>
             FailureInsufficientResources = OVRAnchor.FetchResult.FailureInsufficientResources,
 
             /// <summary>
-            /// Insufficient view.
+            ///     Insufficient view.
             /// </summary>
             /// <remarks>
-            /// The user needs to look around the environment more for anchor tracking to function.
+            ///     The user needs to look around the environment more for anchor tracking to function.
             /// </remarks>
             FailureInsufficientView = OVRAnchor.FetchResult.FailureInsufficientView,
 
             /// <summary>
-            /// Insufficient permission.
+            ///     Insufficient permission.
             /// </summary>
             /// <remarks>
-            /// Recommend confirming the status of the required permissions needed for using anchor APIs.
+            ///     Recommend confirming the status of the required permissions needed for using anchor APIs.
             /// </remarks>
             FailurePermissionInsufficient = OVRAnchor.FetchResult.FailurePermissionInsufficient,
 
             /// <summary>
-            /// Operation canceled due to rate limiting.
+            ///     Operation canceled due to rate limiting.
             /// </summary>
             /// <remarks>
-            /// Recommend retrying after a short delay.
+            ///     Recommend retrying after a short delay.
             /// </remarks>
             FailureRateLimited = OVRAnchor.FetchResult.FailureRateLimited,
 
             /// <summary>
-            /// Too dark.
+            ///     Too dark.
             /// </summary>
             /// <remarks>
-            /// The environment is too dark to load the anchor.
+            ///     The environment is too dark to load the anchor.
             /// </remarks>
             FailureTooDark = OVRAnchor.FetchResult.FailureTooDark,
 
             /// <summary>
-            /// Too bright.
+            ///     Too bright.
             /// </summary>
             /// <remarks>
-            /// The environment is too bright to load the anchor.
+            ///     The environment is too bright to load the anchor.
             /// </remarks>
             FailureTooBright = OVRAnchor.FetchResult.FailureTooBright,
         };
@@ -179,37 +180,57 @@ namespace Meta.XR.MRUtilityKit
             VOLUME = 1 << 1,
         }
 
-        public bool IsInitialized { get; private set; } = false;
+        public bool IsInitialized
+        {
+            get;
+            private set;
+        } = false;
 
         /// <summary>
-        /// Event that is triggered when the scene is loaded.
+        ///     Event that is triggered when the scene is loaded.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(SceneLoadedEvent))]
-        public UnityEvent SceneLoadedEvent { get; private set; } = new();
+        public UnityEvent SceneLoadedEvent
+        {
+            get;
+            private set;
+        } = new();
 
         /// <summary>
-        /// Event that is triggered when a room is created.
+        ///     Event that is triggered when a room is created.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomCreatedEvent))]
-        public UnityEvent<MRUKRoom> RoomCreatedEvent { get; private set; } = new();
+        public UnityEvent<MRUKRoom> RoomCreatedEvent
+        {
+            get;
+            private set;
+        } = new();
 
         /// <summary>
-        /// Event that is triggered when a room is updated.
+        ///     Event that is triggered when a room is updated.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomUpdatedEvent))]
-        public UnityEvent<MRUKRoom> RoomUpdatedEvent { get; private set; } = new();
+        public UnityEvent<MRUKRoom> RoomUpdatedEvent
+        {
+            get;
+            private set;
+        } = new();
 
         /// <summary>
-        /// Event that is triggered when a room is removed.
+        ///     Event that is triggered when a room is removed.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomRemovedEvent))]
-        public UnityEvent<MRUKRoom> RoomRemovedEvent { get; private set; } = new();
+        public UnityEvent<MRUKRoom> RoomRemovedEvent
+        {
+            get;
+            private set;
+        } = new();
 
 
         /// <summary>
-        /// When world locking is enabled the position of the camera rig will be adjusted each frame to ensure
-        /// the room anchors are where they should be relative to the camera position.This is necessary to
-        /// ensure the position of the virtual objects in the world do not get out of sync with the real world.
+        ///     When world locking is enabled the position of the camera rig will be adjusted each frame to ensure
+        ///     the room anchors are where they should be relative to the camera position.This is necessary to
+        ///     ensure the position of the virtual objects in the world do not get out of sync with the real world.
         /// </summary>
         public bool EnableWorldLock = true;
 
@@ -221,7 +242,7 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        /// This is the final event that tells developer code that Scene API and MR Utility Kit have been initialized, and that the room can be queried.
+        ///     This is the final event that tells developer code that Scene API and MR Utility Kit have been initialized, and that the room can be queried.
         /// </summary>
         void InitializeScene()
         {
@@ -239,8 +260,8 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Register to receive a callback when the scene is loaded. If the scene is already loaded
-        /// at the time this is called, the callback will be invoked immediatly.
+        ///     Register to receive a callback when the scene is loaded. If the scene is already loaded
+        ///     at the time this is called, the callback will be invoked immediatly.
         /// </summary>
         /// <param name="callback"></param>
         public void RegisterSceneLoadedCallback(UnityAction callback)
@@ -253,10 +274,10 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Register to receive a callback when a new room has been created from scene capture.
+        ///     Register to receive a callback when a new room has been created from scene capture.
         /// </summary>
         /// <param name="callback">
-        /// - `MRUKRoom` The created room object.
+        ///     - `MRUKRoom` The created room object.
         /// </param>
         [Obsolete("Use UnityEvent RoomCreatedEvent directly instead")]
         public void RegisterRoomCreatedCallback(UnityAction<MRUKRoom> callback)
@@ -265,22 +286,24 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Register to receive a callback when a room has been updated from scene capture.
+        ///     Register to receive a callback when a room has been updated from scene capture.
         /// </summary>
         /// <param name="callback">
-        /// - `MRUKRoom` The updated room object.
+        ///     - `MRUKRoom` The updated room object.
         /// </param>
         [Obsolete("Use UnityEvent RoomUpdatedEvent directly instead")]
         public void RegisterRoomUpdatedCallback(UnityAction<MRUKRoom> callback)
         {
             RoomUpdatedEvent.AddListener(callback);
         }
+
         /// <summary>
-        /// Registers a callback function to be called before the room is removed.
+        ///     Registers a callback function to be called before the room is removed.
         /// </summary>
-        /// <param name="callback">The function to be called when the room is removed. It takes one parameter:
-        /// - `MRUKRoom` The removed room object.
-        ///</param>
+        /// <param name="callback">
+        ///     The function to be called when the room is removed. It takes one parameter:
+        ///     - `MRUKRoom` The removed room object.
+        /// </param>
         [Obsolete("Use UnityEvent RoomRemovedEvent directly instead")]
         public void RegisterRoomRemovedCallback(UnityAction<MRUKRoom> callback)
         {
@@ -288,22 +311,22 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Get a list of all the rooms in the scene.
+        ///     Get a list of all the rooms in the scene.
         /// </summary>
         [Obsolete("Use Rooms property instead")]
         public List<MRUKRoom> GetRooms() => Rooms;
 
         /// <summary>
-        /// Get a flat list of all Anchors in the scene
+        ///     Get a flat list of all Anchors in the scene
         /// </summary>
         [Obsolete("Use GetCurrentRoom().Anchors instead")]
         public List<MRUKAnchor> GetAnchors() => GetCurrentRoom().Anchors;
 
         /// <summary>
-        /// Returns the current room the headset is in. If the headset is not in any given room
-        /// then it will return the room the headset was last in when this function was called.
-        /// If the headset hasn't been in a valid room yet then return the first room in the list.
-        /// If no rooms have been loaded yet then return null.
+        ///     Returns the current room the headset is in. If the headset is not in any given room
+        ///     then it will return the room the headset was last in when this function was called.
+        ///     If the headset hasn't been in a valid room yet then return the first room in the list.
+        ///     If no rooms have been loaded yet then return null.
         /// </summary>
         public MRUKRoom GetCurrentRoom()
         {
@@ -312,14 +335,26 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (_cameraRig?.centerEyeAnchor.position is Vector3 eyePos)
                 {
+                    MRUKRoom currentRoom = null;
                     foreach (var room in Rooms)
                     {
                         if (room.IsPositionInRoom(eyePos, false))
                         {
-                            _cachedCurrentRoom = room;
-                            _cachedCurrentRoomFrame = Time.frameCount;
-                            return room;
+                            currentRoom = room;
+                            // In some cases the user may be in multiple rooms at once. If this happens
+                            // then we give precedence to rooms which have been loaded locally (i.e.
+                            // they have a non-zero anchor Handle)
+                            if (room.Anchor.Handle != 0)
+                            {
+                                break;
+                            }
                         }
+                    }
+                    if (currentRoom != null)
+                    {
+                        _cachedCurrentRoom = currentRoom;
+                        _cachedCurrentRoomFrame = Time.frameCount;
+                        return currentRoom;
                     }
                 }
             }
@@ -338,13 +373,15 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Checks whether any anchors can be loaded.
+        ///     Checks whether any anchors can be loaded.
         /// </summary>
-        /// <returns>Returns a task-based bool, which is true if
-        /// there are any scene anchors in the system, and false
-        /// otherwise. If false is returned, then either
-        /// the scene permission needs to be set, or the user
-        /// has to run Scene Capture.</returns>
+        /// <returns>
+        ///     Returns a task-based bool, which is true if
+        ///     there are any scene anchors in the system, and false
+        ///     otherwise. If false is returned, then either
+        ///     the scene permission needs to be set, or the user
+        ///     has to run Scene Capture.
+        /// </returns>
         public static async Task<bool> HasSceneModel()
         {
             var rooms = new List<OVRAnchor>();
@@ -361,10 +398,13 @@ namespace Meta.XR.MRUtilityKit
             [Header("Data Source settings")]
             [SerializeField, Tooltip("Where to load the data from.")]
             public SceneDataSource DataSource = SceneDataSource.Device;
+
             [SerializeField, Tooltip("Which room to use; -1 is random.")]
-            public int RoomIndex  = -1;
+            public int RoomIndex = -1;
+
             [SerializeField, Tooltip("The list of prefab rooms to use.")]
             public GameObject[] RoomPrefabs;
+
             [SerializeField, Tooltip("The list of JSON text files with scene data to use. Uses RoomIndex")]
             public TextAsset[] SceneJsons;
 
@@ -391,12 +431,19 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        /// List of all the rooms in the scene.
+        ///     List of all the rooms in the scene.
         /// </summary>
-        public List<MRUKRoom> Rooms { get; } = new();
+        public List<MRUKRoom> Rooms
+        {
+            get;
+        } = new();
 
 
-        public static MRUK Instance { get; private set; }
+        public static MRUK Instance
+        {
+            get;
+            private set;
+        }
 
         void Awake()
         {
@@ -411,7 +458,10 @@ namespace Meta.XR.MRUtilityKit
             }
 
 
-            if (SceneSettings == null) return;
+            if (SceneSettings == null)
+            {
+                return;
+            }
 
             if (SceneSettings.LoadSceneOnStartup)
             {
@@ -486,10 +536,10 @@ namespace Meta.XR.MRUtilityKit
 #pragma warning disable CS4014
                     LoadScene(SceneSettings.DataSource);
 #pragma warning restore CS4014
-
                 }
 #endif
             }
+
             if (_cameraRig)
             {
                 if (EnableWorldLock)
@@ -502,8 +552,9 @@ namespace Meta.XR.MRUtilityKit
                             if (_prevTrackingSpacePose is Pose pose && (_cameraRig.trackingSpace.position != pose.position || _cameraRig.trackingSpace.rotation != pose.rotation))
                             {
                                 Debug.LogWarning("MRUK EnableWorldLock is enabled and is controlling the tracking space position.\n" +
-                                    $"Tracking position was set to {_cameraRig.trackingSpace.position} and rotation to {_cameraRig.trackingSpace.rotation}, this is being overridden by MRUK.");
+                                                 $"Tracking position was set to {_cameraRig.trackingSpace.position} and rotation to {_cameraRig.trackingSpace.rotation}, this is being overridden by MRUK.");
                             }
+
                             _cameraRig.trackingSpace.SetPositionAndRotation(position, rotation);
                             _prevTrackingSpacePose = new(position, rotation);
                         }
@@ -516,12 +567,13 @@ namespace Meta.XR.MRUtilityKit
                     _cameraRig.trackingSpace.localRotation = Quaternion.identity;
                     _prevTrackingSpacePose = null;
                 }
+
                 _worldLockWasEnabled = EnableWorldLock;
             }
         }
 
         /// <summary>
-        /// Load the scene asynchronously from the specified data source
+        ///     Load the scene asynchronously from the specified data source
         /// </summary>
         async Task LoadScene(SceneDataSource dataSource)
         {
@@ -533,6 +585,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     await LoadSceneFromDevice();
                 }
+
                 if (dataSource == SceneDataSource.Prefab ||
                     (dataSource == SceneDataSource.DeviceWithPrefabFallback && Rooms.Count == 0))
                 {
@@ -575,7 +628,6 @@ namespace Meta.XR.MRUtilityKit
                     {
                         Debug.LogWarning($"The list of SceneJsons is empty");
                     }
-
                 }
             }
             catch (Exception ex)
@@ -592,15 +644,16 @@ namespace Meta.XR.MRUtilityKit
             {
                 idx = UnityEngine.Random.Range(0, fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
             }
+
             return idx;
         }
 
         /// <summary>
-        /// Called when the room is destroyed
+        ///     Called when the room is destroyed
         /// </summary>
         /// <remarks>
-        /// This is used to keep the list of active rooms up to date.
-        /// So there should never be any null entries in the list.
+        ///     This is used to keep the list of active rooms up to date.
+        ///     So there should never be any null entries in the list.
         /// </remarks>
         /// <param name="room"></param>
         internal void OnRoomDestroyed(MRUKRoom room)
@@ -613,7 +666,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Destroys the rooms and all children
+        ///     Destroys the rooms and all children
         /// </summary>
         public void ClearScene()
         {
@@ -623,36 +676,42 @@ namespace Meta.XR.MRUtilityKit
                 {
                     Destroy(child.gameObject);
                 }
+
                 Destroy(room.gameObject);
             }
+
             Rooms.Clear();
             _cachedCurrentRoom = null;
         }
 
 
         /// <summary>
-        /// Loads the scene from the data stored on the device.
+        ///     Loads the scene from the data stored on the device.
         /// </summary>
         /// <remarks>
-        /// The user must have granted ScenePermissions or this will fail.
-        ///
-        /// In order to check if the user has granted permissions use the following call:
-        /// Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission)
-        ///
-        /// In order to request permissions from the user, use the following call:
-        /// Permission.RequestUserPermission(OVRPermissionsRequester.ScenePermission, callbacks);
+        ///     The user must have granted ScenePermissions or this will fail.
+        ///     In order to check if the user has granted permissions use the following call:
+        ///     Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission)
+        ///     In order to request permissions from the user, use the following call:
+        ///     Permission.RequestUserPermission(OVRPermissionsRequester.ScenePermission, callbacks);
         /// </remarks>
-        /// <param name="requestSceneCaptureIfNoDataFound">If true and no rooms are found when loading from device,
-        /// the request space setup flow will be started.</param>
+        /// <param name="requestSceneCaptureIfNoDataFound">
+        ///     If true and no rooms are found when loading from device,
+        ///     the request space setup flow will be started.
+        /// </param>
+        /// <param name="removeMissingRooms">
+        ///     When enabled, rooms that are already loaded but are not found in newSceneData will be removed.
+        ///     This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
+        /// </param>
         /// <returns>An enum indicating whether loading was successful or not.</returns>
-        public async Task<LoadDeviceResult> LoadSceneFromDevice(bool requestSceneCaptureIfNoDataFound = true)
+        public async Task<LoadDeviceResult> LoadSceneFromDevice(bool requestSceneCaptureIfNoDataFound = true, bool removeMissingRooms = true)
             => await LoadSceneFromDevice(new OVRAnchor.FetchOptions
             {
                 SingleComponentType = typeof(OVRRoomLayout)
-            }, requestSceneCaptureIfNoDataFound);
+            }, requestSceneCaptureIfNoDataFound, removeMissingRooms);
 
         private async Task<LoadDeviceResult> LoadSceneFromDevice(OVRAnchor.FetchOptions fetchOptions,
-            bool requestSceneCaptureIfNoDataFound)
+            bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms)
         {
             var results = await CreateSceneDataFromDevice(fetchOptions);
 
@@ -685,7 +744,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         // Try again but this time don't request a space setup again if there are no rooms to avoid
                         // the user getting stuck in an infinite loop.
-                        return await LoadSceneFromDevice(false);
+                        return await LoadSceneFromDevice(fetchOptions, false, removeMissingRooms);
                     }
                 }
 
@@ -693,10 +752,11 @@ namespace Meta.XR.MRUtilityKit
                 {
                     return LoadDeviceResult.NoRoomsFound;
                 }
+
                 return (LoadDeviceResult)results.FetchResult;
             }
 
-            UpdateScene(results.SceneData);
+            UpdateScene(results.SceneData, removeMissingRooms);
 
             InitializeScene();
 
@@ -704,7 +764,6 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///
         /// </summary>
         private struct CreateSceneDataResults
         {
@@ -713,7 +772,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Attempts to create scene data from the device.
+        ///     Attempts to create scene data from the device.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the operation was successful, the created scene data, and a list of OVRAnchors.</returns>
         private async Task<CreateSceneDataResults> CreateSceneDataFromDevice(OVRAnchor.FetchOptions fetchOptions)
@@ -784,6 +843,7 @@ namespace Meta.XR.MRUtilityKit
 
                     tasks.Add(locatable.SetEnabledAsync(true));
                 }
+
                 await OVRTask.WhenAll(tasks);
 
                 foreach (var child in childAnchors)
@@ -826,6 +886,7 @@ namespace Meta.XR.MRUtilityKit
                             }
                         }
                     }
+
                     if (child.TryGetComponent(out OVRBounded3D bounds3) && bounds3.IsEnabled)
                     {
                         anchorData.VolumeBounds = new Data.VolumeBoundsData()
@@ -851,6 +912,7 @@ namespace Meta.XR.MRUtilityKit
                             }
                         }
                     }
+
                     if (!gotLocation)
                     {
                         Debug.LogWarning($"Failed to get location of anchor with UUID: {anchorData.Anchor.Uuid}");
@@ -858,6 +920,7 @@ namespace Meta.XR.MRUtilityKit
 
                     roomData.Anchors.Add(anchorData);
                 }
+
                 sceneData.Rooms.Add(roomData);
             }
 
@@ -888,7 +951,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// This simulates the creation of a scene in the Editor, using transforms and names from our prefab rooms.
+        ///     This simulates the creation of a scene in the Editor, using transforms and names from our prefab rooms.
         /// </summary>
         public void LoadSceneFromPrefab(GameObject scenePrefab, bool clearSceneFirst = true)
         {
@@ -972,6 +1035,7 @@ namespace Meta.XR.MRUtilityKit
                 Vector3 leftCorner = wall.transform.TransformPoint(new Vector3(wallRect.max.x, wallRect.min.y, 0.0f));
                 floorCorners.Add(leftCorner);
             }
+
             for (int i = 0; i < orderedWalls.Count; i++)
             {
                 Rect planeRect = orderedWalls[i].PlaneRect.Value;
@@ -1013,6 +1077,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     representation |= AnchorRepresentation.PLANE;
                 }
+
                 MRUKAnchor objData = CreateAnchorFromRoomObject(volumes[i].transform, cubeScale, representation);
                 objData.transform.parent = sceneRoom.transform;
                 objData.Room = roomInfo;
@@ -1023,6 +1088,7 @@ namespace Meta.XR.MRUtilityKit
                 objData.transform.Rotate(new Vector3(-90, 0, 0), Space.Self);
                 roomInfo.Anchors.Add(objData);
             }
+
             for (int i = 0; i < planes.Count; i++)
             {
                 MRUKAnchor objData = CreateAnchorFromRoomObject(planes[i].transform, planes[i].transform.localScale, AnchorRepresentation.PLANE);
@@ -1062,6 +1128,7 @@ namespace Meta.XR.MRUtilityKit
                 xMin = i == 0 ? localPos.x : Mathf.Min(xMin, localPos.x);
                 xMax = i == 0 ? localPos.x : Mathf.Max(xMax, localPos.x);
             }
+
             Vector3 localRoomCenter = new Vector3((xMin + xMax) * 0.5f, 0, (zMin + zMax) * 0.5f);
             Vector3 roomCenter = longestWall.transform.TransformPoint(localRoomCenter);
             roomCenter -= Vector3.up * wallHeight * 0.5f;
@@ -1089,6 +1156,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     objData.PlaneBoundary2D.Reverse();
                 }
+
                 roomInfo.Anchors.Add(objData);
                 if (i == 0)
                 {
@@ -1106,7 +1174,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Serializes the current scene into a JSON string using the specified coordinate system for serialization.
+        ///     Serializes the current scene into a JSON string using the specified coordinate system for serialization.
         /// </summary>
         /// <param name="coordinateSystem">The coordinate system to be used for serialization (Unity/Unreal).</param>
         /// <returns>A JSON string representing the serialized scene data.</returns>
@@ -1116,14 +1184,15 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Loads the scene from a JSON string representing the scene data.
+        ///     Loads the scene from a JSON string representing the scene data.
         /// </summary>
         /// <param name="jsonString">The JSON string containing the serialized scene data.</param>
-        public void LoadSceneFromJsonString(string jsonString)
+        /// <param name="removeMissingRooms">When enabled, rooms that are already loaded but are not found in JSON the string will be removed.</param>
+        public void LoadSceneFromJsonString(string jsonString, bool removeMissingRooms = true)
         {
             var newSceneData = SerializationHelpers.Deserialize(jsonString);
 
-            UpdateScene(newSceneData);
+            UpdateScene(newSceneData, removeMissingRooms);
 
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromJson)
@@ -1140,7 +1209,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Creates an anchor with the specified properties.
+        ///     Creates an anchor with the specified properties.
         /// </summary>
         /// <param name="name">The name of the anchor.</param>
         /// <param name="position">The position of the anchor.</param>
@@ -1168,11 +1237,13 @@ namespace Meta.XR.MRUtilityKit
                     new Vector2(rect.xMin, rect.yMax),
                 };
             }
+
             if ((representation & AnchorRepresentation.VOLUME) != 0)
             {
                 Vector3 offsetCenter = new Vector3(0, 0, -objScale.z * 0.5f);
                 objData.VolumeBounds = new Bounds(offsetCenter, objScale);
             }
+
             objData.Anchor = new OVRAnchor(0, Guid.NewGuid());
             return objData;
         }
@@ -1215,19 +1286,22 @@ namespace Meta.XR.MRUtilityKit
                     }
                 }
             }
+
             thisID = rightWallID;
             return randomWalls[thisID];
         }
 
         /// <summary>
-        /// Manages the scene by creating, updating, or deleting rooms and anchors based on new scene data.
+        ///     Manages the scene by creating, updating, or deleting rooms and anchors based on new scene data.
         /// </summary>
         /// <param name="newSceneData">The new scene data.</param>
+        /// <param name="removeMissingRooms">When enabled, rooms that are already loaded but are not found in newSceneData will be removed.
+        /// This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
+        /// </param>
         /// <returns>A list of managed MRUKRoom objects.</returns>
-        private void UpdateScene(Data.SceneData newSceneData)
+        private void UpdateScene(Data.SceneData newSceneData, bool removeMissingRooms)
         {
             List<Data.RoomData> newRoomsToCreate = new();
-            List<MRUKRoom> rooms = new();
 
             //the existing rooms will get removed from this list and updated separately
             newRoomsToCreate.AddRange(newSceneData.Rooms);
@@ -1328,12 +1402,12 @@ namespace Meta.XR.MRUtilityKit
                         }
 
                         oldRoom.UpdateRoomLayout(newRoomData.RoomLayout);
-                        RoomUpdatedEvent?.Invoke(oldRoom);
+                        oldRoom.ComputeRoomInfo();
+                        roomsToNotifyUpdated.Add(oldRoom);
                     }
 
                     if (foundRoom)
                     {
-                        rooms.Add(oldRoom);
                         for (int i = 0; i < newRoomsToCreate.Count; ++i)
                         {
                             if (newRoomsToCreate[i].Anchor == newRoomData.Anchor)
@@ -1342,11 +1416,12 @@ namespace Meta.XR.MRUtilityKit
                                 break;
                             }
                         }
+
                         break;
                     }
                 }
 
-                if (!foundRoom)
+                if (!foundRoom && removeMissingRooms)
                 {
                     roomsToRemove.Add(oldRoom);
                 }
@@ -1366,24 +1441,15 @@ namespace Meta.XR.MRUtilityKit
                 roomsToNotifyRemoved.Add(oldRoom);
 
                 Utilities.DestroyGameObjectAndChildren(oldRoom.gameObject);
-
             }
 
             foreach (var newRoomData in newRoomsToCreate)
             {
                 //create room and throw events for room and anchors
                 var room = CreateRoom(newRoomData);
-                rooms.Add(room);
-                roomsToNotifyCreated.Add(room);
-            }
-
-            Rooms.Clear();
-            Rooms.AddRange(rooms);
-
-            foreach (var room in Rooms)
-            {
-                // after everything, we need to let the room computation run
                 room.ComputeRoomInfo();
+                roomsToNotifyCreated.Add(room);
+                Rooms.Add(room);
             }
 
             //finally - send messages
@@ -1391,10 +1457,12 @@ namespace Meta.XR.MRUtilityKit
             {
                 RoomUpdatedEvent?.Invoke(room);
             }
+
             foreach (var room in roomsToNotifyRemoved)
             {
                 RoomRemovedEvent?.Invoke(room);
             }
+
             foreach (var room in roomsToNotifyCreated)
             {
                 RoomCreatedEvent?.Invoke(room);
@@ -1402,7 +1470,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Creates a new room with the specified parameters.
+        ///     Creates a new room with the specified parameters.
         /// </summary>
         /// <param name="roomData">The data for the new room.</param>
         /// <returns>The created MRUKRoom object.</returns>

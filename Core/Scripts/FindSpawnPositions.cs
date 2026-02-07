@@ -32,20 +32,23 @@ public class FindSpawnPositions : MonoBehaviour
 {
     [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
     public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
+
     [SerializeField, Tooltip("Prefab to be placed into the scene, or object in the scene to be moved around.")]
     public GameObject SpawnObject;
+
     [SerializeField, Tooltip("Number of SpawnObject(s) to place into the scene per room, only applies to Prefabs.")]
     public int SpawnAmount = 8;
+
     [SerializeField, Tooltip("Maximum number of times to attempt spawning/moving an object before giving up.")]
     public int MaxIterations = 1000;
 
     public enum SpawnLocation
     {
-        Floating,           // Spawn somewhere floating in the free space within the room
-        AnySurface,         // Spawn on any surface (i.e. a combination of all 3 options below)
-        VerticalSurfaces,   // Spawn only on vertical surfaces such as walls, windows, wall art, doors, etc...
-        OnTopOfSurfaces,    // Spawn on surfaces facing upwards such as ground, top of tables, beds, couches, etc...
-        HangingDown         // Spawn on surfaces facing downwards such as the ceiling
+        Floating, // Spawn somewhere floating in the free space within the room
+        AnySurface, // Spawn on any surface (i.e. a combination of all 3 options below)
+        VerticalSurfaces, // Spawn only on vertical surfaces such as walls, windows, wall art, doors, etc...
+        OnTopOfSurfaces, // Spawn on surfaces facing upwards such as ground, top of tables, beds, couches, etc...
+        HangingDown // Spawn on surfaces facing downwards such as the ceiling
     }
 
     [FormerlySerializedAs("selectedSnapOption")]
@@ -114,6 +117,7 @@ public class FindSpawnPositions : MonoBehaviour
             {
                 minRadius = 0f;
             }
+
             var min = prefabBounds.Value.min;
             var max = prefabBounds.Value.max;
             min.y += clearanceDistance;
@@ -121,6 +125,7 @@ public class FindSpawnPositions : MonoBehaviour
             {
                 max.y = min.y;
             }
+
             adjustedBounds.SetMinMax(min, max);
             if (OverrideBounds > 0)
             {
@@ -166,6 +171,7 @@ public class FindSpawnPositions : MonoBehaviour
                             surfaceType |= MRUK.SurfaceType.FACING_DOWN;
                             break;
                     }
+
                     if (room.GenerateRandomPositionOnSurface(surfaceType, minRadius, LabelFilter.Included(Labels), out var pos, out var normal))
                     {
                         spawnPosition = pos + normal * baseOffset;
@@ -177,11 +183,13 @@ public class FindSpawnPositions : MonoBehaviour
                         {
                             continue;
                         }
+
                         // Ensure the center of the prefab will not spawn inside a scene volume
                         if (room.IsPositionInSceneVolume(center))
                         {
                             continue;
                         }
+
                         // Also make sure there is nothing close to the surface that would obstruct it
                         if (room.Raycast(new Ray(pos, normal), SurfaceClearanceDistance, out _))
                         {
@@ -209,6 +217,7 @@ public class FindSpawnPositions : MonoBehaviour
                     SpawnObject.transform.rotation = spawnRotation;
                     return; // ignore SpawnAmount once we have a successful move of existing object in the scene
                 }
+
                 break;
             }
         }
