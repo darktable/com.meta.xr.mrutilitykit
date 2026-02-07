@@ -88,11 +88,23 @@ namespace Meta.XR.MRUtilityKit
             WallArt = 8192,
             SceneMesh = 16384,
             InvisibleWallFace = 32768,
-            Chair = 65536,
             Unknown = 131072,
             InnerWallFace = 262144,
-            OtherRoomFace = 524288,
-            Opening = 1048576,
+            Tabletop = 524288,
+            SittingArea = 1048576,
+            SleepingArea = 2097152,
+            StorageTop = 4194304,
+        };
+
+        public enum MrukEnvironmentRaycastStatus
+        {
+            Hit = 1,
+            NoHit = 2,
+            HitPointOccluded = 3,
+            HitPointOutsideFov = 4,
+            RayOccluded = 5,
+            InvalidOrientation = 6,
+            Max = 2147483647,
         };
 
         public delegate void LogPrinter(MrukLogLevel logLevel, char* message, uint length);
@@ -112,6 +124,8 @@ namespace Meta.XR.MRUtilityKit
         public delegate void MrukOnSceneAnchorRemoved(ref MrukSceneAnchor sceneAnchor, IntPtr userContext);
 
         public delegate void MrukOnDiscoveryFinished(MrukResult result, IntPtr userContext);
+
+        public delegate void MrukOnEnvironmentRaycasterCreated(MrukResult result, IntPtr userContext);
 
         public delegate Pose TrackingSpacePoseGetter();
 
@@ -205,6 +219,7 @@ namespace Meta.XR.MRUtilityKit
             public MrukOnSceneAnchorUpdated onSceneAnchorUpdated;
             public MrukOnSceneAnchorRemoved onSceneAnchorRemoved;
             public MrukOnDiscoveryFinished onDiscoveryFinished;
+            public MrukOnEnvironmentRaycasterCreated onEnvironmentRaycasterCreated;
             public IntPtr userContext;
         }
 
@@ -235,6 +250,24 @@ namespace Meta.XR.MRUtilityKit
             public Guid uuid;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MrukEnvironmentRaycastHitPointGetInfo
+        {
+            public Vector3 startPoint;
+            public Vector3 direction;
+            public uint filterCount;
+            public float maxDistance;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MrukEnvironmentRaycastHitPoint
+        {
+            public MrukEnvironmentRaycastStatus status;
+            public Vector3 point;
+            public Quaternion orientation;
+            public Vector3 normal;
+        }
+
 
         /**
          * This allows the engine to intercept the logs from the shared library and print them using the
@@ -250,7 +283,7 @@ namespace Meta.XR.MRUtilityKit
          * If the context is not needed anymore it should be destroyed with ContextDestroy() to free
          * resources.
          */
-        internal delegate MrukResult AnchorStoreCreateDelegate(ulong xrInstance, ulong xrSession, IntPtr xrInstanceProcAddrFunc, ulong baseSpace);
+        internal delegate MrukResult AnchorStoreCreateDelegate(ulong xrInstance, ulong xrSession, IntPtr xrInstanceProcAddrFunc, ulong baseSpace, string[] availableOpenXrExtensions, uint availableOpenXrExtensionsCount);
         internal delegate MrukResult AnchorStoreCreateWithoutOpenXrDelegate();
 
         /**
@@ -355,6 +388,13 @@ namespace Meta.XR.MRUtilityKit
         internal delegate bool AnchorStoreIsDiscoveryRunningDelegate();
 
         /**
+         * Get the world lock offset for a given room. This is the difference between the room's initial
+         * pose when it was created and the current pose.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool AnchorStoreGetWorldLockOffsetDelegate(Guid roomUuid, ref Pose offset);
+
+        /**
          * Add two vectors together. This is implemented as a test to ensure the native shared
          * library is working correctly.
          *
@@ -426,6 +466,25 @@ namespace Meta.XR.MRUtilityKit
          * @return The converted MrukLabel.
          */
         internal delegate MrukLabel StringToMrukLabelDelegate(string label);
+
+        /**
+         * Creates the enviornment raycaster and fires the onEnvironmentRaycasterCreated event when the
+         * creation is complete.
+         */
+        internal delegate void CreateEnvironmentRaycasterDelegate();
+
+        /**
+         * Destroys the enviornment raycaster.
+         */
+        internal delegate void DestroyEnvironmentRaycasterDelegate();
+
+        /**
+         * Performs an environment raycast.
+         * Ensure that the environment raycaster is created before calling this function.
+         * @param[in] info The raycast info.
+         * @param[out] hitPoint The hit point.
+         */
+        internal delegate void PerformEnvironmentRaycastDelegate(ref MrukEnvironmentRaycastHitPointGetInfo info, ref MrukEnvironmentRaycastHitPoint hitPoint);
         internal delegate void SetTrackingSpacePoseGetterDelegate(TrackingSpacePoseGetter getter);
         internal delegate void SetTrackingSpacePoseSetterDelegate(TrackingSpacePoseSetter setter);
 
@@ -451,6 +510,7 @@ namespace Meta.XR.MRUtilityKit
         internal static AnchorStoreRaycastAnchorDelegate AnchorStoreRaycastAnchor;
         internal static AnchorStoreRaycastAnchorAllDelegate AnchorStoreRaycastAnchorAll;
         internal static AnchorStoreIsDiscoveryRunningDelegate AnchorStoreIsDiscoveryRunning;
+        internal static AnchorStoreGetWorldLockOffsetDelegate AnchorStoreGetWorldLockOffset;
         internal static AddVectorsDelegate AddVectors;
         internal static TriangulatePolygonDelegate TriangulatePolygon;
         internal static FreeMeshDelegate FreeMesh;
@@ -458,6 +518,9 @@ namespace Meta.XR.MRUtilityKit
         internal static FreeMeshSegmentationDelegate FreeMeshSegmentation;
         internal static _TestUuidMarshallingDelegate _TestUuidMarshalling;
         internal static StringToMrukLabelDelegate StringToMrukLabel;
+        internal static CreateEnvironmentRaycasterDelegate CreateEnvironmentRaycaster;
+        internal static DestroyEnvironmentRaycasterDelegate DestroyEnvironmentRaycaster;
+        internal static PerformEnvironmentRaycastDelegate PerformEnvironmentRaycast;
         internal static SetTrackingSpacePoseGetterDelegate SetTrackingSpacePoseGetter;
         internal static SetTrackingSpacePoseSetterDelegate SetTrackingSpacePoseSetter;
 
@@ -485,6 +548,7 @@ namespace Meta.XR.MRUtilityKit
             AnchorStoreRaycastAnchor = MRUKNative.LoadFunction<AnchorStoreRaycastAnchorDelegate>("AnchorStoreRaycastAnchor");
             AnchorStoreRaycastAnchorAll = MRUKNative.LoadFunction<AnchorStoreRaycastAnchorAllDelegate>("AnchorStoreRaycastAnchorAll");
             AnchorStoreIsDiscoveryRunning = MRUKNative.LoadFunction<AnchorStoreIsDiscoveryRunningDelegate>("AnchorStoreIsDiscoveryRunning");
+            AnchorStoreGetWorldLockOffset = MRUKNative.LoadFunction<AnchorStoreGetWorldLockOffsetDelegate>("AnchorStoreGetWorldLockOffset");
             AddVectors = MRUKNative.LoadFunction<AddVectorsDelegate>("AddVectors");
             TriangulatePolygon = MRUKNative.LoadFunction<TriangulatePolygonDelegate>("TriangulatePolygon");
             FreeMesh = MRUKNative.LoadFunction<FreeMeshDelegate>("FreeMesh");
@@ -492,6 +556,9 @@ namespace Meta.XR.MRUtilityKit
             FreeMeshSegmentation = MRUKNative.LoadFunction<FreeMeshSegmentationDelegate>("FreeMeshSegmentation");
             _TestUuidMarshalling = MRUKNative.LoadFunction<_TestUuidMarshallingDelegate>("_TestUuidMarshalling");
             StringToMrukLabel = MRUKNative.LoadFunction<StringToMrukLabelDelegate>("StringToMrukLabel");
+            CreateEnvironmentRaycaster = MRUKNative.LoadFunction<CreateEnvironmentRaycasterDelegate>("CreateEnvironmentRaycaster");
+            DestroyEnvironmentRaycaster = MRUKNative.LoadFunction<DestroyEnvironmentRaycasterDelegate>("DestroyEnvironmentRaycaster");
+            PerformEnvironmentRaycast = MRUKNative.LoadFunction<PerformEnvironmentRaycastDelegate>("PerformEnvironmentRaycast");
             SetTrackingSpacePoseGetter = MRUKNative.LoadFunction<SetTrackingSpacePoseGetterDelegate>("SetTrackingSpacePoseGetter");
             SetTrackingSpacePoseSetter = MRUKNative.LoadFunction<SetTrackingSpacePoseSetterDelegate>("SetTrackingSpacePoseSetter");
         }
@@ -520,6 +587,7 @@ namespace Meta.XR.MRUtilityKit
             AnchorStoreRaycastAnchor = null;
             AnchorStoreRaycastAnchorAll = null;
             AnchorStoreIsDiscoveryRunning = null;
+            AnchorStoreGetWorldLockOffset = null;
             AddVectors = null;
             TriangulatePolygon = null;
             FreeMesh = null;
@@ -527,6 +595,9 @@ namespace Meta.XR.MRUtilityKit
             FreeMeshSegmentation = null;
             _TestUuidMarshalling = null;
             StringToMrukLabel = null;
+            CreateEnvironmentRaycaster = null;
+            DestroyEnvironmentRaycaster = null;
+            PerformEnvironmentRaycast = null;
             SetTrackingSpacePoseGetter = null;
             SetTrackingSpacePoseSetter = null;
         }

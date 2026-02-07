@@ -60,7 +60,7 @@ namespace Meta.XR.MRUtilityKit
                 var xrSession = OVRPlugin.GetNativeOpenXRSession();
                 var xrInstanceProcAddrFunc = OVRPlugin.GetOpenXRInstanceProcAddrFunc();
                 _currentAppSpace = OVRPlugin.GetAppSpace();
-                if (MRUKNativeFuncs.AnchorStoreCreate(xrInstance, xrSession, xrInstanceProcAddrFunc, _currentAppSpace) != MRUKNativeFuncs.MrukResult.Success)
+                if (MRUKNativeFuncs.AnchorStoreCreate(xrInstance, xrSession, xrInstanceProcAddrFunc, _currentAppSpace, null, 0) != MRUKNativeFuncs.MrukResult.Success)
                 {
                     Debug.LogError("Failed to create anchor store");
                 }
@@ -89,6 +89,7 @@ namespace Meta.XR.MRUtilityKit
             listener.onSceneAnchorUpdated = OnSceneAnchorUpdated;
             listener.onSceneAnchorRemoved = OnSceneAnchorRemoved;
             listener.onDiscoveryFinished = OnDiscoveryFinished;
+            listener.onEnvironmentRaycasterCreated = OnEnvironmentRaycasterCreated;
             MRUKNativeFuncs.AnchorStoreRegisterEventListener(listener);
             MRUKNativeFuncs.SetTrackingSpacePoseGetter(GetTrackingSpacePose);
             MRUKNativeFuncs.SetTrackingSpacePoseSetter(SetTrackingSpacePose);
@@ -96,6 +97,10 @@ namespace Meta.XR.MRUtilityKit
 
         private void DestroyAnchorStore()
         {
+            if (IsOpenXRAvailable)
+            {
+                OVRPlugin.UnregisterOpenXREventHandler(OnOpenXrEvent);
+            }
             MRUKNativeFuncs.AnchorStoreDestroy();
         }
 
@@ -149,7 +154,7 @@ namespace Meta.XR.MRUtilityKit
                     if (roomsData.alignmentData.HasValue)
                     {
                         nativeSharedRoomsData.alignmentRoomUuid = roomsData.alignmentData.Value.alignmentRoomUuid;
-                        nativeSharedRoomsData.roomWorldPoseOnHost = ConvertPose(roomsData.alignmentData.Value.floorWorldPoseOnHost);
+                        nativeSharedRoomsData.roomWorldPoseOnHost = FlipZRotateY180(roomsData.alignmentData.Value.floorWorldPoseOnHost);
                     }
 
                     discoverResult = MRUKNativeFuncs.AnchorStoreStartQueryByLocalGroup(nativeSharedRoomsData, removeMissingRooms, sceneModel);
@@ -273,7 +278,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 foreach (var room in roomGameObjects)
                 {
-                    FindAllObjects(room, out var walls, out var volumes, out var planes, out var _, out var _, out var _);
+                    FindAllObjects(room, out var walls, out var volumes, out var planes);
 
                     var roomAnchor = new MRUKNativeFuncs.MrukRoomAnchor
                     {
@@ -357,9 +362,11 @@ namespace Meta.XR.MRUtilityKit
                     {
                         var cubeScale = new Vector3(volume.transform.localScale.x, volume.transform.localScale.z, volume.transform.localScale.y);
                         var representation = AnchorRepresentation.VOLUME;
-                        // Table and couch are special. They also have a plane attached to them.
+                        // Table, couch, bed and storage have a plane attached to them.
                         if (volume.transform.name == MRUKAnchor.SceneLabels.TABLE.ToString() ||
-                            volume.transform.name == MRUKAnchor.SceneLabels.COUCH.ToString())
+                            volume.transform.name == MRUKAnchor.SceneLabels.COUCH.ToString() ||
+                            volume.transform.name == MRUKAnchor.SceneLabels.BED.ToString() ||
+                            volume.transform.name == MRUKAnchor.SceneLabels.STORAGE.ToString())
                         {
                             representation |= AnchorRepresentation.PLANE;
                         }
@@ -470,7 +477,7 @@ namespace Meta.XR.MRUtilityKit
                 for (int i = 0; i < sceneAnchors.Count; i++)
                 {
                     var sceneAnchor = sceneAnchors[i];
-                    sceneAnchor.pose = ConvertPose(sceneAnchor.pose);
+                    sceneAnchor.pose = FlipZRotateY180(sceneAnchor.pose);
                     sceneAnchor.volume = ConvertVolume(sceneAnchor.volume);
                     sceneAnchor.plane = ConvertPlane(sceneAnchor.plane);
                     unsafe
@@ -624,12 +631,24 @@ namespace Meta.XR.MRUtilityKit
             return new Vector3(vector.x, vector.y, -vector.z);
         }
 
+        private static Quaternion FlipZ(Quaternion quaternion)
+        {
+            return new Quaternion(-quaternion.x, -quaternion.y, quaternion.z, quaternion.w);
+        }
+
         private static Quaternion FlipZRotateY180(Quaternion rotation)
         {
             return new Quaternion(-rotation.z, rotation.w, -rotation.x, rotation.y);
         }
 
-        internal static Pose ConvertPose(Pose pose)
+        private static Pose FlipZ(Pose pose)
+        {
+            // Transform from OpenXR Right-handed coordinate system
+            // to Unity Left-handed coordinate system
+            return new Pose(FlipZ(pose.position), FlipZ(pose.rotation));
+        }
+
+        internal static Pose FlipZRotateY180(Pose pose)
         {
             // Transform from OpenXR Right-handed coordinate system
             // to Unity Left-handed coordinate system with additional 180 rotation around +y
@@ -672,7 +691,8 @@ namespace Meta.XR.MRUtilityKit
 
             anchor.gameObject.name = name;
 
-            var convertedPos = ConvertPose(sceneAnchor.pose);
+            var convertedPos = FlipZRotateY180(sceneAnchor.pose);
+            anchor.InitialPose = convertedPos;
             anchor.gameObject.transform.SetPositionAndRotation(convertedPos.position, convertedPos.rotation);
 
             anchor.Label = labels;
@@ -764,7 +784,8 @@ namespace Meta.XR.MRUtilityKit
                 room.Anchor = new OVRAnchor(roomAnchor.space, uuid);
                 if (roomAnchor.pose != Pose.identity)
                 {
-                    var convertedPose = ConvertPose(roomAnchor.pose);
+                    var convertedPose = FlipZRotateY180(roomAnchor.pose);
+                    room.InitialPose = convertedPose;
                     room.transform.SetPositionAndRotation(convertedPose.position, convertedPose.rotation);
                 }
                 Instance.Rooms.Add(room);
@@ -922,6 +943,11 @@ namespace Meta.XR.MRUtilityKit
             {
                 Debug.LogException(e);
             }
+        }
+
+        [MonoPInvokeCallback(typeof(MRUKNativeFuncs.MrukOnEnvironmentRaycasterCreated))]
+        private static void OnEnvironmentRaycasterCreated(MRUKNativeFuncs.MrukResult result, IntPtr userContext)
+        {
         }
 
         private async Task<LoadDeviceResult> WaitForDiscoveryFinished()

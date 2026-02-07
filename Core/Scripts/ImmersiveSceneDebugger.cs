@@ -770,12 +770,23 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public void ExportJSON()
         {
-            var scene = MRUK.Instance.SaveSceneToJsonString(
+            var path = "";
+            try
+            {
+
+                var scene = MRUK.Instance.SaveSceneToJsonString(
                 exportGlobalMeshJSON
-            );
-            var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
-            var path = Path.Combine(Application.persistentDataPath, filename);
-            File.WriteAllText(path, scene);
+                );
+                var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
+                path = Path.Combine(Application.persistentDataPath, filename);
+                File.WriteAllText(path, scene);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Could not save Scene JSON to {path}. Exception: {e.Message}");
+                return;
+
+            }
             Debug.Log($"Saved Scene JSON to {path}");
         }
 
@@ -1037,21 +1048,39 @@ namespace Meta.XR.MRUtilityKit
         {
             _debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _debugCube.name = "SceneDebugger_Cube";
-            _debugCube.GetComponent<Renderer>().material = _debugMaterial;
+            var cubeRenderer = _debugCube.GetComponent<Renderer>();
+            if (cubeRenderer)
+            {
+                cubeRenderer.material = _debugMaterial;
+                cubeRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                cubeRenderer.receiveShadows = false;
+            }
             _debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
             _debugCube.GetComponent<Collider>().enabled = false;
             _debugCube.SetActive(false);
 
             _debugSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             _debugSphere.name = "SceneDebugger_Sphere";
-            _debugSphere.GetComponent<Renderer>().material = _debugMaterial;
+            var sphereRenderer = _debugSphere.GetComponent<Renderer>();
+            if (sphereRenderer)
+            {
+                sphereRenderer.material = _debugMaterial;
+                sphereRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                sphereRenderer.receiveShadows = false;
+            }
             _debugSphere.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
             _debugSphere.GetComponent<Collider>().enabled = false;
             _debugSphere.SetActive(false);
 
             _debugNormal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             _debugNormal.name = "SceneDebugger_Normal";
-            _debugNormal.GetComponent<Renderer>().material = _debugMaterial;
+            var normalRenderer = _debugNormal.GetComponent<Renderer>();
+            if (normalRenderer)
+            {
+                normalRenderer.material = _debugMaterial;
+                normalRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                normalRenderer.receiveShadows = false;
+            }
             _debugNormal.transform.localScale = new Vector3(0.02f, 0.1f, 0.02f);
             _debugNormal.GetComponent<Collider>().enabled = false;
             _debugNormal.SetActive(false);

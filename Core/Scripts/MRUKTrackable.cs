@@ -54,6 +54,28 @@ namespace Meta.XR.MRUtilityKit
         /// </remarks>
         public bool IsTracked { get; internal set; }
 
+        /// <summary>
+        /// The marker's payload as a string.
+        /// </summary>
+        /// <remarks>
+        /// If this trackable is a marker (e.g., a QR Code) and its payload can be interpreted as a string,
+        /// use this property to get the payload as a string.
+        ///
+        /// If this trackable is not a marker, or its payload is not a string, this property is `null`.
+        /// </remarks>
+        /// <seealso cref="MarkerPayloadBytes"/>
+        public string MarkerPayloadString { get; private set; }
+
+        /// <summary>
+        /// The marker's payload as raw bytes.
+        /// </summary>
+        /// <remarks>
+        /// If this trackable is a marker (e.g., a QR Code) use this property to get the payload bytes.
+        ///
+        /// If this trackable is not a marker, then this property is `null`.
+        /// </remarks>
+        /// <seealso cref="MarkerPayloadString"/>
+        public byte[] MarkerPayloadBytes { get; private set; }
 
         // Invoked by MRUK when a fetch (FetchTrackablesAsync) completes, as this could have updated some component data
         internal void OnFetch()
@@ -77,6 +99,27 @@ namespace Meta.XR.MRUtilityKit
 
                     switch (componentType)
                     {
+                        case OVRPlugin.SpaceComponentType.MarkerPayload:
+                        {
+                            var component = Anchor.GetComponent<OVRMarkerPayload>();
+                            using var buffer = new NativeArray<byte>(component.ByteCount, Allocator.Temp);
+                            Span<byte> bytes;
+                            unsafe
+                            {
+                                var temp = new Span<byte>((byte*)buffer.GetUnsafePtr(), buffer.Length);
+                                bytes = temp[..component.GetBytes(temp)];
+                            }
+
+                            if (!bytes.SequenceEqual(MarkerPayloadBytes))
+                            {
+                                MarkerPayloadBytes = bytes.ToArray();
+                                MarkerPayloadString = component.PayloadType == OVRMarkerPayloadType.StringQRCode
+                                    ? System.Text.Encoding.UTF8.GetString(MarkerPayloadBytes)
+                                    : null;
+                            }
+
+                            break;
+                        }
                         case OVRPlugin.SpaceComponentType.Bounded2D:
                         {
                             static List<Vector2> GetUpdatedBoundary(OVRBounded2D component, List<Vector2> currentBoundary)

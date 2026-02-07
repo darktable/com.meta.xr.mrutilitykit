@@ -91,6 +91,29 @@ namespace Meta.XR.MRUtilityKit
         /// @endcond
 
         /// <summary>
+        /// This is the pose of the anchor when it was created. It is identical to the pose stored in the MRUK Shared library.
+        /// Initially the game object's transform will also be equal to this pose, but if third party code moves the game object it may diverge.
+        /// </summary>
+        internal Pose InitialPose
+        {
+            get;
+            set;
+        } = Pose.identity;
+
+        /// <summary>
+        /// This is the delta between the pose of the anchor when it was initially created and game object's current transform.
+        /// This will be identity unless third party code has moved the game object after creation.
+        /// </summary>
+        internal Pose DeltaPose
+        {
+            get
+            {
+                var deltaRotation = transform.rotation * Quaternion.Inverse(InitialPose.rotation);
+                return new Pose(transform.position - deltaRotation * InitialPose.position, deltaRotation);
+            }
+        }
+
+        /// <summary>
         /// The scene label categorizing the anchor.
         /// This represents the semantic classification of the anchor, such as "WALL_FACE" or "TABLE".
         /// </summary>

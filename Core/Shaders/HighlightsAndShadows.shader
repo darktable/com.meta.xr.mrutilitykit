@@ -275,10 +275,11 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 float ndtol = max(0.0, dot(i.normal, light.direction));
                 float lightContribution = light.distanceAttenuation * _HighLightAttenuation * ndtol * light.color.w;
                 float4 color = light.color * lightContribution;
-                META_DEPTH_OCCLUDE_OUTPUT_PREMULTIPLY_WORLDPOS(i.worldPos, color, _EnvironmentDepthBias); //occl
-
+                float occlusionValue = META_DEPTH_GET_OCCLUSION_VALUE_WORLDPOS(i.worldPos, _EnvironmentDepthBias);//occl
                 float alpha = lightContribution * _HighlightOpacity;
-                return fixed4(color.r, color.g, color.b, alpha);
+                fixed4 outputColor = fixed4(color.r, color.g, color.b, alpha);
+                outputColor *= occlusionValue;
+                return outputColor;
             }
             ENDCG
         }

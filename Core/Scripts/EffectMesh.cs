@@ -722,8 +722,7 @@ namespace Meta.XR.MRUtilityKit
                     OrderWalls(walls);
                     foreach (var orderedWall in walls)
                     {
-                        var originalLabel = GetOriginalLabel(orderedWall.Label);
-                        if (IncludesLabel(originalLabel))
+                        if (IncludesLabel(orderedWall.Label))
                         {
                             CreateEffectMeshWall(orderedWall, totalWallLength, ref uSpacing, connectedRooms);
                         }
@@ -741,23 +740,6 @@ namespace Meta.XR.MRUtilityKit
         private bool IncludesLabel(MRUKAnchor.SceneLabels label)
         {
             return (Labels & label) != 0;
-        }
-
-        /// <summary>
-        /// The <see cref="OVRSemanticLabels.GetClassifications"/> method upgrades the InvisibleWallFace to also have the WallFace for backward compatibility.<br/>
-        /// This method does the opposite: given the upgraded label, it returns the original one.
-        /// </summary>
-        private static MRUKAnchor.SceneLabels GetOriginalLabel(MRUKAnchor.SceneLabels upgradedLabel)
-        {
-            if ((upgradedLabel & MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE) != 0)
-            {
-                return MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE;
-            }
-            if ((upgradedLabel & MRUKAnchor.SceneLabels.WALL_FACE) != 0)
-            {
-                return MRUKAnchor.SceneLabels.WALL_FACE;
-            }
-            return upgradedLabel;
         }
 
         /// <summary>

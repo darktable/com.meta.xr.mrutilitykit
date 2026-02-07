@@ -692,15 +692,15 @@ namespace Meta.XR.MRUtilityKit
         {
             var trackingSpace = GetTrackingSpace();
             Pose trackingSpacePose = trackingSpace != null ? new Pose(trackingSpace.position, trackingSpace.rotation) : Pose.identity;
-            var openXrPose = ConvertPose(trackingSpacePose);
-            return ConvertPose(Pose.identity).GetTransformedBy(openXrPose);
+            var openXrPose = FlipZRotateY180(trackingSpacePose);
+            return FlipZRotateY180(Pose.identity).GetTransformedBy(openXrPose);
         }
 
         [MonoPInvokeCallback(typeof(MRUKNativeFuncs.TrackingSpacePoseSetter))]
         private static void SetTrackingSpacePose(Pose openXrPose)
         {
-            var openXrPoseRelativeToIdentity = ConvertPose(Pose.identity).GetTransformedBy(openXrPose);
-            var trackingSpacePose = ConvertPose(openXrPoseRelativeToIdentity);
+            var openXrPoseRelativeToIdentity = FlipZRotateY180(Pose.identity).GetTransformedBy(openXrPose);
+            var trackingSpacePose = FlipZRotateY180(openXrPoseRelativeToIdentity);
             GetTrackingSpace()?.SetPositionAndRotation(trackingSpacePose.position, trackingSpacePose.rotation);
         }
 
@@ -742,7 +742,8 @@ namespace Meta.XR.MRUtilityKit
                     var room = GetCurrentRoom();
                     if (room)
                     {
-                        if (room.UpdateWorldLock(out Vector3 position, out Quaternion rotation))
+                        Pose sharedLibOffset = Pose.identity;
+                        if (MRUKNativeFuncs.AnchorStoreGetWorldLockOffset(room.Anchor.Uuid, ref sharedLibOffset))
                         {
                             if (_prevTrackingSpacePose is Pose pose && (_cameraRig.trackingSpace.position != pose.position || _cameraRig.trackingSpace.rotation != pose.rotation))
                             {
@@ -751,8 +752,19 @@ namespace Meta.XR.MRUtilityKit
                                                  $"Use '{nameof(TrackingSpaceOffset)}' instead to translate or rotate the TrackingSpace.");
                             }
 
-                            position = TrackingSpaceOffset.MultiplyPoint3x4(position);
-                            rotation = TrackingSpaceOffset.rotation * rotation;
+                            sharedLibOffset = FlipZ(sharedLibOffset);
+                            Pose deltaPose;
+                            if (room.FloorAnchor is not null && room.FloorAnchor.HasValidHandle)
+                            {
+                                deltaPose = room.FloorAnchor.DeltaPose;
+                            }
+                            else
+                            {
+                                deltaPose = room.DeltaPose;
+                            }
+                            deltaPose = sharedLibOffset.GetTransformedBy(deltaPose);
+                            var position = TrackingSpaceOffset.MultiplyPoint3x4(deltaPose.position);
+                            var rotation = TrackingSpaceOffset.rotation * deltaPose.rotation;
                             _cameraRig.trackingSpace.SetPositionAndRotation(position, rotation);
                             _prevTrackingSpacePose = new(position, rotation);
                             worldLockActive = true;
@@ -1037,15 +1049,11 @@ namespace Meta.XR.MRUtilityKit
             return result;
         }
 
-        private void FindAllObjects(GameObject roomPrefab, out List<GameObject> walls, out List<GameObject> volumes,
-            out List<GameObject> planes, out List<GameObject> ceilings, out List<GameObject> floors, out List<GameObject> others)
+        private void FindAllObjects(GameObject roomPrefab, out List<GameObject> walls, out List<GameObject> volumes, out List<GameObject> planes)
         {
             walls = new List<GameObject>();
             volumes = new List<GameObject>();
             planes = new List<GameObject>();
-            ceilings = new List<GameObject>();
-            floors = new List<GameObject>();
-            others = new List<GameObject>();
 
             FindObjects(MRUKAnchor.SceneLabels.WALL_FACE.ToString(), roomPrefab.transform, ref walls);
             FindObjects(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE.ToString(), roomPrefab.transform, ref walls);

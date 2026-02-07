@@ -67,6 +67,30 @@ namespace Meta.XR.MRUtilityKit
         public bool IsLocal => Anchor.Handle != 0;
 
         /// <summary>
+        /// This is the pose of the anchor when it was created. It is identical to the pose stored in the MRUK Shared library.
+        /// Initially the game object's transform will also be equal to this pose, but if third party code moves the game object it may diverge.
+        /// </summary>
+        internal Pose InitialPose
+        {
+            get;
+            set;
+        } = Pose.identity;
+
+        /// <summary>
+        /// This is the delta between the pose of the anchor when it was initially created and game object's current transform.
+        /// This will be identity unless third party code has moved the game object after creation.
+        /// </summary>
+        internal Pose DeltaPose
+        {
+            get
+            {
+                var deltaRotation = transform.rotation * Quaternion.Inverse(InitialPose.rotation);
+                return new Pose(transform.position - deltaRotation * InitialPose.position, deltaRotation);
+            }
+        }
+
+
+        /// <summary>
         /// Contains all the scene anchors in the room.
         /// </summary>
         /// <example>
@@ -1037,6 +1061,11 @@ namespace Meta.XR.MRUtilityKit
             for (int i = 0; i < Anchors.Count; i++)
             {
                 Anchors[i].ClearChildReferences();
+                Anchors[i].ParentAnchor = null;
+            }
+
+            for (int i = 0; i < Anchors.Count; i++)
+            {
                 if (Anchors[i].HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE) && Anchors[i].PlaneRect.HasValue)
                 {
                     // find all _anchors that are a "child" of this wall using heuristics
@@ -1117,7 +1146,7 @@ namespace Meta.XR.MRUtilityKit
                                 for (int c = 0; c < 4; ++c)
                                 {
                                     // Get a different corner on each iteration of the loop (height is not important here)
-                                    Vector3 cornerPos = new Vector3(i < 2 ? childVolumeBounds.min.x : childVolumeBounds.max.x, i % 2 == 0 ? childVolumeBounds.min.y : childVolumeBounds.max.y, 0.0f);
+                                    Vector3 cornerPos = new Vector3(c < 2 ? childVolumeBounds.min.x : childVolumeBounds.max.x, c % 2 == 0 ? childVolumeBounds.min.y : childVolumeBounds.max.y, 0.0f);
                                     // convert corner to world space
                                     cornerPos = Anchors[k].transform.TransformPoint(cornerPos);
 
@@ -1581,42 +1610,6 @@ namespace Meta.XR.MRUtilityKit
 
                 position = surface.Transform.MultiplyPoint3x4(new Vector3(pos.x, pos.y, 0f));
                 normal = surface.Transform.MultiplyVector(Vector3.forward);
-                return true;
-            }
-
-            return false;
-        }
-
-        internal bool UpdateWorldLock(out Vector3 position, out Quaternion rotation)
-        {
-            position = default;
-            rotation = default;
-
-            if (FloorAnchor == null)
-            {
-                return false;
-            }
-
-            var anchor = FloorAnchor.Anchor;
-            var anchorCurrentTransform = FloorAnchor.transform;
-
-
-            // If an anchor is not local then we should not try to locate it.
-            // This will happen when loading a scene from Prefab or JSON string.
-            if (anchor.Handle != 0 &&
-                anchor.TryGetComponent<OVRLocatable>(out var locatable) &&
-                locatable.TryGetSceneAnchorPose(out var pose) &&
-                pose.Position.HasValue && pose.Rotation.HasValue)
-            {
-                var anchorNewTransform = Matrix4x4.TRS(pose.Position.Value, pose.Rotation.Value, Vector3.one);
-
-                var adjustment = anchorCurrentTransform.localToWorldMatrix * anchorNewTransform.inverse;
-
-                // Only use the Yaw component of the rotation, we don't want to introduce any errors with
-                // pitch or roll.
-                float yaw = adjustment.rotation.eulerAngles.y;
-                position = adjustment.GetPosition();
-                rotation = Quaternion.Euler(0, yaw, 0);
                 return true;
             }
 
