@@ -100,10 +100,10 @@ public class OppyCharacterController : MonoBehaviour
     private void GetLocomotionInput()
     {
         var hInput =
-             OVRInput.Get(OVRInput.RawAxis2D.RThumbstick).x ;
-         var vInput =
-             OVRInput.Get(OVRInput.RawAxis2D.RThumbstick).y;
-         _motionInput = new Vector2(hInput, vInput);
+             OVRInput.Get(OVRInput.RawAxis2D.RThumbstick).x;
+        var vInput =
+            OVRInput.Get(OVRInput.RawAxis2D.RThumbstick).y;
+        _motionInput = new Vector2(hInput, vInput);
     }
 
     private void ApplyMotion()

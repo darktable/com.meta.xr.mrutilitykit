@@ -67,6 +67,20 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
         /// <summary>
+        /// Test that the ray cast respects the component type filter. This ray should only hit planes
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator Raycast_Plane_DoesFilterComponentType()
+        {
+            Ray mockRay = new Ray(new Vector3(0f, 1.70f, 1f), Vector3.forward);
+            Assert.IsFalse(_currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(componentTypes: MRUKAnchor.ComponentType.Volume), out _));
+            Assert.IsTrue(_currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(componentTypes: MRUKAnchor.ComponentType.Plane), out _));
+            Assert.IsTrue(_currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(componentTypes: MRUKAnchor.ComponentType.Volume | MRUKAnchor.ComponentType.Plane), out _));
+            yield return null;
+        }
+
+        /// <summary>
         /// Test that the ray cast respects the max distance parameter
         /// </summary>
         [UnityTest]
@@ -88,7 +102,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_Plane_DoesNotHitFilter()
         {
             Ray mockRay = new Ray(new Vector3(0f, 1.70f, 1f), Vector3.forward);
-            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, LabelFilter.Excluded(MRUKAnchor.SceneLabels.WALL_FACE), out RaycastHit _, out MRUKAnchor anchorInfo);
+            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(~MRUKAnchor.SceneLabels.WALL_FACE), out RaycastHit _, out MRUKAnchor anchorInfo);
             yield return null;
             Assert.IsFalse(didHit);
             Assert.IsNull(anchorInfo);
@@ -136,6 +150,25 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
         /// <summary>
+        /// Test that the ray cast ignores the scene anchor volume and hits the wall behind it
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator Raycast_Volume_DoesFilterComponentType()
+        {
+            Ray mockRay = new Ray(new Vector3(0f, 0.5f, 2f), Vector3.left);
+            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(componentTypes: MRUKAnchor.ComponentType.Volume), out _, out MRUKAnchor anchorInfo);
+            Assert.IsTrue(didHit);
+            Assert.IsNotNull(anchorInfo);
+            Assert.IsTrue(anchorInfo.Label.HasFlag(MRUKAnchor.SceneLabels.TABLE));
+            didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(componentTypes: MRUKAnchor.ComponentType.Plane), out _, out anchorInfo);
+            Assert.IsTrue(didHit);
+            Assert.IsNotNull(anchorInfo);
+            Assert.IsTrue(anchorInfo.Label.HasFlag(MRUKAnchor.SceneLabels.WALL_FACE));
+            yield return null;
+        }
+
+        /// <summary>
         /// Test that the ray cast respects the max distance parameter
         /// </summary>
         [UnityTest]
@@ -157,14 +190,14 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_Volume_DoesNotHitLabelFilter()
         {
             Ray mockRay = new Ray(new Vector3(0f, 0.5f, 2f), Vector3.left);
-            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, LabelFilter.Included(MRUKAnchor.SceneLabels.OTHER), out RaycastHit _, out MRUKAnchor anchorInfo);
+            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, new LabelFilter(MRUKAnchor.SceneLabels.OTHER), out RaycastHit _, out MRUKAnchor anchorInfo);
             yield return null;
             Assert.IsFalse(didHit);
             Assert.IsNull(anchorInfo);
         }
 
         /// <summary>
-        /// Test that the ray cast hits a scene anchor polygin and that the hit point and normal are as expected
+        /// Test that the ray cast hits a scene anchor polygon and that the hit point and normal are as expected
         /// </summary>
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]

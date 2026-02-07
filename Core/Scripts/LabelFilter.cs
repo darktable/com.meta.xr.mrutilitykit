@@ -29,8 +29,27 @@ namespace Meta.XR.MRUtilityKit
     /// </summary>
     public struct LabelFilter
     {
-        private MRUKAnchor.SceneLabels? _included;
-        private MRUKAnchor.SceneLabels _excluded;
+        /// <summary>
+        /// A list of labels to include, null is equivalent to all labels.
+        /// </summary>
+        public MRUKAnchor.SceneLabels? SceneLabels;
+
+        /// <summary>
+        /// Optional enum flags representing component types to include, null is equivalent to all component types.
+        /// </summary>
+        public MRUKAnchor.ComponentType? ComponentTypes;
+
+        /// <summary>
+        /// Creates a label filter that includes only the specified labels and component types.
+        /// </summary>
+        /// <param name="labelFlags">Enum flags representing labels to include.</param>
+        /// <param name="componentTypes">Enum flags representing component types to include.</param>
+        public LabelFilter(MRUKAnchor.SceneLabels? labelFlags = null, MRUKAnchor.ComponentType? componentTypes = null)
+        {
+            SceneLabels = labelFlags;
+            ComponentTypes = componentTypes;
+        }
+
 
         /// <summary>
         /// Creates a label filter that includes the specified labels. This method is obsolete.
@@ -74,14 +93,18 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="labelFlags">Enum flags representing labels to include.</param>
         /// <returns>A LabelFilter that includes specified labels.</returns>
-        public static LabelFilter Included(MRUKAnchor.SceneLabels labelFlags) => new LabelFilter { _included = labelFlags };
+        [Obsolete("Use `new LabelFilter(labelFlags)` instead")]
+        public static LabelFilter Included(MRUKAnchor.SceneLabels labelFlags) =>
+            new(labelFlags, null);
 
         /// <summary>
         /// Creates a label filter that excludes the specified labels.
         /// </summary>
         /// <param name="labelFlags">Enum flags representing labels to exclude.</param>
         /// <returns>A LabelFilter that excludes specified labels.</returns>
-        public static LabelFilter Excluded(MRUKAnchor.SceneLabels labelFlags) => new LabelFilter { _excluded = labelFlags };
+        [Obsolete("Use `new LabelFilter(~labelFlags)` instead")]
+        public static LabelFilter Excluded(MRUKAnchor.SceneLabels labelFlags) =>
+            new() { SceneLabels = ~labelFlags, ComponentTypes = null };
 
         /// <summary>
         /// Checks if the given enum of labels passes the filter.
@@ -90,14 +113,9 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>True if the labels pass the filter, false otherwise.</returns>
         public bool PassesFilter(MRUKAnchor.SceneLabels labelFlags)
         {
-            if ((_excluded & labelFlags) != 0)
+            if (SceneLabels.HasValue)
             {
-                return false;
-            }
-
-            if (_included.HasValue)
-            {
-                return (_included.Value & labelFlags) != 0;
+                return (SceneLabels.Value & labelFlags) != 0;
             }
 
             return true;

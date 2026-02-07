@@ -132,9 +132,10 @@ namespace Meta.XR.MRUtilityKit
         internal bool Dirty => _isDirty;
         private bool _isDirty = false;
 
+        private const string SHADER_GLOBAL_SPACEMAPCAMERAMATRIX = "_SpaceMapProjectionViewMatrix";
+
         [SerializeField]
         private RenderTexture RenderTexture;
-
 
 
         private static readonly int
@@ -319,8 +320,7 @@ namespace Meta.XR.MRUtilityKit
         {
             if (_captureCamera != null)
             {
-                gradientMaterial.SetMatrix("_ProjectionViewMatrix",
-                    _captureCamera.projectionMatrix * _captureCamera.worldToCameraMatrix);
+                Shader.SetGlobalMatrix(SHADER_GLOBAL_SPACEMAPCAMERAMATRIX, _captureCamera.projectionMatrix * _captureCamera.worldToCameraMatrix);
             }
 
             if (DebugPlane != null && DebugPlane.activeSelf != ShowDebugPlane)
@@ -344,8 +344,8 @@ namespace Meta.XR.MRUtilityKit
 
             var worldToScreenPoint = _captureCamera.WorldToScreenPoint(worldPosition);
 
-            var xPixel = worldToScreenPoint.x/_captureCamera.pixelWidth;
-            var yPixel = worldToScreenPoint.y/_captureCamera.pixelHeight;
+            var xPixel = worldToScreenPoint.x / _captureCamera.pixelWidth;
+            var yPixel = worldToScreenPoint.y / _captureCamera.pixelHeight;
 
             var rawColor = OutputTexture.GetPixelBilinear(xPixel, yPixel);
 
@@ -438,7 +438,7 @@ namespace Meta.XR.MRUtilityKit
                 Graphics.Blit(_RTextures[sourceIndex], destination);
 
                 RenderTexture.active = destination;
-                OutputTexture.ReadPixels(new Rect(0,0,TextureDimension,TextureDimension),0,0);
+                OutputTexture.ReadPixels(new Rect(0, 0, TextureDimension, TextureDimension), 0, 0);
                 OutputTexture.Apply();
             }
 

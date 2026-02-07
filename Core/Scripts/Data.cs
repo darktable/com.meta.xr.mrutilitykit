@@ -158,6 +158,7 @@ namespace Meta.XR.MRUtilityKit
             /// A list of UUIDs for the walls.
             /// </summary>
             [JsonProperty("WallsUuid")] public List<Guid> WallsUuid;
+
         }
 
         /// <summary>
@@ -198,4 +199,6 @@ namespace Meta.XR.MRUtilityKit
             [JsonProperty("Rooms")] public List<RoomData> Rooms;
         }
     }
+
+
 }

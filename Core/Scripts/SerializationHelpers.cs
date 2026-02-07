@@ -243,8 +243,9 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="coordinateSystem">The coordinate system to use for the serialization (Unity or Unreal).</param>
         /// <param name="includeGlobalMesh">A boolean indicating whether to include the global mesh data in the serialization. Default is true.</param>
+        /// <param name="rooms">A list of rooms to serialize, if this is null then all rooms will be serialized.</param>
         /// <returns>A JSON string representing the serialized scene data.</returns>
-        public static string Serialize(CoordinateSystem coordinateSystem, bool includeGlobalMesh = true)
+        public static string Serialize(CoordinateSystem coordinateSystem = CoordinateSystem.Unity, bool includeGlobalMesh = true, List<MRUKRoom> rooms = null)
         {
             Data.SceneData sceneData = new()
             {
@@ -252,7 +253,7 @@ namespace Meta.XR.MRUtilityKit
                 Rooms = new()
             };
 
-            foreach (var room in MRUK.Instance.Rooms)
+            foreach (var room in rooms ?? MRUK.Instance.Rooms)
             {
                 Data.RoomData roomData = new()
                 {
@@ -263,12 +264,15 @@ namespace Meta.XR.MRUtilityKit
                     },
                     Anchors = new(),
                 };
+
                 foreach (var anchor in room.Anchors)
                 {
                     Data.AnchorData anchorData = new()
                     {
                         Anchor = anchor.Anchor
                     };
+
+
                     if (anchor == room.CeilingAnchor)
                     {
                         roomData.RoomLayout.CeilingUuid = anchorData.Anchor.Uuid;
@@ -279,6 +283,7 @@ namespace Meta.XR.MRUtilityKit
                         roomData.RoomLayout.FloorUuid = anchorData.Anchor.Uuid;
                     }
 
+
                     if (room.WallAnchors.Contains(anchor))
                     {
                         roomData.RoomLayout.WallsUuid.Add(anchorData.Anchor.Uuid);
@@ -286,8 +291,8 @@ namespace Meta.XR.MRUtilityKit
 
                     anchorData.SemanticClassifications = Utilities.SceneLabelsEnumToList(anchor.Label);
                     anchorData.Transform = new();
-                    var localPosition = anchor.transform.localPosition;
-                    var localRotation = anchor.transform.localEulerAngles;
+                    var localPosition = anchor.transform.position;
+                    var localRotation = anchor.transform.eulerAngles;
                     if (coordinateSystem == CoordinateSystem.Unreal)
                     {
                         localPosition = new Vector3(localPosition.z * UnrealWorldToMeters, localPosition.x * UnrealWorldToMeters, localPosition.y * UnrealWorldToMeters);
@@ -476,6 +481,7 @@ namespace Meta.XR.MRUtilityKit
 
                     room.Anchors[j] = anchor;
                 }
+
 
                 sceneData.Rooms[i] = room;
             }

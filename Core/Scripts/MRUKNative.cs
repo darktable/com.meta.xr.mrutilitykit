@@ -56,7 +56,7 @@ namespace Meta.XR.MRUtilityKit
         [DllImport("libdl.so")]
         public static extern int dlclose(IntPtr handle);
 #else
-    #error Unsupported platform
+#error Unsupported platform
 #endif
         private static IntPtr _nativeLibraryPtr;
 

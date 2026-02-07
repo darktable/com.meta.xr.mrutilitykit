@@ -30,7 +30,8 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [CreateAssetMenu(fileName = "SceneDecoration", menuName = "Meta/MRUK/Scene Decoration")]
     public class SceneDecoration : ScriptableObject
     {
-        [SerializeField] [Tooltip("Each prefab has an own pool of this size")]
+        [SerializeField]
+        [Tooltip("Each prefab has an own pool of this size")]
         public int Poolsize;
 
         [SerializeField]

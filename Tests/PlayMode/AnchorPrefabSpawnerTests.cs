@@ -85,21 +85,21 @@ namespace Meta.XR.MRUtilityKit.Tests
                 switch (anchor.Label)
                 {
                     case MRUKAnchor.SceneLabels.FLOOR:
-                        if(HasSpawnedChild(anchor))
+                        if (HasSpawnedChild(anchor))
                         {
                             createdFloor++;
                         }
 
                         break;
                     case MRUKAnchor.SceneLabels.CEILING:
-                        if(HasSpawnedChild(anchor))
+                        if (HasSpawnedChild(anchor))
                         {
                             createdCeiling++;
                         }
 
                         break;
                     case MRUKAnchor.SceneLabels.WALL_FACE:
-                        if(HasSpawnedChild(anchor))
+                        if (HasSpawnedChild(anchor))
                         {
                             createdWalls++;
                         }
@@ -120,7 +120,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                     case MRUKAnchor.SceneLabels.GLOBAL_MESH:
                     case MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE:
                     case MRUKAnchor.SceneLabels.OTHER:
-                        if(HasSpawnedChild(anchor))
+                        if (HasSpawnedChild(anchor))
                         {
                             createdOther++;
                         }
@@ -190,7 +190,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator CountSpawnedItemsRoom1WallsOnly()
         {
             var anchorPrefabSpawner = SetupAnchorPrefabSpawner();
-            string[] searchResults = AssetDatabase.FindAssets("WALL",new[] { "Packages\\com.meta.xr.mrutilitykit\\Core\\Prefabs\\" });
+            string[] searchResults = AssetDatabase.FindAssets("WALL", new[] { "Packages\\com.meta.xr.mrutilitykit\\Core\\Prefabs\\" });
             string prefabPath = AssetDatabase.GUIDToAssetPath(searchResults[0]);
 
             anchorPrefabSpawner.PrefabsToSpawn = new List<AnchorPrefabSpawner.AnchorPrefabGroup>()
@@ -270,8 +270,8 @@ namespace Meta.XR.MRUtilityKit.Tests
             MRUK.Instance.LoadSceneFromJsonString(Helper.SceneWithRoom1MoreAnchors.text);
             yield return null;
 
-           (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
-                CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
+            (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
+                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
 
             Assert.AreEqual(createdWalls, Room1WallCount);
             Assert.AreEqual(createdFloor, Room1FloorCount);
@@ -293,7 +293,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             foreach (var anchor in MRUK.Instance.GetCurrentRoom().Anchors)
             {
-                Assert.AreEqual(true,HasSpawnedChild(anchor));
+                Assert.AreEqual(true, HasSpawnedChild(anchor));
             }
 
             yield return null;
@@ -308,7 +308,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         private AnchorPrefabSpawner SetupAnchorPrefabSpawner()
         {
             var anchorPrefabSpawner = FindObjectOfType<AnchorPrefabSpawner>();
-            if(anchorPrefabSpawner == null)
+            if (anchorPrefabSpawner == null)
             {
                 Assert.Fail();
             }
@@ -318,7 +318,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private IEnumerator DestroyAnchors()
         {
-            var allObjects = (MRUKAnchor[]) GameObject.FindObjectsOfType(typeof(MRUKAnchor));
+            var allObjects = (MRUKAnchor[])GameObject.FindObjectsOfType(typeof(MRUKAnchor));
             foreach (var anchor in allObjects)
             {
                 DestroyImmediate(anchor);

@@ -98,7 +98,8 @@ namespace Meta.XR.MRUtilityKit
         [Serializable]
         public struct AnchorPrefabGroup : IEquatable<AnchorPrefabGroup>
         {
-            [FormerlySerializedAs("_include")] [SerializeField, Tooltip("Anchors to include.")]
+            [FormerlySerializedAs("_include")]
+            [SerializeField, Tooltip("Anchors to include.")]
             public MRUKAnchor.SceneLabels Labels;
 
             [SerializeField, Tooltip("Prefab(s) to spawn (randomly chosen from list.)")]
@@ -167,12 +168,17 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Specify a seed value for consistent prefab selection (0 = Random).")]
         public int SeedValue;
 
-        // Gets a dictionary that maps MRUKAnchor instances to their corresponding spawned GameObjects.
+        /// <summary>
+        /// Gets a dictionary that maps MRUKAnchor instances to their corresponding spawned GameObjects.
+        /// </summary>
         public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects { get; private set; } = new();
 
         [Obsolete("Event onPrefabSpawned will be deprecated in a future version"), NonSerialized]
         public UnityEvent onPrefabSpawned = new();
 
+        /// <summary>
+        /// Use AnchorPrefabSpawnerObjects property instead.
+        /// </summary>
         [Obsolete(
             "Use AnchorPrefabSpawnerObjects property instead. This property is inefficient because it will generate a new list each time it is accessed")]
         public List<GameObject> SpawnedPrefabs => new(AnchorPrefabSpawnerObjects.Values);
@@ -356,7 +362,7 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///  Clears all the spawned gameobjects from this AnchorPrefabSpawner in the given room
         /// </summary>
-        /// <param name="room">The room from where to remove all the spawned objects</param>
+        /// <param name="room">The room from where to remove all the spawned objects.</param>
         protected virtual void ClearPrefabs(MRUKRoom room)
         {
             List<MRUKAnchor> anchorsToRemove = new();
@@ -497,10 +503,9 @@ namespace Meta.XR.MRUtilityKit
 
             var prefabBounds = prefabGroup.IgnorePrefabSize ? null : Utilities.GetPrefabBounds(prefabToCreate);
 
-            var resizer = prefab.GetComponentInChildren<GridSliceResizer>(true);
-            if (!prefabBounds.HasValue && resizer)
+            if (!prefabBounds.HasValue)
             {
-                prefabBounds = resizer.OriginalMesh.bounds;
+                prefabBounds = prefab.GetComponentInChildren<GridSliceResizer>(true)?.OriginalMesh.bounds;
             }
 
             var prefabSize = prefabBounds?.size ?? Vector3.one;
@@ -530,10 +535,12 @@ namespace Meta.XR.MRUtilityKit
                     ? CustomPrefabScaling(scale)
                     : AnchorPrefabSpawnerUtilities.ScalePrefab(scale, prefabGroup.Scaling);
 
-                prefab.transform.localPosition = prefabGroup.Alignment == AlignMode.Custom
+                var localPosition = prefabGroup.Alignment == AlignMode.Custom
                     ? CustomPrefabAlignment(volumeBounds, prefabBounds)
                     : AnchorPrefabSpawnerUtilities.AlignPrefabPivot(volumeBounds, prefabBounds, scale,
                         prefabGroup.Alignment);
+
+                prefab.transform.localPosition = Quaternion.AngleAxis(cardinalAxisIndex * 90, Vector3.forward) * localPosition;
 
                 // scene geometry is unusual, we need to swap Y/Z for a more standard prefab structure
                 prefab.transform.localRotation = Quaternion.Euler((cardinalAxisIndex - 1) * 90, -90, -90);

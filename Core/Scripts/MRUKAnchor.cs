@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using Meta.XR.Util;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -56,6 +57,18 @@ namespace Meta.XR.MRUtilityKit
             INVISIBLE_WALL_FACE = 1 << OVRSemanticLabels.Classification.InvisibleWallFace,
         };
 
+        /// <summary>
+        /// Flags enumeration for component type, scene anchors can either have plane or volume components associated with them or both.
+        /// </summary>
+        [Flags]
+        public enum ComponentType
+        {
+            None = 0,
+            Plane = 1 << 0,
+            Volume = 1 << 1,
+            All = Plane | Volume,
+        }
+
         /// <see cref="OVRSemanticLabels.DeprecationMessage" />
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public List<string> AnchorLabels => Utilities.SceneLabelsEnumToList(Label);
@@ -85,7 +98,8 @@ namespace Meta.XR.MRUtilityKit
         public List<Vector2> PlaneBoundary2D;
 
         /// <summary>
-        /// Reference to the scene anchor associated with this anchor.
+        /// Reference to the scene anchor associated with this anchor. You should not need to use this directly, only
+        /// use this if you know what you are doing.
         /// </summary>
         public OVRAnchor Anchor = OVRAnchor.Null;
 
@@ -97,8 +111,8 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// References to child anchors, populated via <see cref="MRUKRoom.CalculateHierarchyReferences"/>.
         /// </summary>
-        [NonSerialized]
-        public MRUKAnchor ParentAnchor;
+        [NonSerialized] public MRUKAnchor ParentAnchor;
+
         /// <summary>
         /// A list of child anchors associated with this anchor.
         /// </summary>
@@ -110,11 +124,15 @@ namespace Meta.XR.MRUtilityKit
         [Obsolete("Use VolumeBounds.HasValue instead.")]
         public bool HasVolume => VolumeBounds != null; //!< Use VolumeBounds.HasValue instead.
 
+        [Obsolete("Use HasValidHandle instead.")]
+        public bool IsLocal => HasValidHandle; //!< Use HasValidHandle instead.
+
         /// <summary>
-        ///     An anchor is considered local if it was loaded from device. If it was loaded from some other source,
-        ///     e.g. JSON or Prefab then it is not local.
+        /// An anchor will have a valid handle if it was loaded from device and there is a system level anchor backing it.
+        /// Anchors loaded from JSON or Prefabs do not have a valid handle. You should not need to use this directly, only
+        /// use this if you know what you are doing. The behaviour may change in the future.
         /// </summary>
-        public bool IsLocal => Anchor.Handle != 0;
+        public bool HasValidHandle => Anchor.Handle != 0;
 
         /// <summary>
         /// The triangle mesh which covers the entire space, associated to the global mesh anchor.
@@ -135,7 +153,6 @@ namespace Meta.XR.MRUtilityKit
 
         Mesh _globalMesh;
 
-
         /// <summary>
         /// Performs a raycast against the anchor's plane and volume to determine if and where a ray intersects.
         /// This method avoids using colliders and Physics.Raycast for several reasons:
@@ -155,14 +172,17 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="ray">The ray to test for intersections.</param>
         /// <param name="maxDist">The maximum distance the ray should check for intersections.</param>
         /// <param name="hitInfo">Output parameter that will contain the hit information if an intersection occurs.</param>
+        /// <param name="componentTypes">The type of components to ray cast against.</param>
         /// <returns>True if the ray hits either the plane or the volume, false otherwise.</returns>
-        public bool Raycast(Ray ray, float maxDist, out RaycastHit hitInfo)
+        public bool Raycast(Ray ray, float maxDist, out RaycastHit hitInfo, ComponentType componentTypes = ComponentType.All)
         {
             var localOrigin = transform.InverseTransformPoint(ray.origin);
             var localDirection = transform.InverseTransformDirection(ray.direction);
             Ray localRay = new Ray(localOrigin, localDirection);
-            bool hitPlane = RaycastPlane(localRay, maxDist, out RaycastHit hitInfoPlane);
-            bool hitVolume = RaycastVolume(localRay, maxDist, out RaycastHit hitInfoVolume);
+            RaycastHit hitInfoPlane = default;
+            RaycastHit hitInfoVolume = default;
+            bool hitPlane = (componentTypes & ComponentType.Plane) != 0 && RaycastPlane(localRay, maxDist, out hitInfoPlane);
+            bool hitVolume = (componentTypes & ComponentType.Volume) != 0 && RaycastVolume(localRay, maxDist, out hitInfoVolume);
             if (hitPlane && hitVolume)
             {
                 // If the ray hit both the plane and the volume then pick whichever is closest
@@ -233,80 +253,117 @@ namespace Meta.XR.MRUtilityKit
         /// Calculates the distance from a specified position to the closest surface of the anchor.
         /// </summary>
         /// <param name="position">The position from which to measure.</param>
+        /// <param name="componentTypes">The component types to include.</param>
         /// <returns>The distance to the closest surface.</returns>
-        public float GetDistanceToSurface(Vector3 position) =>
-            GetClosestSurfacePosition(position, out _);
+        public float GetDistanceToSurface(Vector3 position, ComponentType componentTypes = ComponentType.All) =>
+            GetClosestSurfacePosition(position, out _, out _, componentTypes);
 
         /// <summary>
         /// Finds the closest surface position from a given point and returns the distance to it.
         /// </summary>
         /// <param name="testPosition">The position to test.</param>
         /// <param name="closestPosition">The closest position on the surface.</param>
+        /// <param name="componentTypes">The component types to include.</param>
         /// <returns>The distance to the closest surface position.</returns>
-        public float GetClosestSurfacePosition(Vector3 testPosition, out Vector3 closestPosition) =>
-            GetClosestSurfacePosition(testPosition, out closestPosition, out _);
+        public float GetClosestSurfacePosition(Vector3 testPosition, out Vector3 closestPosition, ComponentType componentTypes = ComponentType.All) =>
+            GetClosestSurfacePosition(testPosition, out closestPosition, out _, componentTypes);
 
         /// <summary>
         /// Finds the closest surface position from a given point, providing the position, normal at that position, and the distance.
+        /// If the point is inside a volume, it will return a negative distance representing the distance beneath the surface.
         /// </summary>
         /// <param name="testPosition">The position to test.</param>
         /// <param name="closestPosition">The closest position on the surface.</param>
         /// <param name="normal">The normal at the closest position.</param>
+        /// <param name="componentTypes">The component types to include.</param>
         /// <returns>The distance to the closest surface position.</returns>
-        public float GetClosestSurfacePosition(Vector3 testPosition, out Vector3 closestPosition, out Vector3 normal)
+        public float GetClosestSurfacePosition(Vector3 testPosition, out Vector3 closestPosition, out Vector3 normal, ComponentType componentTypes = ComponentType.All)
         {
             float candidateDistance = Mathf.Infinity;
             closestPosition = Vector3.zero;
             normal = Vector3.zero;
 
-            if (VolumeBounds.HasValue)
+            if ((componentTypes & ComponentType.Volume) != 0 && VolumeBounds.HasValue)
             {
+                var volumeBounds = VolumeBounds.Value;
                 Vector3 localPosition = transform.InverseTransformPoint(testPosition);
-                if (VolumeBounds.Value.Contains(localPosition))
+                if (volumeBounds.Contains(localPosition))
                 {
                     // in this case, we need custom math not provided by Bounds.ClosestPoint, which returns the original query position if inside
-                    Vector3 halfScale = VolumeBounds.Value.size * 0.5f;
-                    localPosition += Vector3.forward * halfScale.z;
-                    float minXdist = halfScale.x - Mathf.Abs(localPosition.x);
-                    float closestX = localPosition.x + minXdist * Mathf.Sign(localPosition.x);
-                    float minYdist = halfScale.y - Mathf.Abs(localPosition.y);
-                    float closestY = localPosition.y + minYdist * Mathf.Sign(localPosition.y);
-                    float minZdist = halfScale.z - Mathf.Abs(localPosition.z);
-                    float closestZ = localPosition.z + minZdist * Mathf.Sign(localPosition.z);
-                    if (minXdist < minYdist)
+                    localPosition -= volumeBounds.center;
+                    float minDist = float.MaxValue;
+                    int minDistAxis = -1;
+                    for (int i = 0; i < 3; i++)
                     {
-                        closestPosition = minXdist < minZdist ? new Vector3(closestX, localPosition.y, localPosition.z) : new Vector3(localPosition.x, localPosition.y, closestZ);
-                    }
-                    else
-                    {
-                        closestPosition = minYdist < minZdist ? new Vector3(localPosition.x, closestY, localPosition.z) : new Vector3(localPosition.x, localPosition.y, closestZ);
+                        float dist = volumeBounds.extents[i] - Mathf.Abs(localPosition[i]);
+                        if (dist < minDist)
+                        {
+                            minDist = dist;
+                            minDistAxis = i;
+                        }
                     }
 
-                    closestPosition = transform.TransformPoint(closestPosition - Vector3.forward * halfScale.z);
-
-                    candidateDistance = -Mathf.Min(Mathf.Min(minXdist, minYdist), minZdist);
+                    float sign = Mathf.Sign(localPosition[minDistAxis]);
+                    localPosition[minDistAxis] += minDist * sign;
+                    candidateDistance = -minDist;
+                    var localNormal = new Vector3
+                    {
+                        [minDistAxis] = sign
+                    };
+                    normal = transform.TransformDirection(localNormal);
+                    closestPosition = transform.TransformPoint(localPosition + volumeBounds.center);
                 }
                 else
                 {
-                    closestPosition = VolumeBounds.Value.ClosestPoint(localPosition);
+                    closestPosition = volumeBounds.ClosestPoint(localPosition);
+                    var delta = localPosition - closestPosition;
+                    if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y) && Mathf.Abs(delta.x) > Mathf.Abs(delta.z))
+                    {
+                        normal = new Vector3(Mathf.Sign(delta.x), 0f, 0f);
+                    }
+                    else if (Mathf.Abs(delta.y) > Mathf.Abs(delta.z))
+                    {
+                        normal = new Vector3(0f, Mathf.Sign(delta.y), 0f);
+                    }
+                    else
+                    {
+                        normal = new Vector3(0f, 0f, Mathf.Sign(delta.z));
+                    }
                     closestPosition = transform.TransformPoint(closestPosition);
+                    normal = transform.TransformDirection(normal);
                     candidateDistance = Vector3.Distance(closestPosition, testPosition);
                 }
             }
-            else if (PlaneRect.HasValue)
+            else if ((componentTypes & ComponentType.Plane) != 0 && PlaneRect.HasValue)
             {
-                Vector2 planeScale = PlaneRect.Value.size;
+                var planeRect = PlaneRect.Value;
+                Vector3 localPosition = transform.InverseTransformPoint(testPosition);
+                localPosition.z = 0;
 
-                Vector3 toPos = testPosition - transform.position;
-                Vector3 localX = Vector3.Project(toPos, transform.right);
-                Vector3 localY = Vector3.Project(toPos, transform.up);
-                float x = Mathf.Min(0.5f * planeScale.x, localX.magnitude);
-                float y = Mathf.Min(0.5f * planeScale.y, localY.magnitude);
-                closestPosition = transform.position + localX.normalized * x + localY.normalized * y;
+                if (localPosition.x > planeRect.max.x)
+                {
+                    localPosition.x = planeRect.max.x;
+                }
+                else if (localPosition.x < planeRect.min.x)
+                {
+                    localPosition.x = planeRect.min.x;
+                }
+
+                if (localPosition.y > planeRect.max.y)
+                {
+                    localPosition.y = planeRect.max.y;
+                }
+                else if (localPosition.y < planeRect.min.y)
+                {
+                    localPosition.y = planeRect.min.y;
+                }
+
+                closestPosition = transform.TransformPoint(localPosition);
                 candidateDistance = Vector3.Distance(closestPosition, testPosition);
+                normal = transform.forward;
             }
 
-            return Mathf.Abs(candidateDistance);
+            return candidateDistance;
         }
 
         /// <summary>
@@ -519,14 +576,16 @@ namespace Meta.XR.MRUtilityKit
             }
 
             Anchor.TryGetComponent(out OVRTriangleMesh mesh);
-            var trimesh = new Mesh
-            {
-                indexFormat = UnityEngine.Rendering.IndexFormat.UInt32
-            };
+
             if (!mesh.TryGetCounts(out var vcount, out var tcount))
             {
-                return trimesh;
+                return new Mesh();
             }
+
+            var trimesh = new Mesh
+            {
+                indexFormat = vcount > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16
+            };
 
             using var vs = new NativeArray<Vector3>(vcount, Allocator.Temp);
             using var ts = new NativeArray<int>(tcount * 3, Allocator.Temp);

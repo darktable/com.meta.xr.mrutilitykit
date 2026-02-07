@@ -80,7 +80,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
         public static readonly Pool<GameObject>.Callbacks DEFAULT_CALLBACKS = new()
         {
-            Create = DefaultCallbacks.Create, OnGet = DefaultCallbacks.OnGet, OnRelease = DefaultCallbacks.OnRelease,
+            Create = DefaultCallbacks.Create,
+            OnGet = DefaultCallbacks.OnGet,
+            OnRelease = DefaultCallbacks.OnRelease,
         };
 
         [SerializeField] internal PoolDesc[] defaultPools;

@@ -1264,7 +1264,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2037080, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       propertyPath: m_CullingMask.m_Bits
-      value: 4294967295
+      value: 63
       objectReference: {fileID: 0}
     - target: {fileID: 11400000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       propertyPath: _trackingOriginType
@@ -1389,7 +1389,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SpawnOnStart: 2
   MeshMaterial: {fileID: 2100000, guid: 69e54be2e702f984683fa4816dc4b0f8, type: 2}
-  BorderSize: 0.1
   Colliders: 1
   CutHoles: 0
   castShadows: 0
@@ -1570,7 +1569,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SpawnOnStart: 0
   MeshMaterial: {fileID: 2100000, guid: 69e54be2e702f984683fa4816dc4b0f8, type: 2}
-  BorderSize: 0.1
   Colliders: 1
   CutHoles: 0
   castShadows: 0
@@ -2084,6 +2082,9 @@ MonoBehaviour:
   overridePerLayerColorScaleAndOffset: 0
   colorScale: {x: 1, y: 1, z: 1, w: 1}
   colorOffset: {x: 0, y: 0, z: 0, w: 0}
+  passthroughLayerResumed:
+    m_PersistentCalls:
+      m_Calls: []
   overrideBlendFactors: 0
   srcBlendFactor: 2
   dstBlendFactor: 3

@@ -39,22 +39,28 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
         internal bool TrackUpdates = true;
 
-        [Tooltip("The material applied to the generated mesh.")] [FormerlySerializedAs("_MeshMaterial")]
+        [Tooltip("The material applied to the generated mesh. If you'd like a multi-material room, you can use another EffectMesh object with a different Mesh Material.")]
+        [FormerlySerializedAs("_MeshMaterial")]
         public Material MeshMaterial;
 
-        [Tooltip("The inset vertex spacing on each polygon.")] [FormerlySerializedAs("_borderSize")]
+        [Obsolete("BorderSize functionality has been removed.")]
+        [NonSerialized]
+        [FormerlySerializedAs("_borderSize")]
         public float BorderSize = 0.0f;
 
-        [Tooltip("Generate a BoxCollider for each mesh component.")] [FormerlySerializedAs("addColliders")]
+        [Tooltip("Generate a BoxCollider for each mesh component.")]
+        [FormerlySerializedAs("addColliders")]
         public bool Colliders = false;
 
         [Tooltip("Cut holes in the mesh for door frames and/or window frames. NOTE: This does not apply if border size is non-zero.")]
         public MRUKAnchor.SceneLabels CutHoles;
 
-        [Tooltip("Whether the effect mesh objects will cast a shadow.")] [SerializeField]
+        [Tooltip("Whether the effect mesh objects will cast a shadow.")]
+        [SerializeField]
         private bool castShadows = true;
 
-        [Tooltip("Hide the effect mesh.")] [SerializeField]
+        [Tooltip("Hide the effect mesh.")]
+        [SerializeField]
         private bool hideMesh = false;
 
 
@@ -100,6 +106,7 @@ namespace Meta.XR.MRUtilityKit
         /// <value>
         /// <c>true</c> if colliders for effect mesh objects should be active; otherwise, <c>false</c>.
         /// </value>
+        [Obsolete("This property is deprecated. Please use '" + nameof(ToggleEffectMeshColliders) + "' instead.")]
         public bool ToggleColliders
         {
             get => Colliders;
@@ -111,7 +118,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Defines the modes for calculating texture coordinates along the U-axis for wall textures.
+        /// Defines the modes for calculating texture coordinates along the U-axis (horizontal) for wall textures.
         /// </summary>
         public enum WallTextureCoordinateModeU
         {
@@ -124,7 +131,7 @@ namespace Meta.XR.MRUtilityKit
         };
 
         /// <summary>
-        /// Defines the modes for calculating texture coordinates along the V-axis for wall textures.
+        /// Defines the modes for calculating texture coordinates along the V-axis (vertical) for wall textures.
         /// </summary>
         public enum WallTextureCoordinateModeV
         {
@@ -291,63 +298,6 @@ namespace Meta.XR.MRUtilityKit
             {
                 CreateMesh(room);
                 RegisterAnchorUpdates(room);
-            }
-        }
-
-        /// <summary>
-        /// Calculates the inset position offset for a corner defined by three points, ensuring the inset is towards the interior of the room.
-        /// </summary>
-        /// <param name="point1">The first corner point of the wall.</param>
-        /// <param name="point2">The middle point at the corner where the inset is calculated.</param>
-        /// <param name="point3">The third corner point of the wall.</param>
-        /// <param name="border">The distance from the corner to the inset position.</param>
-        /// <returns>A Vector3 representing the offset from point2 to the inset position inside the room.</returns>
-        /// <remarks>
-        /// The method calculates the direction of the inset based on the vectors formed between the three points.
-        /// It adjusts the inset direction to ensure it points towards the inside of the room and normalizes the inset distance
-        /// to be consistent regardless of the angle between the walls.
-        /// </remarks>
-        public Vector3 GetInsetPositionOffset(Vector2 point1, Vector2 point2, Vector2 point3, float border)
-        {
-            Vector2 vec1 = (point2 - point1).normalized;
-            Vector2 vec2 = (point3 - point2).normalized;
-            Vector2 insetDir = (vec2 - vec1).normalized;
-            insetDir.Normalize();
-            if ((vec1.x * vec2.y - vec1.y * vec2.x) < 0)
-            {
-                insetDir = -insetDir;
-            }
-
-            if (insetDir.magnitude <= Mathf.Epsilon)
-            {
-                insetDir = Vector2.right;
-            }
-
-            // ensure that the border is the same width regardless of angle between walls
-            float angle = Vector3.Angle(vec2, insetDir);
-            float adjacent = border / Mathf.Tan(angle * Mathf.Deg2Rad);
-            float adjustedBorderSize = Mathf.Sqrt(adjacent * adjacent + border * border);
-
-            return (insetDir * adjustedBorderSize);
-        }
-
-        /// <summary>
-        ///     Given a counter-clockwise set of points (outer then inner), set up triangle indices accordingly
-        /// </summary>
-        void CreateBorderPolygon(ref int[] indexArray, ref int indexCounter, int baseCount, int pointsInLoop)
-        {
-            for (int j = 0; j < pointsInLoop; j++)
-            {
-                int id1 = ((j + 1) % pointsInLoop);
-                int id2 = pointsInLoop + j;
-
-                indexArray[indexCounter++] = baseCount + j;
-                indexArray[indexCounter++] = baseCount + id1;
-                indexArray[indexCounter++] = baseCount + id2;
-
-                indexArray[indexCounter++] = baseCount + pointsInLoop + ((j + 1) % pointsInLoop);
-                indexArray[indexCounter++] = baseCount + id2;
-                indexArray[indexCounter++] = baseCount + id1;
             }
         }
 
@@ -596,12 +546,13 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private (List<MRUKAnchor>, float, float) GenerateData(MRUKRoom room)
+        private (Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>, float) GenerateData(MRUKRoom room)
         {
             var shortestWall = Mathf.Infinity;
             var totalWallLength = 0.0f;
 
-            List<MRUKAnchor> walls = new List<MRUKAnchor>();
+            List<MRUKAnchor> walls = new();
+            List<MRUKAnchor> invisibleWalls = new();
             foreach (var anchorInfo in room.Anchors)
             {
                 if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
@@ -610,12 +561,24 @@ namespace Meta.XR.MRUtilityKit
                     shortestWall = Mathf.Min(Mathf.Min(wallScale.x, wallScale.y), shortestWall);
                     walls.Add(anchorInfo);
                 }
+                if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE))
+                {
+                    invisibleWalls.Add(anchorInfo);
+                    walls.Add(anchorInfo);
+                }
             }
 
-            var sortedWalls = GetOrderedWalls(walls, ref totalWallLength);
-            var polyBorderSize = Mathf.Min(shortestWall * 0.5f, BorderSize);
+            var sortedWalls = GetOrderedWalls(walls, room, ref totalWallLength);
+            var tmp = 0.0f;
+            var sortedInvisibleWallFaces = GetOrderedWalls(invisibleWalls, room, ref tmp);
 
-            return (sortedWalls, totalWallLength, polyBorderSize);
+            var d = new Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>
+            {
+                { MRUKAnchor.SceneLabels.WALL_FACE, sortedWalls },
+                { MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE, sortedInvisibleWallFaces }
+            };
+
+            return (d, totalWallLength);
         }
 
         /// <summary>
@@ -624,28 +587,34 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="room">The room to apply to</param>
         public void CreateMesh(MRUKRoom room)
         {
+            CreateMesh(room, null);
+        }
+
+        /// <summary>
+        ///     Creates effect mesh for all objects in the given room
+        /// </summary>
+        /// <param name="room">The room to apply to</param>
+        /// <param name="connectedRooms">An optional list of connected rooms</param>
+        private void CreateMesh(MRUKRoom room, List<MRUKRoom> connectedRooms)
+        {
             // To get all the anchors in the space:
             var sceneAnchors = room.Anchors;
 
-            var (sortedWalls, totalWallLength, polyBorderSize) = GenerateData(room);
+            var (sortedObjects, totalWallLength) = GenerateData(room);
 
             MRUKAnchor floor = null;
             MRUKAnchor ceiling = null;
 
-            if (CutHoles != 0 && BorderSize > 0.0f)
+            for (var i = 0; i < sceneAnchors.Count; i++)
             {
-                Debug.LogWarning("CutHoles property does not have any effect when BorderSize is non-zero");
-            }
-
-            for (int i = 0; i < sceneAnchors.Count; i++)
-            {
-                MRUKAnchor anchorInfo = sceneAnchors[i];
+                var anchorInfo = sceneAnchors[i];
                 if (anchorInfo && anchorInfo.HasAnyLabel(Labels))
                 {
                     if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
                     {
                         continue;
                     }
+
 
                     if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.CEILING))
                     {
@@ -666,31 +635,45 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
 
-            float uSpacing = 0.0f;
-            for (int i = 0; i < sortedWalls.Count; i++)
+            var uSpacing = 0.0f;
+            foreach (var (lbl, items) in sortedObjects)
             {
-                // sortedWalls contains ALL walls in the room, both WALL_FACE and INVISIBLE_WALL_FACE
-                // however, we only want to create the mesh for walls in this EffectMesh's label list
-                // this requires custom behavior because every INVISIBLE wall is also tagged as a WALL
-                bool includeMesh = IncludesLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE) &&
-                                   sortedWalls[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
-                includeMesh |= IncludesLabel(MRUKAnchor.SceneLabels.WALL_FACE) &&
-                               !sortedWalls[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
+                var includeMesh = IncludesLabel(lbl);
 
                 if (includeMesh)
                 {
-                    CreateEffectMeshWall(sortedWalls[i], totalWallLength, ref uSpacing, polyBorderSize);
+                    for (var i = 0; i < items.Count; i++)
+                    {
+                        // sortedWalls contains ALL walls in the room, both WALL_FACE and INVISIBLE_WALL_FACE
+                        // however, we only want to create the mesh for walls in this EffectMesh's label list
+                        // this requires custom behavior because every INVISIBLE wall is also tagged as a WALL
+                        if (IncludesLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE))
+                        {
+                            includeMesh = items[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
+                            if (!includeMesh)
+                            {
+                                includeMesh |= IncludesLabel(MRUKAnchor.SceneLabels.WALL_FACE) &&
+                                               !items[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
+                            }
+                        }
+
+                        if (includeMesh)
+                        {
+                            CreateEffectMeshWall(items[i], totalWallLength, ref uSpacing, connectedRooms);
+                        }
+                    }
+
                 }
             }
 
             if (ceiling)
             {
-                CreateEffectMesh(ceiling, polyBorderSize);
+                CreateEffectMesh(ceiling);
             }
 
             if (floor)
             {
-                CreateEffectMesh(floor, polyBorderSize);
+                CreateEffectMesh(floor);
             }
 
             if (!TrackUpdates)
@@ -709,9 +692,9 @@ namespace Meta.XR.MRUtilityKit
 
         List<MRUKAnchor> GetOrderedWalls(List<MRUKAnchor> randomWalls, ref float wallLength)
         {
-            List<MRUKAnchor> orderedWalls = new List<MRUKAnchor>(randomWalls.Count);
+            var orderedWalls = new List<MRUKAnchor>(randomWalls.Count);
 
-            int seedId = 0;
+            var seedId = 0;
             for (int i = 0; i < randomWalls.Count; i++)
             {
                 Vector2 wallScale = randomWalls[i].PlaneRect.Value.size;
@@ -720,9 +703,30 @@ namespace Meta.XR.MRUtilityKit
 
                 orderedWalls.Add(GetRightWall(ref seedId, randomWalls));
             }
-
             return orderedWalls;
         }
+
+        List<MRUKAnchor> GetOrderedWalls(List<MRUKAnchor> randomWalls, MRUKRoom room, ref float wallLength)
+        {
+            var orderedWalls = new List<MRUKAnchor>(room.WallAnchors.Count);
+            var seedId = 0;
+            for (var i = 0; i < randomWalls.Count; i++)
+            {
+                var wallScale = randomWalls[i].PlaneRect.Value.size;
+                var thisLength = wallScale.x;
+                wallLength += thisLength;
+
+                MRUKAnchor nextWall;
+                nextWall = GetRightWall(ref seedId, randomWalls);
+                if (nextWall == null)
+                {
+                    throw new Exception("Wall ordering failed, please check your space setup and label filter on effect mesh");
+                }
+                orderedWalls.Add(nextWall);
+            }
+            return orderedWalls;
+        }
+
 
         MRUKAnchor GetRightWall(ref int thisID, List<MRUKAnchor> randomWalls)
         {
@@ -763,11 +767,6 @@ namespace Meta.XR.MRUtilityKit
         /// or null if the mesh could not be created.</returns>
         public EffectMeshObject CreateEffectMesh(MRUKAnchor anchorInfo)
         {
-            return CreateEffectMesh(anchorInfo, BorderSize);
-        }
-
-        EffectMeshObject CreateEffectMesh(MRUKAnchor anchorInfo, float border)
-        {
             if (effectMeshObjects.ContainsKey(anchorInfo))
             {
                 //Anchor already has an EffectMeshComponent
@@ -777,26 +776,15 @@ namespace Meta.XR.MRUtilityKit
             EffectMeshObject effectMeshObject = new EffectMeshObject();
             int totalVertices;
             int totalIndices;
-            bool createBorder = border > 0.0f;
             if (anchorInfo.VolumeBounds.HasValue)
             {
                 totalVertices = 24;
                 totalIndices = 36;
-                if (createBorder)
-                {
-                    totalVertices += 24;
-                    totalIndices += 144;
-                }
             }
-            else if (anchorInfo.PlaneRect.HasValue)
+            else if (anchorInfo.PlaneRect.HasValue && anchorInfo.PlaneBoundary2D.Count > 2)
             {
                 totalVertices = anchorInfo.PlaneBoundary2D.Count;
                 totalIndices = (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
-                if (createBorder)
-                {
-                    totalVertices += anchorInfo.PlaneBoundary2D.Count;
-                    totalIndices += anchorInfo.PlaneBoundary2D.Count * 6;
-                }
             }
             else
             {
@@ -842,8 +830,6 @@ namespace Meta.XR.MRUtilityKit
             if (anchorInfo.VolumeBounds.HasValue)
             {
                 Vector3 dim = anchorInfo.VolumeBounds.Value.size;
-                // if the object is thin, the border size needs to adjust
-                border = Mathf.Min(border, dim.x * 0.5f, dim.y * 0.5f, dim.z * 0.5f);
 
                 // each cube face gets an 8-vertex mesh
                 for (int j = 0; j < 6; j++)
@@ -923,36 +909,14 @@ namespace Meta.XR.MRUtilityKit
                             }
 
                             MeshUVs[x][vertCounter] = Vector2.Scale(quadUV, uvScaleFactor);
-                            if (createBorder)
-                            {
-                                Vector2 UVoffset = new Vector2(-xDir * border / UVxDim, -yDir * border / UVyDim);
-                                MeshUVs[x][vertCounter + 4] = Vector2.Scale(quadUV + UVoffset, uvScaleFactor);
-                            }
                         }
 
                         MeshVertices[vertCounter] = centerPoint;
-                        MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
+                        MeshColors[vertCounter] = Color.white;
                         MeshNormals[vertCounter] = fwd;
                         MeshTangents[vertCounter] = new Vector4(-right.x, -right.y, -right.z, -1);
 
-                        if (createBorder)
-                        {
-                            Vector3 offset = up * -yDir * border + right * xDir * border;
-
-                            MeshVertices[vertCounter + 4] = MeshVertices[vertCounter] + offset;
-                            MeshColors[vertCounter + 4] = Color.white;
-                            MeshNormals[vertCounter + 4] = fwd;
-                            MeshTangents[vertCounter + 4] = new Vector4(-right.x, -right.y, -right.z, -1);
-                        }
-
                         vertCounter++;
-                    }
-
-                    if (createBorder)
-                    {
-                        vertCounter += 4;
-                        CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, 4);
-                        baseVert += 4;
                     }
 
                     CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, baseVert, 4);
@@ -962,20 +926,14 @@ namespace Meta.XR.MRUtilityKit
             else
             {
                 Rect rect = anchorInfo.PlaneRect.Value;
-                // if the object is thin, the border size needs to adjust
-                border = Mathf.Min(border, rect.size.x * 0.5f, rect.size.y * 0.5f);
 
                 List<Vector2> localPoints = anchorInfo.PlaneBoundary2D;
-                List<Vector2> localInnerPoints = new List<Vector2>(localPoints.Count);
 
                 for (int i = 0; i < localPoints.Count; i++)
                 {
                     Vector2 thisCorner = localPoints[i];
                     Vector2 nextCorner = (i == localPoints.Count - 1) ? localPoints[0] : localPoints[i + 1];
                     Vector2 lastCorner = (i == 0) ? localPoints[localPoints.Count - 1] : localPoints[i - 1];
-                    Vector2 insetPosOffset = GetInsetPositionOffset(lastCorner, thisCorner, nextCorner, border);
-                    Vector2 innerVertex = thisCorner + insetPosOffset;
-                    localInnerPoints.Add(innerVertex);
 
                     for (int x = 0; x < UVChannelCount; x++)
                     {
@@ -988,33 +946,14 @@ namespace Meta.XR.MRUtilityKit
                         }
 
                         MeshUVs[x][vertCounter] = Vector2.Scale(new Vector2(rect.xMax - thisCorner.x, thisCorner.y - rect.yMin), uvScaleFactor);
-                        if (createBorder)
-                        {
-                            MeshUVs[x][vertCounter + localPoints.Count] = Vector2.Scale(new Vector2(rect.xMax - innerVertex.x, innerVertex.y - rect.yMin), uvScaleFactor);
-                        }
                     }
 
                     MeshVertices[vertCounter] = new Vector3(thisCorner.x, thisCorner.y, 0);
-                    MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
+                    MeshColors[vertCounter] = Color.white;
                     MeshNormals[vertCounter] = Vector3.forward;
                     MeshTangents[vertCounter] = new Vector4(1, 0, 0, 1);
 
-                    if (createBorder)
-                    {
-                        MeshVertices[vertCounter + localPoints.Count] = new Vector3(innerVertex.x, innerVertex.y, 0);
-                        MeshColors[vertCounter + localPoints.Count] = Color.white;
-                        MeshNormals[vertCounter + localPoints.Count] = Vector3.forward;
-                        MeshTangents[vertCounter + localPoints.Count] = new Vector4(1, 0, 0, 1);
-                    }
-
                     vertCounter++;
-                }
-
-                if (createBorder)
-                {
-                    localPoints = localInnerPoints;
-                    CreateBorderPolygon(ref MeshTriangles, ref triCounter, baseVert, localPoints.Count);
-                    baseVert += localPoints.Count;
                 }
 
                 CreateInteriorPolygon(ref MeshTriangles, ref triCounter, baseVert, localPoints);
@@ -1093,7 +1032,7 @@ namespace Meta.XR.MRUtilityKit
             return totalWallLength / roundedTotalWallLength;
         }
 
-        EffectMeshObject CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, float border)
+        EffectMeshObject CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, List<MRUKRoom> connectedRooms)
         {
             if (effectMeshObjects.ContainsKey(anchorInfo))
             {
@@ -1125,52 +1064,40 @@ namespace Meta.XR.MRUtilityKit
             Vector2 wallScale = anchorInfo.PlaneRect.Value.size;
             float ceilingHeight = wallScale.y;
 
-            bool createBorder = border > 0.0f;
-
             List<List<Vector2>> holes = null;
 
             Rect wallRect = anchorInfo.PlaneRect.Value;
 
-            // Holes are not supported if a border is created, supporting this combination adds a lot of complexity
-            // in dealing with the edge cases.
-            if (!createBorder)
+            foreach (var child in anchorInfo.ChildAnchors)
             {
-                foreach (var child in anchorInfo.ChildAnchors)
+                if (child.PlaneRect.HasValue)
                 {
-                    if (child.PlaneRect.HasValue)
+                    bool shouldCutHoles = (child.Label & CutHoles) != 0;
+                    if (!shouldCutHoles)
                     {
-                        bool shouldCutHoles = (child.Label & CutHoles) != 0;
-                        if (!shouldCutHoles)
-                        {
-                            continue;
-                        }
-
-                        Vector2 relativePos = anchorInfo.transform.InverseTransformPoint(child.transform.position);
-
-                        var childRect = child.PlaneRect.Value;
-                        childRect.position += new Vector2(relativePos.x, relativePos.y);
-                        List<Vector2> childOutline = new(child.PlaneBoundary2D.Count);
-                        // Reverse the order for the holes, this is necessary for the hole cutting algorithm to work
-                        // correctly.
-                        for (int i = child.PlaneBoundary2D.Count - 1; i >= 0; i--)
-                        {
-                            childOutline.Add(child.PlaneBoundary2D[i] + relativePos);
-                        }
-
-                        holes ??= new List<List<Vector2>>();
-                        holes.Add(childOutline);
+                        continue;
                     }
+
+                    Vector2 relativePos = anchorInfo.transform.InverseTransformPoint(child.transform.position);
+
+                    var childRect = child.PlaneRect.Value;
+                    childRect.position += new Vector2(relativePos.x, relativePos.y);
+                    List<Vector2> childOutline = new(child.PlaneBoundary2D.Count);
+                    // Reverse the order for the holes, this is necessary for the hole cutting algorithm to work
+                    // correctly.
+                    for (int i = child.PlaneBoundary2D.Count - 1; i >= 0; i--)
+                    {
+                        childOutline.Add(child.PlaneBoundary2D[i] + relativePos);
+                    }
+
+                    holes ??= new List<List<Vector2>>();
+                    holes.Add(childOutline);
                 }
             }
 
             Triangulator.TriangulatePoints(anchorInfo.PlaneBoundary2D, holes, out var vertices, out var triangles);
 
             int totalVertices = vertices.Length;
-
-            if (createBorder)
-            {
-                totalVertices += 4;
-            }
 
             int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
 
@@ -1209,8 +1136,6 @@ namespace Meta.XR.MRUtilityKit
 
                 float u = vert.x - wallRect.xMin;
                 float v = vert.y - wallRect.yMin;
-                float innerU = vert.x < wallCenter.x ? u + border : u - border;
-                float innerV = vert.y < wallCenter.y ? v + border : v - border;
 
                 for (int x = 0; x < UVChannelCount; x++)
                 {
@@ -1262,42 +1187,19 @@ namespace Meta.XR.MRUtilityKit
                     }
 
                     MeshUVs[x][vertCounter] = new Vector2((defaultSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
-                    if (createBorder)
-                    {
-                        MeshUVs[x][vertCounter + 4] = new Vector2((defaultSpacing + thisSegmentLength - innerU) / denominatorX, innerV / denominatorY);
-                    }
                 }
 
                 MeshVertices[vertCounter] = new Vector3(u - thisSegmentLength / 2, v - ceilingHeight / 2, 0);
-                MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
+                MeshColors[vertCounter] = Color.white;
                 MeshNormals[vertCounter] = wallNorm;
                 MeshTangents[vertCounter] = wallTan;
-
-                if (createBorder)
-                {
-                    MeshVertices[vertCounter + 4] = new Vector3(innerU - thisSegmentLength / 2, innerV - ceilingHeight / 2, 0);
-                    MeshColors[vertCounter + 4] = Color.white;
-                    MeshNormals[vertCounter + 4] = wallNorm;
-                    MeshTangents[vertCounter + 4] = wallTan;
-                }
 
                 vertCounter++;
             }
 
             uSpacing += thisSegmentLength;
 
-            int[] MeshTriangles;
-            if (createBorder)
-            {
-                MeshTriangles = new int[30];
-                int triCounter = 0;
-                CreateBorderPolygon(ref MeshTriangles, ref triCounter, 0, 4);
-                CreateInteriorTriangleFan(ref MeshTriangles, ref triCounter, 4, 4);
-            }
-            else
-            {
-                MeshTriangles = triangles;
-            }
+            int[] MeshTriangles = triangles;
 
             newMesh.Clear();
             newMesh.name = anchorInfo.name;

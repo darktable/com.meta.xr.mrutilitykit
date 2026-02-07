@@ -22,6 +22,7 @@ using System;
 using UnityEngine;
 using System.Collections.Generic;
 using Meta.XR.MRUtilityKit.Extensions;
+using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -127,11 +128,12 @@ namespace Meta.XR.MRUtilityKit
                 return null;
             }
 
-            return new Mesh()
-            {
-                vertices = data.GlobalMesh.Value.Positions,
-                triangles = data.GlobalMesh.Value.Indices
-            };
+            var newMesh = new Mesh();
+            newMesh.indexFormat = data.GlobalMesh.Value.Indices.Length > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16;
+            newMesh.vertices = data.GlobalMesh.Value.Positions;
+            newMesh.triangles = data.GlobalMesh.Value.Indices;
+
+            return newMesh;
         }
 
         internal static void DestroyGameObjectAndChildren(GameObject gameObject)
@@ -238,6 +240,7 @@ namespace Meta.XR.MRUtilityKit
             return result;
         }
 
+
         internal static MRUKAnchor.SceneLabels StringLabelsToEnum(IList<string> labels)
         {
             MRUKAnchor.SceneLabels result = 0;
@@ -260,7 +263,8 @@ namespace Meta.XR.MRUtilityKit
             return ClassificationToSceneLabel(classification);
         }
 
-        internal static MRUKAnchor.SceneLabels ClassificationToSceneLabel(OVRSemanticLabels.Classification classification)
+        internal static MRUKAnchor.SceneLabels ClassificationToSceneLabel(
+            OVRSemanticLabels.Classification classification)
         {
             // MRUKAnchor.SceneLabels enum is defined by bit-shifting the OVRSemanticLabels.Classification int values
             // So we can also do this conversion at runtime
@@ -308,6 +312,7 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
         }
+
     }
 
     internal struct Float3X3

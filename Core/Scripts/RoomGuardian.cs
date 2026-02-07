@@ -34,7 +34,7 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Material to use for the Guardian effect")]
         public Material GuardianMaterial;
 
-        [Tooltip("How far the camera should be from a Scene API object before the grid appears.")]
+        [Tooltip("This is how far, in meters, the player must be form a surface for the Guardian to become visible (in other words, it blends `_GuardianFade` from 0 to 1). The position of the user is calculated as a point 0.2m above the ground. This is to catch tripping hazards, as well as walls.")]
         public float GuardianDistance = 1.0f;
 
         private void Start()
@@ -68,7 +68,7 @@ namespace Meta.XR.MRUtilityKit
             Vector3 testPosition = new Vector3(Camera.main.transform.position.x, 0.2f, Camera.main.transform.position.z);
 
             float closestDistance =
-                room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
+                room.TryGetClosestSurfacePosition(testPosition, out Vector3 closestPoint, out _, new LabelFilter(~(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING)));
 
             bool outsideVolume = !room.IsPositionInSceneVolume(testPosition);
 

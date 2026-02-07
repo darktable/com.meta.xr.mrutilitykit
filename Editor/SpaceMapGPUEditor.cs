@@ -27,7 +27,7 @@ public class SpaceMapGPUEditor : Editor
 {
     public override void OnInspectorGUI()
     {
-        EditorGUILayout.HelpBox($"For best performance, do not use larger textures than 512x512.{System.Environment.NewLine}{System.Environment.NewLine}Alternatively you can disable updates per Frame, so it will just capture at startup.",MessageType.Info);
+        EditorGUILayout.HelpBox($"For best performance, do not use larger textures than 512x512.{System.Environment.NewLine}{System.Environment.NewLine}Alternatively you can disable updates per Frame, so it will just capture at startup.", MessageType.Info);
 
         GUILayout.Space(16);
 

@@ -115,10 +115,10 @@ namespace Meta.XR.MRUtilityKit.Tests
                     switch (anchor.Label)
                     {
                         case MRUKAnchor.SceneLabels.FLOOR:
-                            Assert.AreEqual(Room1VertCountFloor,CountVertex(anchor));
+                            Assert.AreEqual(Room1VertCountFloor, CountVertex(anchor));
                             break;
                         case MRUKAnchor.SceneLabels.CEILING:
-                            Assert.AreEqual(Room1VertCountCeiling,CountVertex(anchor));
+                            Assert.AreEqual(Room1VertCountCeiling, CountVertex(anchor));
                             break;
                         case MRUKAnchor.SceneLabels.DOOR_FRAME:
                         case MRUKAnchor.SceneLabels.WINDOW_FRAME:
@@ -126,7 +126,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                         case MRUKAnchor.SceneLabels.WALL_ART:
                         case MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE:
                         case MRUKAnchor.SceneLabels.WALL_FACE:
-                            Assert.AreEqual(Room1VertCountWall,CountVertex(anchor));
+                            Assert.AreEqual(Room1VertCountWall, CountVertex(anchor));
                             break;
                         case MRUKAnchor.SceneLabels.STORAGE:
                         case MRUKAnchor.SceneLabels.BED:
@@ -135,7 +135,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                         case MRUKAnchor.SceneLabels.PLANT:
                         case MRUKAnchor.SceneLabels.LAMP:
                         case MRUKAnchor.SceneLabels.OTHER:
-                            Assert.AreEqual(Room1VertCountOther,CountVertex(anchor));
+                            Assert.AreEqual(Room1VertCountOther, CountVertex(anchor));
                             break;
                         case MRUKAnchor.SceneLabels.GLOBAL_MESH:
                             break;
@@ -161,7 +161,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             var vertCount = CountVertex();
 
             var expectedVerts = GetDefaultRoomVertices();
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             yield return null;
         }
@@ -181,7 +181,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
 
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             yield return null;
         }
@@ -201,7 +201,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Room3Vertices();
 
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             //track room updates, we want just vertices of Room one for this test
             effectMesh.TrackUpdates = true;
@@ -233,7 +233,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             effectMesh.gameObject.SetActive(false);
             effectMesh.TrackUpdates = false;
@@ -274,7 +274,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             vertCount = CountVertex();
             expectedVerts = GetRoom1Room3Vertices();
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             yield return null;
         }
@@ -294,7 +294,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
 
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             effectMesh.gameObject.SetActive(false);
             effectMesh.TrackUpdates = false;
@@ -325,7 +325,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             vertCount = CountVertex();
             expectedVerts = GetRoom1VerticesMoreAnchors();
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             yield return null;
         }
@@ -345,7 +345,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
 
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1MoreAnchors.text);
             yield return null;
@@ -353,7 +353,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             vertCount = CountVertex();
             expectedVerts = GetRoom1VerticesMoreAnchors();
 
-            Assert.AreEqual(expectedVerts,vertCount);
+            Assert.AreEqual(expectedVerts, vertCount);
 
             yield return null;
         }
@@ -378,29 +378,9 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
-
-        /// <summary>
-        /// This function tests the vertex count in room1 with a different bordersize setting.
-        /// </summary>
-        [UnityTest]
-        [Timeout(DefaultTimeoutMs)]
-        public IEnumerator CountTrianglesRoom1StartupWithBorder()
-        {
-            SetupEffectMesh(0.2f);
-
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1.text);
-            yield return null;
-
-            var vertCount = CountVertex();
-            var expectedVerts = 232;
-            Assert.AreEqual(expectedVerts,vertCount);
-
-            yield return null;
-        }
-
         private int CountVertex()
         {
-            var allObjects = (GameObject[]) FindObjectsOfType(typeof(GameObject));
+            var allObjects = (GameObject[])FindObjectsOfType(typeof(GameObject));
             int vertCount = 0;
             foreach (GameObject obj in allObjects)
             {
@@ -439,7 +419,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             return vertCount;
         }
 
-        private EffectMesh SetupEffectMesh(float bordersize = 0.0f)
+        private EffectMesh SetupEffectMesh()
         {
             var effectMesh = FindObjectOfType<EffectMesh>();
             if (effectMesh == null)
@@ -447,7 +427,6 @@ namespace Meta.XR.MRUtilityKit.Tests
                 Assert.Fail();
             }
 
-            effectMesh.BorderSize = bordersize;
             effectMesh.SpawnOnStart = MRUK.RoomFilter.AllRooms;
             effectMesh.TrackUpdates = true;
             return effectMesh;

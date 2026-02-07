@@ -37,6 +37,8 @@ namespace Meta.XR.MRUtilityKit
             public const int LoadGridSliceResizer = 651896136;
             public const int LoadSceneNavigation = 651889094;
             public const int LoadSceneDecoration = 651888752;
+            public const int LoadDestructibleGlobalMeshSpawner = 651898938;
+            public const int LoadEnvironmentRaycastManager = 651891190;
         }
 
         public static class AnnotationType

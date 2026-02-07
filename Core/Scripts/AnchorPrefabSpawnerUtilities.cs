@@ -133,7 +133,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         var center = prefabBounds.Value.center;
                         var min = prefabBounds.Value.min;
-                        pivots.prefabPivot = new Vector3(center.x, center.z, min.y);
+                        pivots.prefabPivot = new Vector3(-center.x, center.z, min.y);
                     }
 
                     pivots.anchorVolumePivot = anchorVolumeBounds.center;
@@ -143,7 +143,7 @@ namespace Meta.XR.MRUtilityKit
                     if (prefabBounds.HasValue)
                     {
                         var center = prefabBounds.Value.center;
-                        pivots.prefabPivot = new Vector3(center.x, center.z, center.y);
+                        pivots.prefabPivot = new Vector3(-center.x, center.z, center.y);
                     }
 
                     pivots.anchorVolumePivot = anchorVolumeBounds.center;
@@ -152,8 +152,8 @@ namespace Meta.XR.MRUtilityKit
                     break;
                 case AnchorPrefabSpawner.AlignMode.Custom:
                     throw new ArgumentException(
-                        "A custom volume alignment method was selected but no implementation was provided." +
-                        "To customize the alignment logic either extend the AnchorPrefabSpawner class or use the default" +
+                        "A custom volume alignment method was selected but no implementation was provided. " +
+                        "To customize the alignment logic either extend the AnchorPrefabSpawner class or use the default " +
                         "alignment mode and modify the prefab's local position afterwards.");
                 default:
                     throw new ArgumentOutOfRangeException(nameof(alignMode), alignMode,

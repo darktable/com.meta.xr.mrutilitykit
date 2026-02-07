@@ -68,6 +68,9 @@ namespace Meta.XR.MRUtilityKit.Tests
                 .Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries)
                 .Where(line => !line.Contains("RoomLabel"))
                 .ToArray();
+
+
+
             for (int i = 0; i < splitExpected.Length && i < splitJson.Length; i++)
             {
                 if (Regex.IsMatch(splitExpected[i], "[A-F0-9]{32}") &&
@@ -83,6 +86,8 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.AreEqual(splitExpected.Length, splitJson.Length, "Number of lines");
             yield return null;
         }
+
+
 
         /// <summary>
         /// Test that serialization to the Unreal coordinate system works as expected.
@@ -103,6 +108,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                 .Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries)
                 .Where(line => !line.Contains("RoomLabel"))
                 .ToArray();
+
             for (int i = 0; i < splitExpected.Length && i < splitJson.Length; i++)
             {
                 if (Regex.IsMatch(splitExpected[i], "[A-F0-9]{32}") &&

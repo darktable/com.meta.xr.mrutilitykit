@@ -49,7 +49,7 @@ Shader "Meta/MRUK/MixedReality/SpaceMapGradient"
             };
             sampler2D _MainTex;
             sampler2D _GradientTex;
-            uniform float4x4 _ProjectionViewMatrix;
+            uniform float4x4 _SpaceMapProjectionViewMatrix;
             uniform fixed4 _InsideColor;
 
             v2f vert (appdata v)
@@ -62,7 +62,7 @@ Shader "Meta/MRUK/MixedReality/SpaceMapGradient"
             }
             fixed4 frag (v2f i) : SV_Target
             {
-                float4 clipPos = mul(_ProjectionViewMatrix, i.worldPos);
+                float4 clipPos = mul(_SpaceMapProjectionViewMatrix, i.worldPos);
                 clipPos /= clipPos.w;
                 float2 uv = clipPos.xy * 0.5 + 0.5;
                 fixed4 col = tex2D(_MainTex, uv);

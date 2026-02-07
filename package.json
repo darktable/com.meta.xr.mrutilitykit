@@ -1,7 +1,7 @@
 {
   "name": "com.meta.xr.mrutilitykit",
   "displayName": "Meta MR Utility Kit",
-  "version": "69.0.1",
+  "version": "71.0.0",
   "description": "Helper tools & functions to simplify development with Scene API. Works on Mac & PC, without a device attached.",
   "samples": [
     {
@@ -43,6 +43,26 @@
       "displayName": "Scene Decorator",
       "description": "A scene with basic decorations and SceneDecorator to populate the environment",
       "path": "Samples~/SceneDecorator"
+    },
+    {
+      "displayName": "Destructible Mesh",
+      "description": "A scene showing how to spawn a global mesh that can be segmented, usually used to create destructible environments",
+      "path": "Samples~/DestructibleMesh"
+    },
+    {
+      "displayName": "Environment Panel Placement (Beta)",
+      "description": "A scene showing how to use EnvironmentRaycastManager to attach virtual panel to physical environment.",
+      "path": "Samples~/EnvironmentPanelPlacement"
+    },
+    {
+      "displayName": "Space Map",
+      "description": "A scene with the SpaceMap prefab added. It creates a texture which represents the room with a color gradient according to the settings of the prefab.",
+      "path": "Samples~/SpaceMap"
+    },
+    {
+      "displayName": "Keyboard Tracking",
+      "description": "A scene demonstrating generic keyboard detection and tracking. This sample requires Scene permission.",
+      "path": "Samples~/AnchorTracker"
     }
   ],
   "unity": "2021.3",
@@ -59,7 +79,7 @@
   "dependencies": {
     "com.unity.ai.navigation": "1.1.4",
     "com.unity.nuget.newtonsoft-json": "3.0.2",
-    "com.meta.xr.sdk.core": "69.0.1",
+    "com.meta.xr.sdk.core": "71.0.0",
     "com.unity.textmeshpro": "3.0.6"
   },
   "documentationUrl": "https://developer.oculus.com/documentation/unity/unity-mr-utility-kit-overview",

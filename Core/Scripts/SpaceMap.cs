@@ -159,7 +159,7 @@ namespace Meta.XR.MRUtilityKit
             if (room != null)
             {
                 closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor,
-                    LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
+                    new LabelFilter(~(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING)));
                 sign = room.IsPositionInRoom(worldPosition, false) ? 1 : -1;
             }
             else
@@ -167,7 +167,7 @@ namespace Meta.XR.MRUtilityKit
                 foreach (var currentRoom in MRUK.Instance.Rooms)
                 {
                     var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor,
-                        LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
+                        new LabelFilter(~(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING)));
                     if (dist < closestDist)
                     {
                         closestDist = dist;

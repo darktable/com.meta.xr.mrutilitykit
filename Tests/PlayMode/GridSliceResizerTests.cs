@@ -202,7 +202,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             return resizedMesh;
         }
 
-    private const string _cubeUpscaledCenterStretch = @"{
+        private const string _cubeUpscaledCenterStretch = @"{
   ""Scale"": [2.0,2.0,2.0],
   ""Vertices"": [
     [-0.5,-0.4,0.0500000119],

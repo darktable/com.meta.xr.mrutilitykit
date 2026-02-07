@@ -442,9 +442,9 @@ namespace Meta.XR.MRUtilityKit
                             borderPosPosition[axis] * innerScaleRatioMax[axis] +
                             (newVertPosition[axis] - borderPosPosition[axis]);
                         if (innerScaledMax[axis] < 0.0f)
-                            // The mesh that would result from the linear transform above is still not small enough to
-                            // fit into the expected scaled down bounding box. This means the stubs need to be scaled down
-                            // to make them fit.
+                        // The mesh that would result from the linear transform above is still not small enough to
+                        // fit into the expected scaled down bounding box. This means the stubs need to be scaled down
+                        // to make them fit.
                         {
                             newVertPosition[axis] *= downscaleMax[axis];
                         }
@@ -456,9 +456,9 @@ namespace Meta.XR.MRUtilityKit
                             borderNegPosition[axis] * innerScaledRatioMin[axis] -
                             (borderNegPosition[axis] - newVertPosition[axis]);
                         if (innerScaledMin[axis] > 0.0f)
-                            // The mesh that would result from the linear transform above is still not small enough to
-                            // fit into the expected scaled down bounding box. This means the stubs need to be scaled down
-                            // to make them fit.
+                        // The mesh that would result from the linear transform above is still not small enough to
+                        // fit into the expected scaled down bounding box. This means the stubs need to be scaled down
+                        // to make them fit.
                         {
                             newVertPosition[axis] *= -downscaleMin[axis];
                         }

@@ -133,6 +133,12 @@ namespace Meta.XR.MRUtilityKit
             {
                 StartCoroutine(SnapCanvasInFrontOfCamera());
             }
+
+            if (_spaceMapGPU == null) //no space map present in level
+            {
+                var toolSpaceMapGPU = Menus[0].transform.FindChildRecursive("SpaceMapGPU");
+                toolSpaceMapGPU.gameObject.SetActive(false);
+            }
         }
 
         private void Update()
@@ -303,6 +309,7 @@ namespace Meta.XR.MRUtilityKit
                         {
                             _debugCube.transform.localScale = new Vector3(wallScale.x, wallScale.y, 0.05f);
                             _debugCube.transform.localPosition = anchorCenter;
+
                             _debugCube.transform.localRotation = keyWall.transform.localRotation;
                         }
                     }
@@ -469,13 +476,11 @@ namespace Meta.XR.MRUtilityKit
                     {
                         var origin = GetControllerRay().origin;
                         var surfacePosition = Vector3.zero;
+                        var normal = Vector3.up;
                         MRUKAnchor closestAnchor = null;
                         MRUK.Instance?.GetCurrentRoom()
-                            ?.TryGetClosestSurfacePosition(origin, out surfacePosition, out closestAnchor);
-                        if (_debugSphere != null)
-                        {
-                            _debugSphere.transform.position = surfacePosition;
-                        }
+                            ?.TryGetClosestSurfacePosition(origin, out surfacePosition, out closestAnchor, out normal);
+                        ShowHitNormal(surfacePosition, normal);
 
                         if (closestAnchor != null)
                         {
@@ -493,9 +498,9 @@ namespace Meta.XR.MRUtilityKit
                     _debugAction = null;
                 }
 
-                if (_debugSphere != null)
+                if (_debugNormal != null)
                 {
-                    _debugSphere.SetActive(isOn);
+                    _debugNormal.SetActive(isOn);
                 }
             }
             catch (Exception e)
@@ -578,7 +583,7 @@ namespace Meta.XR.MRUtilityKit
                         var hit = new RaycastHit();
                         MRUKAnchor anchorHit = null;
                         MRUK.Instance?.GetCurrentRoom()?.Raycast(ray, Mathf.Infinity, out hit, out anchorHit);
-                        ShowHitNormal(hit);
+                        ShowHitNormal(hit.point, hit.normal);
                         if (anchorHit != null)
                         {
                             SetLogsText("\n[{0}]\nAnchor: {1}\nHit point: {2}\nHit normal: {3}\n",
@@ -677,7 +682,7 @@ namespace Meta.XR.MRUtilityKit
                             _previousShownDebugAnchor = anchorHit;
                         }
 
-                        ShowHitNormal(hit);
+                        ShowHitNormal(hit.point, hit.normal);
                         SetLogsText("\n[{0}]\nHit point: {1}\nHit normal: {2}\n",
                             nameof(ShowDebugAnchorsDebugger),
                             hit.point,
@@ -714,7 +719,7 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-                var filter = LabelFilter.Included(MRUKAnchor.SceneLabels.GLOBAL_MESH);
+                var filter = new LabelFilter(MRUKAnchor.SceneLabels.GLOBAL_MESH);
                 if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
                 {
                     _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
@@ -775,7 +780,7 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-                var filter = LabelFilter.Included(MRUKAnchor.SceneLabels.GLOBAL_MESH);
+                var filter = new LabelFilter(MRUKAnchor.SceneLabels.GLOBAL_MESH);
                 if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
                 {
                     _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
@@ -860,6 +865,34 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
+        /// Debugging method to color each segment with a unique color.
+        /// </summary>
+        /// <param name="destructibleMeshComponent">The <see cref="DestructibleMeshComponent"/> to be debugged.</param>
+        public static void DebugDestructibleMeshComponent(DestructibleMeshComponent destructibleMeshComponent)
+        {
+            if (destructibleMeshComponent == null)
+            {
+                throw new Exception("Can not debug a null DestructibleMeshComponent.");
+            }
+
+            var segments = new List<GameObject>();
+
+            destructibleMeshComponent.GetDestructibleMeshSegments(segments);
+            foreach (var segment in segments)
+            {
+                // Create a new material with a random color for each segment
+                var newMaterial = new Material(Shader.Find("Standard"))
+                {
+                    color = UnityEngine.Random.ColorHSV()
+                };
+                if (segment.TryGetComponent<MeshRenderer>(out var renderer))
+                {
+                    renderer.material = newMaterial;
+                }
+            }
+        }
+
+        /// <summary>
         /// Displays a texture in the right info panel about your spacemap
         /// </summary>
         /// <param name="isOn">No action needed as the SpaceMap does not need additional logic </param>
@@ -902,7 +935,10 @@ namespace Meta.XR.MRUtilityKit
                             navMeshFilter.mesh = null;
                         }
 
-                        var navMesh = new Mesh();
+                        var navMesh = new Mesh()
+                        {
+                            indexFormat = triangulation.indices.Length > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16
+                        };
 
                         navMesh.SetVertices(triangulation.vertices);
                         navMesh.SetIndices(triangulation.indices, MeshTopology.Triangles, 0);
@@ -1031,12 +1067,12 @@ namespace Meta.XR.MRUtilityKit
             prefabMesh.name = "Mesh";
             prefabMesh.transform.SetParent(meshParent.transform);
             if (isPlane)
-                // Unity quad's normal doesn't align with transform's Z-forward
+            // Unity quad's normal doesn't align with transform's Z-forward
             {
                 prefabMesh.transform.localRotation = Quaternion.Euler(0, 180, 0);
             }
             else
-                // Anchor cubes don't have a center pivot
+            // Anchor cubes don't have a center pivot
             {
                 prefabMesh.transform.localPosition = new Vector3(0, 0, -0.5f);
             }
@@ -1216,15 +1252,16 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///     Convenience method to show the normal of a hit collision.
         /// </summary>
-        /// <param name="hit"></param>
-        private void ShowHitNormal(RaycastHit hit)
+        /// <param name="position">Position of the location to render</param>
+        /// <param name="normal">Normal of the hit</param>
+        private void ShowHitNormal(Vector3 position, Vector3 normal)
         {
-            if (_debugNormal != null && hit.point != Vector3.zero && hit.distance != 0)
+            if (_debugNormal != null && position != Vector3.zero && normal != Vector3.zero)
             {
                 _debugNormal.SetActive(true);
+                _debugNormal.transform.rotation = Quaternion.FromToRotation(-Vector3.up, normal);
                 _debugNormal.transform.position =
-                    hit.point + -_debugNormal.transform.up * _debugNormal.transform.localScale.y;
-                _debugNormal.transform.rotation = Quaternion.FromToRotation(-Vector3.up, hit.normal);
+                    position + -_debugNormal.transform.up * _debugNormal.transform.localScale.y;
             }
             else
             {
