@@ -183,8 +183,10 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="meshPositions">Array of mesh vertex positions.</param>
         /// <param name="meshIndices">Array of mesh indices.</param>
-        /// <param name="segmentationPoints">Array of points used for segmenting the mesh.</param>
-        public unsafe void SegmentMesh(Vector3[] meshPositions, uint[] meshIndices, Vector3[] segmentationPoints)
+        /// <param name="pointsPerUnitX">The number of points along the X axis.</param>
+        /// <param name="pointsPerUnitY">The number of points along the Y axis.</param>
+        /// <param name="pointsPerUnitZ">The number of points along the Z axis.</param>
+        public unsafe void SegmentMesh(Vector3[] meshPositions, uint[] meshIndices, float pointsPerUnitX, float pointsPerUnitY, float pointsPerUnitZ)
         {
             Vector3 reservedMin = new Vector3(-1.0f, -1.0f, ReservedBottom);
             Vector3 reservedMax = new Vector3(-1.0f, -1.0f, ReservedTop);
@@ -193,7 +195,7 @@ namespace Meta.XR.MRUtilityKit
                 MRUKNativeFuncs.MrukResult result = MRUKNativeFuncs.ComputeMeshSegmentation(
                     meshPositions, (uint)meshPositions.Length,
                     meshIndices, (uint)meshIndices.Length,
-                    segmentationPoints, (uint)segmentationPoints.Length,
+                    pointsPerUnitX, pointsPerUnitY, pointsPerUnitZ,
                     reservedMin, reservedMax,
                     out var meshSegments, out var numSegments, out var reservedSegment);
                 if (result == MRUKNativeFuncs.MrukResult.Success)

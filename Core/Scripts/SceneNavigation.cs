@@ -447,10 +447,14 @@ namespace Meta.XR.MRUtilityKit
                         continue;
                     }
 
-                    src.transform = anchor.transform.localToWorldMatrix;
-                    src.sourceObject = Utilities.SetupAnchorMeshGeometry(anchor, true);
-                    src.shape = NavMeshBuildSourceShape.Mesh;
-                    sources.Add(src);
+                    var mesh = Utilities.SetupAnchorMeshGeometry(anchor, true);
+                    if (mesh)
+                    {
+                        src.transform = anchor.transform.localToWorldMatrix;
+                        src.sourceObject = mesh;
+                        src.shape = NavMeshBuildSourceShape.Mesh;
+                        sources.Add(src);
+                    }
                 }
             }
 

@@ -19,9 +19,7 @@
  */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Events;
@@ -91,7 +89,7 @@ namespace Meta.XR.MRUtilityKit
         /// This property represents the true state of the system.
         /// This may differ from what was requested with <see cref="MRUKSettings.TrackerConfiguration"/> if, for example, some types of trackables are not supported on the current device.
         /// </remarks>
-        public OVRAnchor.TrackerConfiguration TrackerConfiguration => _tracker?.Configuration ?? default;
+        public OVRAnchor.TrackerConfiguration TrackerConfiguration { get; private set; }
 
         /// <summary>
         /// Get all the trackables that have been detected so far.
@@ -106,300 +104,142 @@ namespace Meta.XR.MRUtilityKit
             }
 
             trackables.Clear();
-            foreach (var transform in _trackableTransforms.Values)
+            foreach (var trackable in _trackables.Values)
             {
-                if (transform && transform.TryGetComponent<MRUKTrackable>(out var trackable))
+                if (trackable)
                 {
                     trackables.Add(trackable);
                 }
             }
         }
 
-        private readonly OVRAnchor.Tracker _tracker = new();
+        private readonly Dictionary<ulong, MRUKTrackable> _trackables = new();
 
-        private Coroutine _trackerCoroutine;
+        private bool _hasScenePermission;
 
-        private enum TrackableState
-        {
-            PendingLocalization,
-            InstanceDestroyed,
-            Instantiated,
-            LocalizationFailed,
-        }
+        private OVRAnchor.TrackerConfiguration _lastRequestedConfiguration;
 
-        private readonly Dictionary<OVRAnchor, TrackableState> _trackableStates = new();
+        private TimeSpan _nextTrackerConfigurationTime;
 
-        private readonly Dictionary<OVRAnchor, Transform> _trackableTransforms = new();
-
-        private void OnEnable()
-        {
-            _trackerCoroutine = StartCoroutine(TrackerCoroutine());
-        }
+        // 0.5 seconds because most of our trackers update at about 1 Hz
+        private static readonly TimeSpan s_timeBetweenTrackerConfigurationAttempts = TimeSpan.FromSeconds(0.5);
 
         private void UpdateTrackables()
         {
-            // Remove Transforms that may have been destroyed by user code
-            using (new OVRObjectPool.ListScope<OVRAnchor>(out var keysToRemove))
+            var now = TimeSpan.FromSeconds(Time.realtimeSinceStartup);
+
+            // We should only try to set the tracker configuration if
+            // 1. The requested configuration has changed since last time
+            // 2. The actual tracker configuration does not match the requested one, but permissions have also changed, which may now allow one of the failing requests to succeed.
+            var desiredConfig = SceneSettings.TrackerConfiguration;
+            if (_configureTrackersTask.HasValue ||
+                TrackerConfiguration == desiredConfig ||
+                now < _nextTrackerConfigurationTime)
             {
-                foreach (var (anchor, transform) in _trackableTransforms)
-                {
-                    if (transform == null)
-                    {
-                        keysToRemove.Add(anchor);
-                    }
-                }
-
-                foreach (var anchor in keysToRemove)
-                {
-                    _trackableTransforms.Remove(anchor);
-
-                    // Remember that we removed it so we don't add it back in the next update
-                    _trackableStates[anchor] = TrackableState.InstanceDestroyed;
-
-                    // Dispose the anchor so the runtime doesn't continue to track it
-                    anchor.Dispose();
-                }
+                return;
             }
 
-            using (new OVRObjectPool.ListScope<OVRLocatable.TrackingSpacePose>(out var poses))
+            var hasScenePermissionBeenGrantedSinceLastCheck = false;
+            if (!_hasScenePermission && Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
             {
-                OVRLocatable.UpdateSceneAnchorTransforms(_trackableTransforms, _cameraRig ? _cameraRig.trackingSpace : null, poses);
-
-                using var poseIter = poses.GetEnumerator();
-                foreach (var (_, instance) in _trackableTransforms)
-                {
-                    poseIter.MoveNext();
-                    var pose = poseIter.Current;
-
-                    if (instance.TryGetComponent<MRUKTrackable>(out var trackable))
-                    {
-                        trackable.IsTracked = pose.IsPositionTracked && pose.IsRotationTracked;
-                    }
-                }
+                _hasScenePermission = hasScenePermissionBeenGrantedSinceLastCheck = true;
             }
+
+            // Keeping track of the _lastRequestedConfiguration allows us to avoid repeatedly asking for the same
+            // configuration if that configuration fails.
+            if (_lastRequestedConfiguration != desiredConfig ||
+                hasScenePermissionBeenGrantedSinceLastCheck)
+            {
+                _lastRequestedConfiguration = desiredConfig;
+                ConfigureTrackerAndLogResult(desiredConfig);
+            }
+
+            _nextTrackerConfigurationTime = now + s_timeBetweenTrackerConfigurationAttempts;
         }
 
         private void OnDisable()
         {
-            if (_trackerCoroutine != null)
+            if (MRUKNativeFuncs.ConfigureTrackers != null)
             {
-                StopCoroutine(_trackerCoroutine);
-                _trackerCoroutine = null;
+                MRUKNativeFuncs.ConfigureTrackers(0);
             }
-
-            _tracker.Dispose();
+            _configureTrackersTask = null;
+            _lastRequestedConfiguration = TrackerConfiguration = default;
+            _nextTrackerConfigurationTime = TimeSpan.Zero;
         }
 
         private async void ConfigureTrackerAndLogResult(OVRAnchor.TrackerConfiguration config)
         {
-            var result = await _tracker.ConfigureAsync(config);
-            if (this && enabled)
+            Debug.Assert(_configureTrackersTask == null);
+
+            uint trackableMask = 0;
+            if (config.KeyboardTrackingEnabled)
             {
-                if (result.Success)
+                trackableMask |= (uint)MRUKNativeFuncs.MrukTrackableType.Keyboard;
+            }
+
+            if (config.QRCodeTrackingEnabled)
+            {
+                trackableMask |= (uint)MRUKNativeFuncs.MrukTrackableType.Qrcode;
+            }
+
+            _configureTrackersTask = OVRTask.Create<MRUKNativeFuncs.MrukResult>(Guid.NewGuid());
+            MRUKNativeFuncs.ConfigureTrackers(trackableMask);
+
+            var result = await _configureTrackersTask.Value;
+            if (result == MRUKNativeFuncs.MrukResult.Success)
+            {
+                Debug.Log($"Configured anchor trackers: {config}");
+            }
+            else
+            {
+                Debug.LogWarning($"{result}: Unable to fully satisfy requested tracker configuration. Requested={config}.");
+            }
+
+            if (this)
+            {
+                _configureTrackersTask = null;
+                if (result == MRUKNativeFuncs.MrukResult.Success)
                 {
-                    Debug.Log($"Configured anchor trackers: {_tracker.Configuration}");
-                }
-                else
-                {
-                    Debug.LogWarning($"Unable to fully satisfy requested tracker configuration. Requested={config}, Actual={_tracker.Configuration}");
+                    TrackerConfiguration = config;
                 }
             }
         }
 
-        // 0.5 seconds because most of our trackers update at about 1 Hz
-        private static readonly TimeSpan TimeBetweenFetchTrackables = TimeSpan.FromSeconds(0.5);
-
-        private IEnumerator TrackerCoroutine()
+        private void HandleTrackableAdded(ref MRUKNativeFuncs.MrukTrackable trackable)
         {
-            var anchors = new List<OVRAnchor>();
-            var removed = new HashSet<OVRAnchor>();
-            var lastConfig = default(OVRAnchor.TrackerConfiguration);
-            var hasScenePermission = Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission);
-
-            while (enabled)
+            if (_trackables.ContainsKey(trackable.space))
             {
-                var nextFetchTime = Time.realtimeSinceStartup + TimeBetweenFetchTrackables.TotalSeconds;
-                var startFrame = Time.frameCount;
-                var hasScenePermissionBeenGrantedSinceLastCheck = false;
-                if (!hasScenePermission && Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
-                {
-                    hasScenePermission = hasScenePermissionBeenGrantedSinceLastCheck = true;
-                }
+                Debug.LogWarning($"{nameof(HandleTrackableAdded)}: Trackable {trackable.uuid} of type {trackable.trackableType} was previously added. Ignoring.");
+                return;
+            }
 
-                // We should only try to set the tracker configuration if
-                // 1. The requested configuration has changed since last time
-                // 2. The actual tracker configuration does not match the requested one, but permissions have also changed, which may now allow one of the failing requests to succeed.
-                if (lastConfig != SceneSettings.TrackerConfiguration ||
-                    (hasScenePermissionBeenGrantedSinceLastCheck && _tracker.Configuration != SceneSettings.TrackerConfiguration))
-                {
-                    ConfigureTrackerAndLogResult(SceneSettings.TrackerConfiguration);
-                    lastConfig = SceneSettings.TrackerConfiguration;
-                }
+            var go = new GameObject($"Trackable({trackable.trackableType}) {trackable.uuid}");
+            go.transform.SetParent(OVRCameraRig.GetTrackingSpace(), worldPositionStays: false);
+            var component = go.AddComponent<MRUKTrackable>();
+            _trackables.Add(trackable.space, component);
 
-                var task = _tracker.FetchTrackablesAsync(anchors);
-                while (!task.IsCompleted)
-                {
-                    yield return null;
-                    if (!enabled)
-                    {
-                        task.Dispose();
-                        yield break;
-                    }
-                }
+            UpdateTrackableProperties(component, ref trackable);
 
-                var result = task.GetResult();
-                if (result.Success)
-                {
-                    removed.Clear();
+            // Notify user
+            SceneSettings.TrackableAdded.Invoke(component);
+        }
 
-                    // Add all extant anchors to the "removed" list
-                    foreach (var anchor in _trackableStates.Keys)
-                    {
-                        removed.Add(anchor);
-                    }
-
-                    foreach (var anchor in anchors)
-                    {
-                        if (_trackableStates.TryAdd(anchor, TrackableState.PendingLocalization))
-                        {
-                            if (anchor.TryGetComponent<OVRLocatable>(out var locatable))
-                            {
-                                LocalizeTrackable(anchor, locatable);
-                            }
-                        }
-                        // Update the trackable if it was
-                        // 1. Previously instantiated by MRUK
-                        // 2. GameObject has not been destroyed (instance != null)
-                        // 3. Still has an MRUKTrackable (dev or another system could have Destroyed it)
-                        else if (_trackableTransforms.TryGetValue(anchor, out var instance) && instance &&
-                                 instance.TryGetComponent<MRUKTrackable>(out var trackable) && trackable)
-                        {
-                            try
-                            {
-                                trackable.OnFetch();
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogException(ex);
-                            }
-                        }
-
-                        removed.Remove(anchor);
-                    }
-
-                    // What's left in removed are no longer being reported
-                    foreach (var anchor in removed)
-                    {
-                        _trackableStates.Remove(anchor);
-                    }
-
-                    // We are potentially calling into user code which could throw, but there's no way for
-                    // the user to catch the exception(s). We want the exceptions but continue execution.
-                    using (new OVRObjectPool.ListScope<MRUKTrackable>(out var removedTrackables))
-                    {
-                        foreach (var anchor in removed)
-                        {
-                            if (_trackableTransforms.Remove(anchor, out var transform) &&
-                                transform && transform.TryGetComponent<MRUKTrackable>(out var trackable))
-                            {
-                                removedTrackables.Add(trackable);
-                            }
-                        }
-
-                        foreach (var trackable in removedTrackables)
-                        {
-                            try
-                            {
-                                trackable.IsTracked = false;
-                                SceneSettings.TrackableRemoved.Invoke(trackable);
-                            }
-                            catch (Exception ex)
-                            {
-                                Debug.LogException(ex);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-#if DEVELOPMENT_BUILD
-                    Debug.LogError($"{nameof(OVRAnchor.Tracker.FetchTrackablesAsync)} failed: {result.Status}");
-#endif
-                }
-
-                // Wait until the next query time
-                while (enabled && (startFrame == Time.frameCount || // Always wait at least one frame
-                                   Time.realtimeSinceStartup < nextFetchTime))
-                {
-                    yield return null;
-                }
+        private void HandleTrackableUpdated(ref MRUKNativeFuncs.MrukTrackable trackable)
+        {
+            if (_trackables.TryGetValue(trackable.space, out var component) && component)
+            {
+                UpdateTrackableProperties(component, ref trackable);
             }
         }
 
-        private async void LocalizeTrackable(OVRAnchor anchor, OVRLocatable locatable)
+        private void HandleTrackableRemoved(ref MRUKNativeFuncs.MrukTrackable trackable)
         {
-            if (await locatable.SetEnabledAsync(true))
+            if (_trackables.Remove(trackable.space, out var component) && component)
             {
-                while (this) // In case MRUK is Destroy'd while waiting
-                {
-                    if (!_trackableStates.TryGetValue(anchor, out var state) ||
-                        state != TrackableState.PendingLocalization)
-                    {
-                        // State changed while we were awaiting localization
-                        return;
-                    }
-
-                    if (!enabled)
-                    {
-                        // MRUK was disabled while awaiting localization; remove state tracking so that we
-                        // pick it up later if we are re-enabled.
-                        _trackableStates.Remove(anchor);
-                    }
-
-                    // Sometimes, we don't always get an initial pose (e.g., if the HMD is doff'd)
-                    // so keep trying until we get one.
-                    if (locatable.TryGetSceneAnchorPose(out var trackingSpacePose) &&
-                        trackingSpacePose is { Position: not null, Rotation: not null })
-                    {
-                        var go = new GameObject($"Trackable({anchor.GetTrackableType()}) {anchor}");
-                        go.transform.SetParent(_cameraRig.trackingSpace, worldPositionStays: false);
-                        go.transform.SetLocalPositionAndRotation(trackingSpacePose.Position.Value, trackingSpacePose.Rotation.Value);
-                        _trackableTransforms[anchor] = go.transform;
-
-                        var trackable = go.AddComponent<MRUKTrackable>();
-                        trackable.OnInstantiate(anchor);
-
-                        _trackableStates[anchor] = TrackableState.Instantiated;
-
-                        // Notify user
-                        try
-                        {
-                            SceneSettings.TrackableAdded.Invoke(trackable);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogException(ex);
-                        }
-
-                        return;
-                    }
-
-                    await Task.Yield();
-                }
+                component.IsTracked = false;
+                SceneSettings.TrackableRemoved.Invoke(component);
             }
-            else // Localization failed.
-            {
-                if (this)
-                {
-                    _trackableStates[anchor] = TrackableState.LocalizationFailed;
-                }
-
-                Debug.LogError($"Unable to localize anchor {anchor}. Will not create a GameObject to represent it.");
-            }
-
-            // MRUK has either been destroyed, or an unexpected error occurred.
-            // Dispose of the anchor to avoid wasting system resources on it.
-            anchor.Dispose();
         }
     }
 }

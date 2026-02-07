@@ -604,7 +604,6 @@ namespace Meta.XR.MRUtilityKit
             // We will translate location and scale differently depending on the label.
             var prefab = Instantiate(prefabToCreate, anchorInfo.transform);
             prefab.name = string.Concat(prefabToCreate.name, Suffix);
-            prefab.name = prefabToCreate.name + Suffix;
             prefab.transform.parent = anchorInfo.transform;
 
             var prefabBounds = prefabGroup.IgnorePrefabSize ? null : Utilities.GetPrefabBounds(prefabToCreate);

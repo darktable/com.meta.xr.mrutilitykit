@@ -131,7 +131,7 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 {
                     Light light = GetAdditionalLight(lightIndex, inputData.positionWS, half4(1,1,1,1));
                     float ndtol = saturate(dot(light.direction, input.normalWS));
-                    lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
+                    lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation * _HighlightOpacity;
                     color += light.color * lightAlpha * (1-alpha);
                 }
 #endif
@@ -140,10 +140,9 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 LIGHT_LOOP_BEGIN(pixelLightCount)
                     Light light = GetAdditionalLight(lightIndex, input.positionWS, float4(0, 0, 0, 0));
                     float ndtol = saturate(dot(light.direction, input.normalWS));
-                    lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
+                    lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation * _HighlightOpacity;
                     color += light.color * lightAlpha * (1-alpha);
 				LIGHT_LOOP_END
-				finalAlpha = alpha + (lightAlpha * _HighlightOpacity);
 #endif
                 float occlusionValue = META_DEPTH_GET_OCCLUSION_VALUE_WORLDPOS(input.positionWS, _EnvironmentDepthBias);//occl
                 return half4(color * occlusionValue, finalAlpha * occlusionValue);

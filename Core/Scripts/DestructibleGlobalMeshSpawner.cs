@@ -50,9 +50,9 @@ namespace Meta.XR.MRUtilityKit
         [SerializeField] private Vector3 _reservedMin;
         [SerializeField] private Vector3 _reservedMax;
         [SerializeField] private Material _globalMeshMaterial;
-        [SerializeField] private float _pointsPerUnitX = 1.0f;
-        [SerializeField] private float _pointsPerUnitY = 1.0f;
-        [SerializeField] private int _maxPointsCount = 256;
+        [SerializeField] private float _pointsPerUnitX = 2.0f;
+        [SerializeField] private float _pointsPerUnitY = 2.0f;
+        [SerializeField] private float _pointsPerUnitZ = 2.0f;
         [SerializeField] private float _reservedTop = 0f;
         [SerializeField] private float _reservedBottom = 0f;
 
@@ -80,7 +80,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Gets or serts the number of points per unit along the Y-axis for the destructible mesh.
+        /// Gets or sets the number of points per unit along the Y-axis for the destructible mesh.
         /// This setting affects the density and detail of the mesh, influencing both visual quality and performance.
         /// </summary>
         public float PointsPerUnitY
@@ -90,13 +90,13 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Gets or sets the maximum number of points that the destructible mesh can contain.
-        /// The higher number of points the higher the impact on performance
+        /// Gets or sets the number of points per unit along the Z-axis for the destructible mesh.
+        /// This setting affects the density and detail of the mesh, influencing both visual quality and performance.
         /// </summary>
-        public int MaxPointsCount
+        public float PointsPerUnitZ
         {
-            get => _maxPointsCount;
-            set => _maxPointsCount = value;
+            get => _pointsPerUnitZ;
+            set => _pointsPerUnitZ = value;
         }
 
         /// <summary>
@@ -213,9 +213,9 @@ namespace Meta.XR.MRUtilityKit
             dMesh.OnSegmentationCompleted = OnSegmentationCompleted;
             var destructibleGlobalMesh = new DestructibleGlobalMesh
             {
-                MaxPointsCount = _maxPointsCount,
                 PointsPerUnitX = _pointsPerUnitX,
                 PointsPerUnitY = _pointsPerUnitY,
+                PointsPerUnitZ = _pointsPerUnitZ,
                 DestructibleMeshComponent = dMesh
             };
             CreateDestructibleGlobalMesh(destructibleGlobalMesh, room);
@@ -242,18 +242,10 @@ namespace Meta.XR.MRUtilityKit
 
             var meshPositions = room.GlobalMeshAnchor.Mesh.vertices;
             var meshIndices = room.GlobalMeshAnchor.Mesh.triangles;
-            var segmentationPointsWS = ComputeRoomBoxGrid(room, destructibleGlobalMesh.MaxPointsCount,
-                destructibleGlobalMesh.PointsPerUnitX, destructibleGlobalMesh.PointsPerUnitY);
-
             var meshIndicesUint = Array.ConvertAll(meshIndices, Convert.ToUInt32);
-            var segmentationPointsLS = new Vector3[segmentationPointsWS.Length];
-            for (var i = 0; i < segmentationPointsWS.Length; i++)
-            {
-                segmentationPointsLS[i] = room.transform.InverseTransformPoint(segmentationPointsWS[i]);
-            }
 
             destructibleGlobalMesh.DestructibleMeshComponent.SegmentMesh(meshPositions, meshIndicesUint,
-                segmentationPointsLS);
+                destructibleGlobalMesh.PointsPerUnitX, destructibleGlobalMesh.PointsPerUnitY, destructibleGlobalMesh.PointsPerUnitZ);
         }
 
         /// <summary>
@@ -286,7 +278,10 @@ namespace Meta.XR.MRUtilityKit
 
             if (TryGetDestructibleMeshForRoom(room, out var destructibleGlobalMesh))
             {
-                Destroy(destructibleGlobalMesh.DestructibleMeshComponent.gameObject);
+                if (destructibleGlobalMesh.DestructibleMeshComponent)
+                {
+                    Destroy(destructibleGlobalMesh.DestructibleMeshComponent.gameObject);
+                }
                 _spawnedDestructibleMeshes.Remove(room);
             }
         }
@@ -313,82 +308,6 @@ namespace Meta.XR.MRUtilityKit
 
             RemoveDestructibleGlobalMesh(room);
         }
-
-        private static Vector3[] ComputeRoomBoxGrid(MRUKRoom room, int maxPointsCount, float pointsPerUnitX = 1.0f,
-            float pointPerUnitY = 1.0f)
-        {
-            _points.Clear();
-            foreach (MRUKAnchor wall in room.WallAnchors)
-            {
-                GeneratePoints(_points, wall.transform.position, wall.transform.rotation,
-                    wall.PlaneRect, pointsPerUnitX, pointPerUnitY);
-            }
-
-            var ceilingHeight = room.CeilingAnchor.transform.position.y - room.FloorAnchor.transform.position.y;
-            var planesCount = Mathf.Max(Mathf.Ceil(pointPerUnitY * ceilingHeight), 1);
-            var spaceBetweenPlanes = ceilingHeight / planesCount;
-            for (var i = 0; i < planesCount; i++)
-            {
-                var planePosition = new Vector3(room.CeilingAnchor.transform.position.x,
-                    room.CeilingAnchor.transform.position.y - (spaceBetweenPlanes * i),
-                    room.CeilingAnchor.transform.position.z);
-                GeneratePoints(_points, planePosition, room.CeilingAnchor.transform.rotation,
-                    room.CeilingAnchor.PlaneRect, pointsPerUnitX, pointPerUnitY);
-            }
-
-            GeneratePoints(_points, room.CeilingAnchor.transform.position,
-                room.CeilingAnchor.transform.rotation, room.CeilingAnchor.PlaneRect, pointsPerUnitX, pointPerUnitY);
-
-            GeneratePoints(_points, room.FloorAnchor.transform.position, room.FloorAnchor.transform.rotation,
-                room.FloorAnchor.PlaneRect, pointsPerUnitX, pointPerUnitY);
-
-            if (_points.Count > maxPointsCount)
-            {
-                Shuffle(_points);
-                _points.RemoveRange(maxPointsCount, _points.Count - maxPointsCount);
-            }
-
-            return _points.ToArray();
-        }
-
-        private static void GeneratePoints(List<Vector3> points, Vector3 position, Quaternion rotation, Rect? planeBounds,
-            float pointsPerUnitX, float pointsPerUnitY)
-        {
-            if (!planeBounds.HasValue)
-            {
-                throw new Exception("Failed to generate points as the given plane has no bounds.");
-            }
-
-            var planeSize = new Vector3(planeBounds.Value.size.x, planeBounds.Value.size.y, 0);
-            var planeBottomLeft = position - rotation * new Vector3(planeSize.x * 0.5f, planeSize.y * 0.5f);
-
-            var pointsX = Mathf.Max(Mathf.Ceil(pointsPerUnitX * planeSize.x), 1);
-            var pointsY = Mathf.Max(Mathf.Ceil(pointsPerUnitY * planeSize.y), 1);
-
-            var stride = new Vector2(planeSize.x / (pointsX + 1), planeSize.y / (pointsY + 1));
-
-            for (var y = 0; y < pointsY; y++)
-            {
-                for (var x = 0; x < pointsX; x++)
-                {
-                    var dx = (x + 1) * stride.x;
-                    var dy = (y + 1) * stride.y;
-                    var point = planeBottomLeft + rotation * new Vector3(dx, dy);
-                    points.Add(point);
-                }
-            }
-        }
-
-        private static void Shuffle<T>(List<T> list)
-        {
-            var n = list.Count;
-            while (n > 1)
-            {
-                n--;
-                var k = UnityEngine.Random.Range(0, n + 1);
-                (list[k], list[n]) = (list[n], list[k]);
-            }
-        }
     }
 
     /// <summary>
@@ -404,12 +323,6 @@ namespace Meta.XR.MRUtilityKit
         public DestructibleMeshComponent DestructibleMeshComponent;
 
         /// <summary>
-        /// The maximum number of points that the destructible mesh can contain. The higher number of points the higher the impact on performance.
-        /// Use <see cref="MRUtilityKit.DestructibleGlobalMeshSpawner"/>  to configure this value.
-        /// </summary>
-        public int MaxPointsCount;
-
-        /// <summary>
         /// Specifies the number of points per unit along the X-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance.
         /// Use <see cref="MRUtilityKit.DestructibleGlobalMeshSpawner"/>  to configure this value.
         /// </summary>
@@ -421,12 +334,18 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public float PointsPerUnitY;
 
+        /// <summary>
+        /// Specifies the number of points per unit along the Z-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance.
+        /// Use <see cref="MRUtilityKit.DestructibleGlobalMeshSpawner"/>  to configure this value.
+        /// </summary>
+        public float PointsPerUnitZ;
+
         private bool Equals(DestructibleGlobalMesh other)
         {
             return DestructibleMeshComponent == other.DestructibleMeshComponent &&
-                   Equals(MaxPointsCount, other.MaxPointsCount) &&
                    Mathf.Approximately(PointsPerUnitX, other.PointsPerUnitX) &&
-                   Mathf.Approximately(PointsPerUnitY, other.PointsPerUnitY);
+                   Mathf.Approximately(PointsPerUnitY, other.PointsPerUnitY) &&
+                   Mathf.Approximately(PointsPerUnitZ, other.PointsPerUnitZ);
         }
 
         // @cond
@@ -437,7 +356,7 @@ namespace Meta.XR.MRUtilityKit
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(DestructibleMeshComponent, MaxPointsCount, PointsPerUnitX, PointsPerUnitY);
+            return HashCode.Combine(DestructibleMeshComponent, PointsPerUnitX, PointsPerUnitY, PointsPerUnitZ);
         }
 
         public static bool operator ==(DestructibleGlobalMesh left, DestructibleGlobalMesh right)

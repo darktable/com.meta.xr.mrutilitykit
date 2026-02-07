@@ -386,7 +386,10 @@ namespace Meta.XR.MRUtilityKit
             {
                 {
                     var mesh = Utilities.SetupAnchorMeshGeometry(room.FloorAnchor);
-                    commandBuffer.DrawMesh(mesh, room.FloorAnchor.transform.localToWorldMatrix, _matFloor);
+                    if (mesh)
+                    {
+                        commandBuffer.DrawMesh(mesh, room.FloorAnchor.transform.localToWorldMatrix, _matFloor);
+                    }
                 }
 
                 foreach (var anchor in room.Anchors)
@@ -394,7 +397,10 @@ namespace Meta.XR.MRUtilityKit
                     if (anchor.HasAnyLabel(SceneObjectLabels))
                     {
                         var mesh = Utilities.SetupAnchorMeshGeometry(anchor);
-                        commandBuffer.DrawMesh(mesh, anchor.transform.localToWorldMatrix, _matObjects);
+                        if (mesh)
+                        {
+                            commandBuffer.DrawMesh(mesh, anchor.transform.localToWorldMatrix, _matObjects);
+                        }
                     }
                 }
             }

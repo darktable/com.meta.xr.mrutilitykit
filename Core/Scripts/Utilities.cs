@@ -24,6 +24,9 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Meta.XR.MRUtilityKit.Extensions;
 using Unity.Collections;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
@@ -102,8 +105,16 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (anchorInfo.PlaneRect.HasValue && (useFunctionalSurfaces || !anchorInfo.VolumeBounds.HasValue))
                 {
-                    totalVertices = anchorInfo.PlaneBoundary2D.Count;
-                    totalIndices = (anchorInfo.PlaneBoundary2D.Count - 2) * 3;
+                    int pointsCount = anchorInfo.PlaneBoundary2D.Count;
+                    if (pointsCount < 2)
+                    {
+                        Debug.LogError(
+                            $"PlaneBoundary2D for anchor {anchorInfo.name} must have at least 2 points" +
+                            $" but it has only {pointsCount}");
+                        return null;
+                    }
+                    totalIndices = (pointsCount - 2) * 3;
+                    totalVertices = pointsCount;
                     useSurface = true;
                 }
             }
@@ -403,13 +414,15 @@ namespace Meta.XR.MRUtilityKit
             return newMesh;
         }
 
-        internal static void DestroyGameObjectAndChildren(GameObject gameObject)
+        internal static void DestroyGameObjectAndChildren(MonoBehaviour monoBehaviour)
         {
-            if (gameObject == null)
+            Debug.Assert(monoBehaviour is not null); // managed reference should never be null, but the UnityObject itself may already be destroyed
+            if (monoBehaviour == null)
             {
                 return;
             }
 
+            var gameObject = monoBehaviour.gameObject;
             foreach (Transform child in gameObject.transform)
             {
                 UnityEngine.Object.DestroyImmediate(child.gameObject);
@@ -589,6 +602,33 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
         }
+
+#if UNITY_EDITOR
+        internal static bool EnsurePlayMode()
+        {
+            if (Application.isPlaying)
+            {
+                return true;
+            }
+
+            EditorUtility.DisplayDialog("Operation Not Available",
+                "This operation is only available in Play Mode.", "OK");
+            return false;
+        }
+
+        internal static void ExecuteAction(Action action, string successMessage)
+        {
+            try
+            {
+                action();
+                Debug.Log(successMessage);
+            }
+            catch (Exception e)
+            {
+                EditorUtility.DisplayDialog("Operation Not Available", e.Message, "OK");
+            }
+        }
+#endif
     }
 
     internal struct Float3X3

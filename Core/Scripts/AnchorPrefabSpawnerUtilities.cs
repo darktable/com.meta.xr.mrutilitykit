@@ -334,17 +334,14 @@ namespace Meta.XR.MRUtilityKit
                 var prefabVolume = bounds.Value.size.x * bounds.Value.size.y * bounds.Value.size.z;
                 var prefabAverageSide = Mathf.Pow(prefabVolume, 1.0f / 3.0f); // cubic root
                 var sizeDifference = Mathf.Abs(anchorAverageSide - prefabAverageSide);
-                if (sizeDifference >= closestSizeDifference)
+                if (sizeDifference <= closestSizeDifference)
                 {
-                    continue;
+                    closestSizeDifference = sizeDifference;
+                    sizeMatchingPrefab = prefab;
                 }
-
-                closestSizeDifference = sizeDifference;
-                sizeMatchingPrefab = prefab;
-                return true;
             }
 
-            return false;
+            return sizeMatchingPrefab != null;
         }
 
         #endregion VolumeUtilities

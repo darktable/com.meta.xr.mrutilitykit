@@ -29,20 +29,6 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class TriangulatorTests : MRUKTestBase
     {
-        [UnitySetUp]
-        public IEnumerator SetUp()
-        {
-            MRUKNative.LoadMRUKSharedLibrary();
-            yield return null;
-        }
-
-        [UnityTearDown]
-        public IEnumerator TearDown()
-        {
-            MRUKNative.FreeMRUKSharedLibrary();
-            yield return null;
-        }
-
         /// <summary>
         /// Tests that the triangulator is able to triangulate a simple quad
         /// </summary>

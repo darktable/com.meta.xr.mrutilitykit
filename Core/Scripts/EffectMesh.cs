@@ -611,7 +611,7 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            MRUKAssert.AreEqual(count, walls.Distinct().Count(), "count, walls.Distinct().Count()");
+            Assert.AreEqual(count, walls.Distinct().Count(), "count, walls.Distinct().Count()");
             using (new OVRObjectPool.ListScope<MRUKAnchor>(out var result))
             {
                 int iniIndex = count - 1;
@@ -641,7 +641,7 @@ namespace Meta.XR.MRUtilityKit
                     walls.RemoveAt(closestWallIndex);
                 }
 
-                MRUKAssert.AreEqual(count, result.Distinct().Count(), "count, result.Distinct().Count()");
+                Assert.AreEqual(count, result.Distinct().Count(), "count, result.Distinct().Count()");
                 walls.AddRange(result);
             }
         }
@@ -758,7 +758,10 @@ namespace Meta.XR.MRUtilityKit
 
             EffectMeshObject effectMeshObject = new EffectMeshObject();
             var newMesh = Utilities.SetupAnchorMeshGeometry(anchorInfo, false, textureCoordinateModes);
-
+            if (!newMesh)
+            {
+                return null;
+            }
 
             var newGameObject = new GameObject(anchorInfo.name + Suffix);
             newGameObject.transform.SetParent(anchorInfo.transform, false);

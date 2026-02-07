@@ -96,6 +96,21 @@ namespace Meta.XR.MRUtilityKit
             StorageTop = 4194304,
         };
 
+        public enum MrukTrackableType
+        {
+            None = 0,
+            Keyboard = 1,
+            Qrcode = 2,
+        };
+
+        public enum MrukMarkerPayloadType
+        {
+            None = 0,
+            InvalidQrcode = 1,
+            StringQrcode = 2,
+            BinaryQrcode = 3,
+        };
+
         public enum MrukEnvironmentRaycastStatus
         {
             Hit = 1,
@@ -126,6 +141,14 @@ namespace Meta.XR.MRUtilityKit
         public delegate void MrukOnDiscoveryFinished(MrukResult result, IntPtr userContext);
 
         public delegate void MrukOnEnvironmentRaycasterCreated(MrukResult result, IntPtr userContext);
+
+        public delegate void MrukOnTrackersConfigured(MrukResult result, IntPtr userContext);
+
+        public delegate void MrukOnTrackableAdded(ref MrukTrackable trackable, IntPtr userContext);
+
+        public delegate void MrukOnTrackableUpdated(ref MrukTrackable trackable, IntPtr userContext);
+
+        public delegate void MrukOnTrackableRemoved(ref MrukTrackable trackable, IntPtr userContext);
 
         public delegate Pose TrackingSpacePoseGetter();
 
@@ -186,6 +209,7 @@ namespace Meta.XR.MRUtilityKit
             public ulong space;
             public Guid uuid;
             public Guid roomUuid;
+            public Guid parentUuid;
             public Pose pose;
             public MrukVolume volume;
             public MrukPlane plane;
@@ -201,11 +225,51 @@ namespace Meta.XR.MRUtilityKit
         }
 
         [StructLayout(LayoutKind.Sequential)]
+        public struct MrukRoomFace
+        {
+            public Guid uuid;
+            public Guid parentUuid;
+            public MrukLabel semanticLabel;
+            public uint* indices;
+            public uint indicesCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MrukRoomMesh
+        {
+            public Vector3* vertices;
+            public MrukRoomFace* faces;
+            public uint verticesCount;
+            public uint facesCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         public struct MrukRoomAnchor
         {
+            public MrukSceneModel sceneModel;
             public ulong space;
             public Guid uuid;
             public Pose pose;
+            public MrukRoomMesh roomMesh;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MrukTrackable
+        {
+            public MrukTrackableType trackableType;
+            public MrukMarkerPayloadType markerPayloadType;
+            public ulong space;
+            public Guid uuid;
+            public Pose pose;
+            public MrukVolume volume;
+            public MrukPlane plane;
+            public Vector2* planeBoundary;
+            public byte* payload;
+            public uint planeBoundaryCount;
+            public uint payloadCount;
+            [MarshalAs(UnmanagedType.U1)] public bool hasVolume;
+            [MarshalAs(UnmanagedType.U1)] public bool hasPlane;
+            [MarshalAs(UnmanagedType.U1)] public bool isTracked;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -220,6 +284,10 @@ namespace Meta.XR.MRUtilityKit
             public MrukOnSceneAnchorRemoved onSceneAnchorRemoved;
             public MrukOnDiscoveryFinished onDiscoveryFinished;
             public MrukOnEnvironmentRaycasterCreated onEnvironmentRaycasterCreated;
+            public MrukOnTrackersConfigured onTrackersConfigured;
+            public MrukOnTrackableAdded onTrackableAdded;
+            public MrukOnTrackableUpdated onTrackableUpdated;
+            public MrukOnTrackableRemoved onTrackableRemoved;
             public IntPtr userContext;
         }
 
@@ -268,6 +336,16 @@ namespace Meta.XR.MRUtilityKit
             public Vector3 normal;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MrukCameraIntrinsics
+        {
+            public Vector2 focalLength;
+            public Vector2 principalPoint;
+            public Vector3 lensTranslation;
+            public Quaternion lensRotation;
+            public Vector2Int sensorResolution;
+        }
+
 
         /**
          * This allows the engine to intercept the logs from the shared library and print them using the
@@ -277,122 +355,172 @@ namespace Meta.XR.MRUtilityKit
         internal delegate void SetLogPrinterDelegate(LogPrinter printer);
 
         /**
-         * Create the global anchor store with a external OpenXR instance and session.
+         * This should only be called once on application startup to create the global context. This is a
+         * pre-requisite to call all of the other APIs. When the context is not needed anymore it should be
+         * destroyed with ContextDestroy() to free resources (i.e. when the application is shutdown).
+         */
+        internal delegate MrukResult CreateGlobalContextDelegate();
+
+        /**
+         * Destroy the global context
+         * This should only be called once on application shutdown.
+         */
+        internal delegate void DestroyGlobalContextDelegate();
+
+        /**
+         * Initialize OpenXR with an external OpenXR instance and session.
          * This should only be called once on application startup.
-         * Make sure to hook up the ContextOnOpenXrEvent() function as well.
+         * Make sure to hook up the OnOpenXrEvent() function as well.
          * If the context is not needed anymore it should be destroyed with ContextDestroy() to free
          * resources.
          */
-        internal delegate MrukResult AnchorStoreCreateDelegate(ulong xrInstance, ulong xrSession, IntPtr xrInstanceProcAddrFunc, ulong baseSpace, string[] availableOpenXrExtensions, uint availableOpenXrExtensionsCount);
-        internal delegate MrukResult AnchorStoreCreateWithoutOpenXrDelegate();
+        internal delegate MrukResult InitOpenXrDelegate(ulong xrInstance, ulong xrSession, IntPtr xrInstanceProcAddrFunc, ulong baseSpace, string[] availableOpenXrExtensions, uint availableOpenXrExtensionsCount);
 
         /**
          * This should be called when the OpenXR instance is destroyed and it is no longer valid to attempt
          * to make any OpenXR calls. This can happen with Link when exiting play mode.
          */
-        internal delegate void AnchorStoreShutdownOpenXrDelegate();
+        internal delegate void ShutdownOpenXrDelegate();
 
         /**
-         * Destroy the global anchor store
-         * This should only be called once on application shutdown.
+         * Initialize the Unity interfaces. This should be called once after the global context has been
+         * created. See https://docs.unity3d.com/6000.1/Documentation/Manual/native-plugin-interface.html
+         * for more details. Note that the usual UnityPluginLoad and UnityPluginUnload functions will not be
+         * called automatically by unity because the MRUK Shared Library is loaded dynamically at runtime to
+         * allow hot reloading. So we must explicitly call this ourselves to get access to the interface.
+         *
+         * @param[in] unityInterfaces A pointer to IUnityInterfaces
          */
-        internal delegate void AnchorStoreDestroyDelegate();
+        internal delegate void InitUnityInterfacesDelegate(IntPtr unityInterfaces);
 
         /**
          * If the base space changes after initialization, this function should be called to update the
          * base space.
          */
-        internal delegate void AnchorStoreSetBaseSpaceDelegate(ulong baseSpace);
+        internal delegate void SetBaseSpaceDelegate(ulong baseSpace);
 
         /**
-         * Start anchor discovery in the anchor store
+         * Start anchor discovery in the global context
          */
-        internal delegate MrukResult AnchorStoreStartDiscoveryDelegate([MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
+        internal delegate MrukResult StartDiscoveryDelegate([MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
 
         /**
-         * Start anchor query from shared group uuid in the anchor store
+         * Start anchor query from shared group uuid in the global context
          */
-        internal delegate MrukResult AnchorStoreStartQueryByLocalGroupDelegate(MrukSharedRoomsData sharedRoomsData, [MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
+        internal delegate MrukResult StartQueryByLocalGroupDelegate(MrukSharedRoomsData sharedRoomsData, [MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
 
         /**
          * Load the scene from a json string
          */
-        internal delegate MrukResult AnchorStoreLoadSceneFromJsonDelegate(string jsonString, [MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
+        internal delegate MrukResult LoadSceneFromJsonDelegate(string jsonString, [MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
 
         /**
          * Save the scene to a json string.
-         * @return The serialized JSON string. This string must be freed with FreeAnchorStoreJson after use!
+         * @return The serialized JSON string. This string must be freed with FreeJson after use!
          */
-        internal delegate char* AnchorStoreSaveSceneToJsonDelegate([MarshalAs(UnmanagedType.U1)] bool includeGlobalMesh, Guid[] roomUuids, uint numRoomUuids);
+        internal delegate char* SaveSceneToJsonDelegate([MarshalAs(UnmanagedType.U1)] bool includeGlobalMesh, Guid[] roomUuids, uint numRoomUuids);
 
         /**
-         * Free the json string returned by AnchorStoreSaveSceneToJson.
+         * Free the json string returned by SaveSceneToJson.
          * @param[in] jsonString The JSON string to free.
          */
-        internal delegate void AnchorStoreFreeJsonDelegate(char* jsonString);
+        internal delegate void FreeJsonDelegate(char* jsonString);
 
         /**
-         * Given a prefabricated scene description, load it in the anchor store.
+         * Given a prefabricated scene description, load it in the global context.
          */
-        internal delegate MrukResult AnchorStoreLoadSceneFromPrefabDelegate(MrukRoomAnchor* roomAnchors, uint numRoomAnchors, MrukSceneAnchor* sceneAnchors, uint numSceneAnchors);
+        internal delegate MrukResult LoadSceneFromPrefabDelegate(MrukRoomAnchor* roomAnchors, uint numRoomAnchors, MrukSceneAnchor* sceneAnchors, uint numSceneAnchors);
 
         /**
-         * Clear and remove all rooms in the anchor store.
+         * Clear and remove all rooms in the global context.
          */
-        internal delegate void AnchorStoreClearRoomsDelegate();
+        internal delegate void ClearRoomsDelegate();
 
         /**
          * Clear and remove the room that matches the given uuid.
          */
-        internal delegate void AnchorStoreClearRoomDelegate(Guid roomUuid);
+        internal delegate void ClearRoomDelegate(Guid roomUuid);
 
         /**
          * Allows to forward OpenXR events from the engine into the shared library
          */
-        internal delegate void AnchorStoreOnOpenXrEventDelegate(IntPtr baseEventHeader);
+        internal delegate void OnOpenXrEventDelegate(IntPtr baseEventHeader);
 
         /**
          * Needs to be called every tick by the engine.
          */
-        internal delegate void AnchorStoreTickDelegate(ulong nextPredictedDisplayTime);
-        internal delegate void AnchorStoreRegisterEventListenerDelegate(MrukEventListener listener);
+        internal delegate void TickGlobalContextDelegate(ulong nextPredictedDisplayTime);
+        internal delegate void RegisterEventListenerDelegate(MrukEventListener listener);
 
         /**
          * Cast a ray against all anchors in the room and return the first hit.
          * A maxDistance of <= 0 will return the first hit regardless of distance.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreRaycastRoomDelegate(Guid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, MrukLabelFilter labelFilter, ref MrukHit outHit);
+        internal delegate bool RaycastRoomDelegate(Guid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, MrukLabelFilter labelFilter, ref MrukHit outHit);
 
         /**
          * Cast a ray against all anchors in the room and return all hits along the ray.
          * A maxDistance of <= 0 will return the hits along the ray regardless of distance.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreRaycastRoomAllDelegate(Guid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, MrukLabelFilter labelFilter, ref MrukHit outHits, ref uint outHitsCount);
+        internal delegate bool RaycastRoomAllDelegate(Guid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, MrukLabelFilter labelFilter, ref MrukHit outHits, ref uint outHitsCount);
 
         /**
          * Cast a ray against the anchor in the room and return the first hit.
          * A maxDistance of <= 0 will return the hits along the ray regardless of distance.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreRaycastAnchorDelegate(Guid sceneAnchorUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceTypes, ref MrukHit outHit);
+        internal delegate bool RaycastAnchorDelegate(Guid sceneAnchorUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceTypes, ref MrukHit outHit);
 
         /**
          * Cast a ray against the anchor in the room and return all hits along the ray.
          * A maxDistance of <= 0 will return the hits along the ray regardless of distance.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreRaycastAnchorAllDelegate(Guid sceneAnchorUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceTypes, ref MrukHit outHits, ref uint outHitsCount);
-        [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreIsDiscoveryRunningDelegate();
+        internal delegate bool RaycastAnchorAllDelegate(Guid sceneAnchorUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceTypes, ref MrukHit outHits, ref uint outHitsCount);
 
         /**
-         * Get the world lock offset for a given room. This is the difference between the room's initial
+         * Check if the given position is in the room or not.
+         *
+         * @param[in] roomUuid The unique identifier for the room.
+         * @param[in] position The 3D position to check.
+         * @param[in] testVerticalBounds A boolean indicating whether to test vertical bounds. If false then
+         * the point will be considered inside as long as it is within the perimeter of the room regardless
+         * of whether the point is below the floor or above the ceiling.
+         * @return True if the position is within the room, false otherwise.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool IsPositionInRoomDelegate(Guid roomUuid, Vector3 position, [MarshalAs(UnmanagedType.U1)] bool testVerticalBounds);
+
+        /**
+         * Gets the current room the headset is in. If the headset is not in any given room
+         * then it will return the room the headset was last in when this function was called.
+         * If the headset hasn't been in a valid room yet then return the first room in the list.
+         * If no rooms have been loaded yet then return false.
+         *
+         * @param[out] outRoomUuid Pointer to a MrukUuid that will be filled with the current room UUID.
+         * @return True if a room was found, false otherwise.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool GetCurrentRoomDelegate(ref Guid outRoomUuid);
+
+        /**
+         * Checks whether scene anchor discovery is currently in progress.
+         *
+         * @return True if discovery is ongoing (either actively loading scene data or
+         * performing background processing like BVH building), false if discovery
+         * hasn't started yet or has completely finished.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool IsDiscoveryRunningDelegate();
+
+        /**
+         * Get the world lock offset for the current room. This is the difference between the room's initial
          * pose when it was created and the current pose.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreGetWorldLockOffsetDelegate(Guid roomUuid, ref Pose offset);
+        internal delegate bool GetWorldLockOffsetDelegate(ref Pose offset);
 
         /**
          * Add two vectors together. This is implemented as a test to ensure the native shared
@@ -423,23 +551,25 @@ namespace Meta.XR.MRUtilityKit
         internal delegate void FreeMeshDelegate(ref MrukMesh2f mesh);
 
         /**
-         * Compute the mesh segmentation for a given set of vertices, indices and segmentation points.
-         * You *MUST* call FreeMeshSegmentation() on the meshSegments array when you are done with it or you
-         * will leak memory.
+         * Compute the mesh segmentation for a given set of vertices, indices and points per unit.
+         * The function will automatically generate segmentation points in a uniform voxel grid
+         * within the mesh bounds. You *MUST* call FreeMeshSegmentation() on the meshSegments array when you
+         * are done with it or you will leak memory.
          *
          * @param[in] vertices The mesh vertices.
          * @param[in] numVertices The number of vertices in the mesh.
          * @param[in] indices The mesh indices.
          * @param[in] numIndices The number of indices in the mesh.
-         * @param[in] segmentationPoints The points that should be used to calculate the segments.
-         * @param[in] numSegmentationPoints The number of segmentation points.
+         * @param[in] pointsPerUnitX The number of points per unit along the X axis.
+         * @param[in] pointsPerUnitY The number of points per unit along the Y axis.
+         * @param[in] pointsPerUnitZ The number of points per unit along the Z axis.
          * @param[in] reservedMin The minimum bounding box for the reserved segment.
          * @param[in] reservedMax The maximum bounding box for the reserved segment.
          * @param[out] meshSegments The resulting segments.
          * @param[out] numSegments The number of segments in the resulting array.
          * @param[out] reservedSegment The segment that is inside the reserved bounding box.
          */
-        internal delegate MrukResult ComputeMeshSegmentationDelegate(Vector3[] vertices, uint numVertices, uint[] indices, uint numIndices, Vector3[] segmentationPoints, uint numSegmentationPoints, Vector3 reservedMin, Vector3 reservedMax, out MrukMesh3f* meshSegments, out uint numSegments, out MrukMesh3f reservedSegment);
+        internal delegate MrukResult ComputeMeshSegmentationDelegate(Vector3[] vertices, uint numVertices, uint[] indices, uint numIndices, float pointsPerUnitX, float pointsPerUnitY, float pointsPerUnitZ, Vector3 reservedMin, Vector3 reservedMax, out MrukMesh3f* meshSegments, out uint numSegments, out MrukMesh3f reservedSegment);
 
         /**
          * Free the memory allocated by ComputeMeshSegmentation.
@@ -488,29 +618,112 @@ namespace Meta.XR.MRUtilityKit
         internal delegate void SetTrackingSpacePoseGetterDelegate(TrackingSpacePoseGetter getter);
         internal delegate void SetTrackingSpacePoseSetterDelegate(TrackingSpacePoseSetter setter);
 
+        /**
+         * Configures the tracker services. This should only be called after the global context
+         * has been created. The trackers that should be enabled can be passed in trackableMask.
+         * 0 means all trackers will be disabled.
+         * The event onTrackersConfigured will be emitted after the tracker service is ready or failed to
+         * start.
+         *
+         * @param[in] trackableMask A bitmask of MrukTrackableType
+         */
+        internal delegate void ConfigureTrackersDelegate(uint trackableMask);
+
+        /**
+         * Set the interval in which trackers will be queried from the system and updated.
+         * @param[in] millseconds Time in millseconds between updates
+         */
+        internal delegate void SetTrackersUpdateIntervalDelegate(ulong millseconds);
+
+        /**
+         * Gets the supported resolutions for the specified camera.
+         * This function allocates a buffer in C++ and returns a pointer to it.
+         * The caller is responsible for freeing the buffer by calling CameraFreeSupportedResolutions.
+         *
+         * @param[in] eyeIndex The index of the camera.
+         * @param[out] len Will be set to the number of available resolutions.
+         * @return A pointer to an array of MrukVector2i structures, where x is the width and y is the
+         * height. The caller must free this buffer by calling CameraFreeSupportedResolutions. Returns NULL
+         * if no resolutions are available or an error occurred.
+         */
+        internal delegate Vector2Int* CameraGetSupportedResolutionsDelegate(int eyeIndex, ref int len);
+
+        /**
+         * Frees the buffer allocated by CameraGetSupportedResolutions.
+         *
+         * @param[in] buffer The buffer to free.
+         */
+        internal delegate void CameraFreeSupportedResolutionsDelegate(Vector2Int* buffer);
+
+        /**
+         * Starts the camera capture for the specified camera.
+         * @param[in] eyeIndex The index of the camera to start.
+         * @param[out] width The width of the camera frames that will be captured.
+         * @param[out] height The height of the camera frames that will be captured.
+         * @param[out] intrinsics The intrinsic parameters of the camera.
+         * @return True if the camera was successfully started, false otherwise.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool CameraPlayDelegate(int eyeIndex, ref int width, ref int height, ref MrukCameraIntrinsics intrinsics);
+
+        /**
+         * Acquires the latest image from the camera.
+         * The caller must call CameraReleaseLatestImage() afterwards, even if the returned buffer is null.
+         * @param[in] eyeIndex The index of the camera.
+         * @param[out] timestampMicrosecondsRealtime Timestamp of the image in microseconds since
+         * the Unix epoch.
+         * @param[out] timestampNsMonotonic Timestamp of the image in monotonic nanoseconds. Used for
+         * getting the precise headset pose at the image's timestamp.
+         * @return A pointer to a buffer containing the RGBA (32 bits, 8 bits per channel) image data. If
+         * null, this means no new image is available.
+         */
+        internal delegate byte* CameraAcquireLatestImageDelegate(int eyeIndex, ref long timestampMicrosecondsRealtime, ref long timestampNsMonotonic);
+
+        /**
+         * Releases the image buffer acquired by CameraAcquireLatestImage().
+         * Must be called even if CameraAcquireLatestImage() returns null.
+         */
+        internal delegate void CameraReleaseLatestImageDelegate(int eyeIndex);
+
+        /**
+         * Notifies the camera system that the application has gained focus.
+         * This should be called when the application regains focus after being in the background.
+         */
+        internal delegate void CameraOnApplicationFocusedDelegate();
+
+        /**
+         * Stops the camera capture for the specified camera.
+         * @param[in] eyeIndex The index of the camera to stop.
+         */
+        internal delegate void CameraStopDelegate(int eyeIndex);
+        internal delegate double ConvertToXrTimeInSecondsDelegate(long timeNsMonotonic);
+
         internal static SetLogPrinterDelegate SetLogPrinter;
-        internal static AnchorStoreCreateDelegate AnchorStoreCreate;
-        internal static AnchorStoreCreateWithoutOpenXrDelegate AnchorStoreCreateWithoutOpenXr;
-        internal static AnchorStoreShutdownOpenXrDelegate AnchorStoreShutdownOpenXr;
-        internal static AnchorStoreDestroyDelegate AnchorStoreDestroy;
-        internal static AnchorStoreSetBaseSpaceDelegate AnchorStoreSetBaseSpace;
-        internal static AnchorStoreStartDiscoveryDelegate AnchorStoreStartDiscovery;
-        internal static AnchorStoreStartQueryByLocalGroupDelegate AnchorStoreStartQueryByLocalGroup;
-        internal static AnchorStoreLoadSceneFromJsonDelegate AnchorStoreLoadSceneFromJson;
-        internal static AnchorStoreSaveSceneToJsonDelegate AnchorStoreSaveSceneToJson;
-        internal static AnchorStoreFreeJsonDelegate AnchorStoreFreeJson;
-        internal static AnchorStoreLoadSceneFromPrefabDelegate AnchorStoreLoadSceneFromPrefab;
-        internal static AnchorStoreClearRoomsDelegate AnchorStoreClearRooms;
-        internal static AnchorStoreClearRoomDelegate AnchorStoreClearRoom;
-        internal static AnchorStoreOnOpenXrEventDelegate AnchorStoreOnOpenXrEvent;
-        internal static AnchorStoreTickDelegate AnchorStoreTick;
-        internal static AnchorStoreRegisterEventListenerDelegate AnchorStoreRegisterEventListener;
-        internal static AnchorStoreRaycastRoomDelegate AnchorStoreRaycastRoom;
-        internal static AnchorStoreRaycastRoomAllDelegate AnchorStoreRaycastRoomAll;
-        internal static AnchorStoreRaycastAnchorDelegate AnchorStoreRaycastAnchor;
-        internal static AnchorStoreRaycastAnchorAllDelegate AnchorStoreRaycastAnchorAll;
-        internal static AnchorStoreIsDiscoveryRunningDelegate AnchorStoreIsDiscoveryRunning;
-        internal static AnchorStoreGetWorldLockOffsetDelegate AnchorStoreGetWorldLockOffset;
+        internal static CreateGlobalContextDelegate CreateGlobalContext;
+        internal static DestroyGlobalContextDelegate DestroyGlobalContext;
+        internal static InitOpenXrDelegate InitOpenXr;
+        internal static ShutdownOpenXrDelegate ShutdownOpenXr;
+        internal static InitUnityInterfacesDelegate InitUnityInterfaces;
+        internal static SetBaseSpaceDelegate SetBaseSpace;
+        internal static StartDiscoveryDelegate StartDiscovery;
+        internal static StartQueryByLocalGroupDelegate StartQueryByLocalGroup;
+        internal static LoadSceneFromJsonDelegate LoadSceneFromJson;
+        internal static SaveSceneToJsonDelegate SaveSceneToJson;
+        internal static FreeJsonDelegate FreeJson;
+        internal static LoadSceneFromPrefabDelegate LoadSceneFromPrefab;
+        internal static ClearRoomsDelegate ClearRooms;
+        internal static ClearRoomDelegate ClearRoom;
+        internal static OnOpenXrEventDelegate OnOpenXrEvent;
+        internal static TickGlobalContextDelegate TickGlobalContext;
+        internal static RegisterEventListenerDelegate RegisterEventListener;
+        internal static RaycastRoomDelegate RaycastRoom;
+        internal static RaycastRoomAllDelegate RaycastRoomAll;
+        internal static RaycastAnchorDelegate RaycastAnchor;
+        internal static RaycastAnchorAllDelegate RaycastAnchorAll;
+        internal static IsPositionInRoomDelegate IsPositionInRoom;
+        internal static GetCurrentRoomDelegate GetCurrentRoom;
+        internal static IsDiscoveryRunningDelegate IsDiscoveryRunning;
+        internal static GetWorldLockOffsetDelegate GetWorldLockOffset;
         internal static AddVectorsDelegate AddVectors;
         internal static TriangulatePolygonDelegate TriangulatePolygon;
         internal static FreeMeshDelegate FreeMesh;
@@ -523,32 +736,45 @@ namespace Meta.XR.MRUtilityKit
         internal static PerformEnvironmentRaycastDelegate PerformEnvironmentRaycast;
         internal static SetTrackingSpacePoseGetterDelegate SetTrackingSpacePoseGetter;
         internal static SetTrackingSpacePoseSetterDelegate SetTrackingSpacePoseSetter;
+        internal static ConfigureTrackersDelegate ConfigureTrackers;
+        internal static SetTrackersUpdateIntervalDelegate SetTrackersUpdateInterval;
+        internal static CameraGetSupportedResolutionsDelegate CameraGetSupportedResolutions;
+        internal static CameraFreeSupportedResolutionsDelegate CameraFreeSupportedResolutions;
+        internal static CameraPlayDelegate CameraPlay;
+        internal static CameraAcquireLatestImageDelegate CameraAcquireLatestImage;
+        internal static CameraReleaseLatestImageDelegate CameraReleaseLatestImage;
+        internal static CameraOnApplicationFocusedDelegate CameraOnApplicationFocused;
+        internal static CameraStopDelegate CameraStop;
+        internal static ConvertToXrTimeInSecondsDelegate ConvertToXrTimeInSeconds;
 
         internal static void LoadNativeFunctions()
         {
             SetLogPrinter = MRUKNative.LoadFunction<SetLogPrinterDelegate>("SetLogPrinter");
-            AnchorStoreCreate = MRUKNative.LoadFunction<AnchorStoreCreateDelegate>("AnchorStoreCreate");
-            AnchorStoreCreateWithoutOpenXr = MRUKNative.LoadFunction<AnchorStoreCreateWithoutOpenXrDelegate>("AnchorStoreCreateWithoutOpenXr");
-            AnchorStoreShutdownOpenXr = MRUKNative.LoadFunction<AnchorStoreShutdownOpenXrDelegate>("AnchorStoreShutdownOpenXr");
-            AnchorStoreDestroy = MRUKNative.LoadFunction<AnchorStoreDestroyDelegate>("AnchorStoreDestroy");
-            AnchorStoreSetBaseSpace = MRUKNative.LoadFunction<AnchorStoreSetBaseSpaceDelegate>("AnchorStoreSetBaseSpace");
-            AnchorStoreStartDiscovery = MRUKNative.LoadFunction<AnchorStoreStartDiscoveryDelegate>("AnchorStoreStartDiscovery");
-            AnchorStoreStartQueryByLocalGroup = MRUKNative.LoadFunction<AnchorStoreStartQueryByLocalGroupDelegate>("AnchorStoreStartQueryByLocalGroup");
-            AnchorStoreLoadSceneFromJson = MRUKNative.LoadFunction<AnchorStoreLoadSceneFromJsonDelegate>("AnchorStoreLoadSceneFromJson");
-            AnchorStoreSaveSceneToJson = MRUKNative.LoadFunction<AnchorStoreSaveSceneToJsonDelegate>("AnchorStoreSaveSceneToJson");
-            AnchorStoreFreeJson = MRUKNative.LoadFunction<AnchorStoreFreeJsonDelegate>("AnchorStoreFreeJson");
-            AnchorStoreLoadSceneFromPrefab = MRUKNative.LoadFunction<AnchorStoreLoadSceneFromPrefabDelegate>("AnchorStoreLoadSceneFromPrefab");
-            AnchorStoreClearRooms = MRUKNative.LoadFunction<AnchorStoreClearRoomsDelegate>("AnchorStoreClearRooms");
-            AnchorStoreClearRoom = MRUKNative.LoadFunction<AnchorStoreClearRoomDelegate>("AnchorStoreClearRoom");
-            AnchorStoreOnOpenXrEvent = MRUKNative.LoadFunction<AnchorStoreOnOpenXrEventDelegate>("AnchorStoreOnOpenXrEvent");
-            AnchorStoreTick = MRUKNative.LoadFunction<AnchorStoreTickDelegate>("AnchorStoreTick");
-            AnchorStoreRegisterEventListener = MRUKNative.LoadFunction<AnchorStoreRegisterEventListenerDelegate>("AnchorStoreRegisterEventListener");
-            AnchorStoreRaycastRoom = MRUKNative.LoadFunction<AnchorStoreRaycastRoomDelegate>("AnchorStoreRaycastRoom");
-            AnchorStoreRaycastRoomAll = MRUKNative.LoadFunction<AnchorStoreRaycastRoomAllDelegate>("AnchorStoreRaycastRoomAll");
-            AnchorStoreRaycastAnchor = MRUKNative.LoadFunction<AnchorStoreRaycastAnchorDelegate>("AnchorStoreRaycastAnchor");
-            AnchorStoreRaycastAnchorAll = MRUKNative.LoadFunction<AnchorStoreRaycastAnchorAllDelegate>("AnchorStoreRaycastAnchorAll");
-            AnchorStoreIsDiscoveryRunning = MRUKNative.LoadFunction<AnchorStoreIsDiscoveryRunningDelegate>("AnchorStoreIsDiscoveryRunning");
-            AnchorStoreGetWorldLockOffset = MRUKNative.LoadFunction<AnchorStoreGetWorldLockOffsetDelegate>("AnchorStoreGetWorldLockOffset");
+            CreateGlobalContext = MRUKNative.LoadFunction<CreateGlobalContextDelegate>("CreateGlobalContext");
+            DestroyGlobalContext = MRUKNative.LoadFunction<DestroyGlobalContextDelegate>("DestroyGlobalContext");
+            InitOpenXr = MRUKNative.LoadFunction<InitOpenXrDelegate>("InitOpenXr");
+            ShutdownOpenXr = MRUKNative.LoadFunction<ShutdownOpenXrDelegate>("ShutdownOpenXr");
+            InitUnityInterfaces = MRUKNative.LoadFunction<InitUnityInterfacesDelegate>("InitUnityInterfaces");
+            SetBaseSpace = MRUKNative.LoadFunction<SetBaseSpaceDelegate>("SetBaseSpace");
+            StartDiscovery = MRUKNative.LoadFunction<StartDiscoveryDelegate>("StartDiscovery");
+            StartQueryByLocalGroup = MRUKNative.LoadFunction<StartQueryByLocalGroupDelegate>("StartQueryByLocalGroup");
+            LoadSceneFromJson = MRUKNative.LoadFunction<LoadSceneFromJsonDelegate>("LoadSceneFromJson");
+            SaveSceneToJson = MRUKNative.LoadFunction<SaveSceneToJsonDelegate>("SaveSceneToJson");
+            FreeJson = MRUKNative.LoadFunction<FreeJsonDelegate>("FreeJson");
+            LoadSceneFromPrefab = MRUKNative.LoadFunction<LoadSceneFromPrefabDelegate>("LoadSceneFromPrefab");
+            ClearRooms = MRUKNative.LoadFunction<ClearRoomsDelegate>("ClearRooms");
+            ClearRoom = MRUKNative.LoadFunction<ClearRoomDelegate>("ClearRoom");
+            OnOpenXrEvent = MRUKNative.LoadFunction<OnOpenXrEventDelegate>("OnOpenXrEvent");
+            TickGlobalContext = MRUKNative.LoadFunction<TickGlobalContextDelegate>("TickGlobalContext");
+            RegisterEventListener = MRUKNative.LoadFunction<RegisterEventListenerDelegate>("RegisterEventListener");
+            RaycastRoom = MRUKNative.LoadFunction<RaycastRoomDelegate>("RaycastRoom");
+            RaycastRoomAll = MRUKNative.LoadFunction<RaycastRoomAllDelegate>("RaycastRoomAll");
+            RaycastAnchor = MRUKNative.LoadFunction<RaycastAnchorDelegate>("RaycastAnchor");
+            RaycastAnchorAll = MRUKNative.LoadFunction<RaycastAnchorAllDelegate>("RaycastAnchorAll");
+            IsPositionInRoom = MRUKNative.LoadFunction<IsPositionInRoomDelegate>("IsPositionInRoom");
+            GetCurrentRoom = MRUKNative.LoadFunction<GetCurrentRoomDelegate>("GetCurrentRoom");
+            IsDiscoveryRunning = MRUKNative.LoadFunction<IsDiscoveryRunningDelegate>("IsDiscoveryRunning");
+            GetWorldLockOffset = MRUKNative.LoadFunction<GetWorldLockOffsetDelegate>("GetWorldLockOffset");
             AddVectors = MRUKNative.LoadFunction<AddVectorsDelegate>("AddVectors");
             TriangulatePolygon = MRUKNative.LoadFunction<TriangulatePolygonDelegate>("TriangulatePolygon");
             FreeMesh = MRUKNative.LoadFunction<FreeMeshDelegate>("FreeMesh");
@@ -561,33 +787,46 @@ namespace Meta.XR.MRUtilityKit
             PerformEnvironmentRaycast = MRUKNative.LoadFunction<PerformEnvironmentRaycastDelegate>("PerformEnvironmentRaycast");
             SetTrackingSpacePoseGetter = MRUKNative.LoadFunction<SetTrackingSpacePoseGetterDelegate>("SetTrackingSpacePoseGetter");
             SetTrackingSpacePoseSetter = MRUKNative.LoadFunction<SetTrackingSpacePoseSetterDelegate>("SetTrackingSpacePoseSetter");
+            ConfigureTrackers = MRUKNative.LoadFunction<ConfigureTrackersDelegate>("ConfigureTrackers");
+            SetTrackersUpdateInterval = MRUKNative.LoadFunction<SetTrackersUpdateIntervalDelegate>("SetTrackersUpdateInterval");
+            CameraGetSupportedResolutions = MRUKNative.LoadFunction<CameraGetSupportedResolutionsDelegate>("CameraGetSupportedResolutions");
+            CameraFreeSupportedResolutions = MRUKNative.LoadFunction<CameraFreeSupportedResolutionsDelegate>("CameraFreeSupportedResolutions");
+            CameraPlay = MRUKNative.LoadFunction<CameraPlayDelegate>("CameraPlay");
+            CameraAcquireLatestImage = MRUKNative.LoadFunction<CameraAcquireLatestImageDelegate>("CameraAcquireLatestImage");
+            CameraReleaseLatestImage = MRUKNative.LoadFunction<CameraReleaseLatestImageDelegate>("CameraReleaseLatestImage");
+            CameraOnApplicationFocused = MRUKNative.LoadFunction<CameraOnApplicationFocusedDelegate>("CameraOnApplicationFocused");
+            CameraStop = MRUKNative.LoadFunction<CameraStopDelegate>("CameraStop");
+            ConvertToXrTimeInSeconds = MRUKNative.LoadFunction<ConvertToXrTimeInSecondsDelegate>("ConvertToXrTimeInSeconds");
         }
 
         internal static void UnloadNativeFunctions()
         {
             SetLogPrinter = null;
-            AnchorStoreCreate = null;
-            AnchorStoreCreateWithoutOpenXr = null;
-            AnchorStoreShutdownOpenXr = null;
-            AnchorStoreDestroy = null;
-            AnchorStoreSetBaseSpace = null;
-            AnchorStoreStartDiscovery = null;
-            AnchorStoreStartQueryByLocalGroup = null;
-            AnchorStoreLoadSceneFromJson = null;
-            AnchorStoreSaveSceneToJson = null;
-            AnchorStoreFreeJson = null;
-            AnchorStoreLoadSceneFromPrefab = null;
-            AnchorStoreClearRooms = null;
-            AnchorStoreClearRoom = null;
-            AnchorStoreOnOpenXrEvent = null;
-            AnchorStoreTick = null;
-            AnchorStoreRegisterEventListener = null;
-            AnchorStoreRaycastRoom = null;
-            AnchorStoreRaycastRoomAll = null;
-            AnchorStoreRaycastAnchor = null;
-            AnchorStoreRaycastAnchorAll = null;
-            AnchorStoreIsDiscoveryRunning = null;
-            AnchorStoreGetWorldLockOffset = null;
+            CreateGlobalContext = null;
+            DestroyGlobalContext = null;
+            InitOpenXr = null;
+            ShutdownOpenXr = null;
+            InitUnityInterfaces = null;
+            SetBaseSpace = null;
+            StartDiscovery = null;
+            StartQueryByLocalGroup = null;
+            LoadSceneFromJson = null;
+            SaveSceneToJson = null;
+            FreeJson = null;
+            LoadSceneFromPrefab = null;
+            ClearRooms = null;
+            ClearRoom = null;
+            OnOpenXrEvent = null;
+            TickGlobalContext = null;
+            RegisterEventListener = null;
+            RaycastRoom = null;
+            RaycastRoomAll = null;
+            RaycastAnchor = null;
+            RaycastAnchorAll = null;
+            IsPositionInRoom = null;
+            GetCurrentRoom = null;
+            IsDiscoveryRunning = null;
+            GetWorldLockOffset = null;
             AddVectors = null;
             TriangulatePolygon = null;
             FreeMesh = null;
@@ -600,6 +839,16 @@ namespace Meta.XR.MRUtilityKit
             PerformEnvironmentRaycast = null;
             SetTrackingSpacePoseGetter = null;
             SetTrackingSpacePoseSetter = null;
+            ConfigureTrackers = null;
+            SetTrackersUpdateInterval = null;
+            CameraGetSupportedResolutions = null;
+            CameraFreeSupportedResolutions = null;
+            CameraPlay = null;
+            CameraAcquireLatestImage = null;
+            CameraReleaseLatestImage = null;
+            CameraOnApplicationFocused = null;
+            CameraStop = null;
+            ConvertToXrTimeInSeconds = null;
         }
 
     }

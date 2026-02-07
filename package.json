@@ -1,7 +1,7 @@
 {
   "name": "com.meta.xr.mrutilitykit",
   "displayName": "Meta MR Utility Kit",
-  "version": "78.0.0",
+  "version": "81.0.0",
   "description": "Helper tools & functions to simplify development with Scene API. Works on Mac & PC, without a device attached.",
   "samples": [
     {
@@ -16,7 +16,7 @@
     "name": "Meta Platforms, Inc.",
     "url": "https://developer.oculus.com/"
   },
-  "licensesUrl": "https://developer.oculus.com/licenses/oculussdk",
+  "licensesUrl": "https://developers.meta.com/horizon/licenses/oculussdk/",
   "licenseMessage": "By adding or using this package you agree to the terms and conditions of the Meta Platforms Technologies SDK License Agreement: https://developer.oculus.com/licenses/oculussdk",
   "keywords": [
     "Meta"
@@ -24,7 +24,7 @@
   "dependencies": {
     "com.unity.ai.navigation": "1.1.4",
     "com.unity.nuget.newtonsoft-json": "3.0.2",
-    "com.meta.xr.sdk.core": "78.0.0",
+    "com.meta.xr.sdk.core": "81.0.0",
     "com.unity.textmeshpro": "3.0.6"
   },
   "documentationUrl": "https://developer.oculus.com/documentation/unity/unity-mr-utility-kit-overview",

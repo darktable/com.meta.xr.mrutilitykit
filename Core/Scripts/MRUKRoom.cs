@@ -53,6 +53,7 @@ namespace Meta.XR.MRUtilityKit
     [Feature(Feature.Scene)]
     public class MRUKRoom : MonoBehaviour
     {
+
         /// <summary>
         /// The primary anchor associated with the room.
         /// You should not need to use this directly, only
@@ -66,29 +67,18 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public bool IsLocal => Anchor.Handle != 0;
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
         /// <summary>
         /// This is the pose of the anchor when it was created. It is identical to the pose stored in the MRUK Shared library.
-        /// Initially the game object's transform will also be equal to this pose, but if third party code moves the game object it may diverge.
+        /// We use this to ensure third party code doesn't move the game object, doing so will cause the transform to get out
+        /// of sync with the shared library which causes issues.
         /// </summary>
         internal Pose InitialPose
         {
             get;
             set;
         } = Pose.identity;
-
-        /// <summary>
-        /// This is the delta between the pose of the anchor when it was initially created and game object's current transform.
-        /// This will be identity unless third party code has moved the game object after creation.
-        /// </summary>
-        internal Pose DeltaPose
-        {
-            get
-            {
-                var deltaRotation = transform.rotation * Quaternion.Inverse(InitialPose.rotation);
-                return new Pose(transform.position - deltaRotation * InitialPose.position, deltaRotation);
-            }
-        }
-
+#endif
 
         /// <summary>
         /// Contains all the scene anchors in the room.
@@ -134,6 +124,8 @@ namespace Meta.XR.MRUtilityKit
         /// The global mesh anchor in the room. There is only one single instance of this object per room
         /// </summary>
         public MRUKAnchor GlobalMeshAnchor { get; internal set; }
+
+
 
         /// <summary>
         /// Represents a seat poses in the room, that exist only on <see cref="MRUKAnchor"/> labeled as COUCH.
@@ -275,6 +267,18 @@ namespace Meta.XR.MRUtilityKit
         }
         ///@endcond
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void Update()
+        {
+            if (transform.position != InitialPose.position ||
+                transform.rotation != InitialPose.rotation ||
+                transform.localScale != Vector3.one)
+            {
+                Debug.LogError($"The transform of MRUKRoom has changed! UUID: {Anchor.Uuid}. This should only be modified by MRUK, changing the transform will result in undefined behaviour.");
+            }
+        }
+#endif
+
         /// <summary>
         /// Shares this room with the specified group
         /// </summary>
@@ -331,7 +335,7 @@ namespace Meta.XR.MRUtilityKit
             }
 
             CalculateSeatPoses();
-            CalculateHierarchyReferences();
+            UpdateHierarchyReferences();
         }
 
         /// <summary>
@@ -361,7 +365,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 FloorAnchor = null;
             }
-            Utilities.DestroyGameObjectAndChildren(anchor.gameObject);
+            Utilities.DestroyGameObjectAndChildren(anchor);
         }
 
         /// <summary>
@@ -767,30 +771,7 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>True if the position is within the room's boundaries, false otherwise.</returns>
         public bool IsPositionInRoom(Vector3 queryPosition, bool testVerticalBounds = true)
         {
-            //this is a fallback because the anchor can be deleted but this gets only updated once per frame
-            if (FloorAnchor == null)
-            {
-                return false;
-            }
-            var isInRoom = false;
-
-            var localPos = FloorAnchor.transform.InverseTransformPoint(queryPosition);
-            isInRoom |= FloorAnchor.IsPositionInBoundary(localPos);
-
-
-            // by default, this just tests the bounds when viewed top-down
-            // to truly be a 3D test, also check the floor/ceiling
-            if (testVerticalBounds)
-            {
-                var roomBounds = GetRoomBounds();
-                isInRoom &= TestVerticalBounds(queryPosition, roomBounds);
-            }
-            return isInRoom;
-        }
-
-        private bool TestVerticalBounds(Vector3 queryPosition, Bounds roomBounds)
-        {
-            return (queryPosition.y <= roomBounds.max.y && queryPosition.y >= roomBounds.min.y);
+            return MRUKNativeFuncs.IsPositionInRoom(Anchor.Uuid, MRUK.FlipZ(queryPosition), testVerticalBounds);
         }
 
         /// <summary>
@@ -1051,139 +1032,17 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     (internal only) <br />
-        ///     One-time calcuation, finds parent-child relationships between anchors. <br />
-        ///     Because this relationship isn't a literal scene-graph hierarchy, we can't just use transform.parent or transform.GetChild()
+        /// Populate the child references.
         /// </summary>
-        void CalculateHierarchyReferences()
+        void UpdateHierarchyReferences()
         {
-            const float coPlanarTolerance = 0.1f;
-            for (int i = 0; i < Anchors.Count; i++)
+            foreach (var anchor in Anchors)
             {
-                Anchors[i].ClearChildReferences();
-                Anchors[i].ParentAnchor = null;
+                anchor.ClearChildReferences();
             }
-
-            for (int i = 0; i < Anchors.Count; i++)
+            foreach (var anchor in Anchors)
             {
-                if (Anchors[i].HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE) && Anchors[i].PlaneRect.HasValue)
-                {
-                    // find all _anchors that are a "child" of this wall using heuristics
-                    for (int k = 0; k < Anchors.Count; k++)
-                    {
-                        if (Anchors[k] == Anchors[i])
-                        {
-                            continue;
-                        }
-
-                        if (Anchors[k].PlaneRect.HasValue && !Anchors[k].VolumeBounds.HasValue)
-                        {
-                            float angle = Vector3.Angle(Anchors[k].transform.right, Anchors[i].transform.right);
-                            // first check if they're co-planar (X-axes closely align)
-                            bool alignsWithWall = (angle <= 5.0f);
-                            // then check if it's close enough to the wall in local-Z
-                            Vector3 localPos = Anchors[i].transform.InverseTransformPoint(Anchors[k].transform.position);
-                            bool positionedOnWall = Mathf.Abs(localPos.z) <= coPlanarTolerance;
-                            // then check if the center is within the bounds
-                            // (checking each edge should be unnecessary, since they must be created on the wall via Room Setup)
-                            bool withinWall = localPos.x <= Anchors[i].PlaneRect.Value.max.x && localPos.x >= Anchors[i].PlaneRect.Value.min.x;
-
-                            // through these checks, we should have very high confidence that these anchors are related, even if the individual tolerances are generous
-                            if (alignsWithWall && positionedOnWall && withinWall)
-                            {
-                                // take careful note of the iterators (i,k)
-                                Anchors[i].AddChildReference(Anchors[k]);
-                                Anchors[k].ParentAnchor = Anchors[i];
-                            }
-                        }
-                    }
-                }
-                else if (Anchors[i].HasAnyLabel(MRUKAnchor.SceneLabels.FLOOR))
-                {
-                    // check volumes that are on the floor (should be all volumes, unless volumes are stacked)
-                    for (int k = 0; k < Anchors.Count; k++)
-                    {
-                        if (Anchors[k].VolumeBounds.HasValue)
-                        {
-                            Vector3 volumeCenterBottom = Anchors[k].transform.position + Vector3.up * Anchors[k].VolumeBounds.Value.min.z;
-
-                            bool volumeOnFloor = (volumeCenterBottom.y - Anchors[i].transform.position.y) <= coPlanarTolerance;
-
-                            if (volumeOnFloor)
-                            {
-                                // take careful note of the iterators (i,k)
-                                Anchors[i].AddChildReference(Anchors[k]);
-                                Anchors[k].ParentAnchor = Anchors[i];
-                            }
-                        }
-                    }
-                }
-                else if (Anchors[i].VolumeBounds.HasValue)
-                {
-                    Bounds parentVolumeBounds = Anchors[i].VolumeBounds.Value;
-
-                    // treat this anchor (i) as a parent, and search for a child (k)
-                    for (int k = 0; k < Anchors.Count; k++)
-                    {
-                        if (Anchors[k] == Anchors[i])
-                        {
-                            continue;
-                        }
-
-                        if (Anchors[k].VolumeBounds.HasValue)
-                        {
-                            var childVolumeBounds = Anchors[k].VolumeBounds.Value;
-                            var childAnchorBottom = Anchors[k].transform.position + Vector3.up * Anchors[k].VolumeBounds.Value.min.z;
-                            var parentAnchorTop = Anchors[i].transform.position + Vector3.up * Anchors[i].VolumeBounds.Value.max.z;
-
-                            // if the child's bottom is coplanar with the parent's top, this is likely a hierarchy
-                            var isOnTop = Mathf.Abs(childAnchorBottom.y - parentAnchorTop.y) <= coPlanarTolerance;
-
-                            if (isOnTop)
-                            {
-                                // still need to check to ensure at least one corner is within the bounds of the parent candidate bounds
-                                bool anyCornerInside = false;
-                                for (int c = 0; c < 4; ++c)
-                                {
-                                    // Get a different corner on each iteration of the loop (height is not important here)
-                                    Vector3 cornerPos = new Vector3(c < 2 ? childVolumeBounds.min.x : childVolumeBounds.max.x, c % 2 == 0 ? childVolumeBounds.min.y : childVolumeBounds.max.y, 0.0f);
-                                    // convert corner to world space
-                                    cornerPos = Anchors[k].transform.TransformPoint(cornerPos);
-
-                                    Vector3 parentRelativeCorner = Anchors[i].transform.InverseTransformPoint(cornerPos);
-
-                                    const float fpTolerance = 0.001f; //1 mm
-                                    var b1 = fpTolerance + (parentRelativeCorner.x - parentVolumeBounds.min.x) >= 0;
-                                    var b2 = fpTolerance + (parentVolumeBounds.max.x - parentRelativeCorner.x) >= 0;
-                                    var b3 = fpTolerance + (parentRelativeCorner.y - parentVolumeBounds.min.y) >= 0;
-                                    var b4 = fpTolerance + (parentVolumeBounds.max.y - parentRelativeCorner.y) >= 0;
-
-                                    if (b1 && b2 && b3 && b4)
-                                    {
-                                        anyCornerInside = true;
-                                        break;
-                                    }
-                                }
-
-                                if (anyCornerInside)
-                                {
-
-                                    //check if we already have identified a floor
-                                    if (Anchors[k].ParentAnchor != null)
-                                    {
-                                        if (Anchors[k].ParentAnchor.HasAnyLabel(MRUKAnchor.SceneLabels.FLOOR))
-                                        {
-                                            continue; //we do not overwrite an identified floor parent. this can happen when bounding boxes on the floor are colliding
-                                        }
-                                    }
-                                    // take careful note of the iterators (i,k)
-                                    Anchors[i].AddChildReference(Anchors[k]);
-                                    Anchors[k].ParentAnchor = Anchors[i];
-                                }
-                            }
-                        }
-                    }
-                }
+                anchor.ParentAnchor?.AddChildReference(anchor);
             }
         }
 
@@ -1618,7 +1477,6 @@ namespace Meta.XR.MRUtilityKit
 
         void OnDestroy()
         {
-            MRUK.Instance?.OnRoomDestroyed(this);
             AnchorCreatedEvent.RemoveAllListeners();
             AnchorRemovedEvent.RemoveAllListeners();
             AnchorUpdatedEvent.RemoveAllListeners();

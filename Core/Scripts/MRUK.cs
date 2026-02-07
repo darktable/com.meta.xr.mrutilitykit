@@ -314,7 +314,8 @@ namespace Meta.XR.MRUtilityKit
         [HideInInspector]
         public Matrix4x4 TrackingSpaceOffset = Matrix4x4.identity;
 
-        internal OVRCameraRig _cameraRig { get; private set; }
+        internal int currentRoomLoadedIndex = -1;
+
         private bool _worldLockActive = false;
         private bool _worldLockWasEnabled = false;
         private bool _loadSceneCalled = false;
@@ -412,45 +413,8 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>The current <see cref="MRUKRoom"/> based on the headset's position, or null if no rooms are available.</returns>
         public MRUKRoom GetCurrentRoom()
         {
-            // This is a rather expensive operation, we should only do it at most once per frame.
-            if (_cachedCurrentRoomFrame != Time.frameCount)
-            {
-                if (_cameraRig?.centerEyeAnchor.position is Vector3 eyePos)
-                {
-                    MRUKRoom currentRoom = null;
-                    foreach (var room in Rooms)
-                    {
-                        if (room.IsPositionInRoom(eyePos, false))
-                        {
-                            currentRoom = room;
-                            // In some cases the user may be in multiple rooms at once. If this happens
-                            // then we give precedence to rooms which have been loaded locally
-                            if (room.IsLocal)
-                            {
-                                break;
-                            }
-                        }
-                    }
-                    if (currentRoom != null)
-                    {
-                        _cachedCurrentRoom = currentRoom;
-                        _cachedCurrentRoomFrame = Time.frameCount;
-                        return currentRoom;
-                    }
-                }
-            }
-
-            if (_cachedCurrentRoom != null)
-            {
-                return _cachedCurrentRoom;
-            }
-
-            if (Rooms.Count > 0)
-            {
-                return Rooms[0];
-            }
-
-            return null;
+            Guid roomUuid = Guid.Empty;
+            return MRUKNativeFuncs.GetCurrentRoom(ref roomUuid) ? FindRoomByUuid(roomUuid) : null;
         }
 
         /// <summary>
@@ -541,10 +505,6 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public MRUKSettings SceneSettings;
 
-        MRUKRoom _cachedCurrentRoom = null;
-        int _cachedCurrentRoomFrame = 0;
-
-
         /// <summary>
         ///     List of all the rooms in the scene.
         /// </summary>
@@ -567,25 +527,17 @@ namespace Meta.XR.MRUtilityKit
 
         void Awake()
         {
-            _cameraRig = FindAnyObjectByType<OVRCameraRig>();
-
+            if (OVRCameraRig.Instance == null)
+            {
+                Debug.LogError(nameof(OVRCameraRig) + " is not present, but MRUK requires it. Please add " + nameof(OVRCameraRig) + " to your scene via 'Meta / Tools / Building Blocks / Camera Rig'.");
+            }
             if (Instance != null && Instance != this)
             {
                 Debug.Assert(false, "There should be only one instance of MRUK!");
                 Destroy(this);
+                return;
             }
-            else
-            {
-                Instance = this;
-            }
-
-            MRUKNative.LoadMRUKSharedLibrary();
-            unsafe
-            {
-                MRUKNativeFuncs.SetLogPrinter(OnSharedLibLog);
-            }
-
-            InitializeAnchorStore();
+            Instance = this;
 
             if (SceneSettings != null && SceneSettings.LoadSceneOnStartup)
             {
@@ -643,9 +595,7 @@ namespace Meta.XR.MRUtilityKit
         {
             if (Instance == this)
             {
-                DestroyAnchorStore();
-                // Free the shared library when the MRUK instance is destroyed
-                MRUKNative.FreeMRUKSharedLibrary();
+                ClearScene();
                 Instance = null;
                 RoomCreatedEvent.RemoveAllListeners();
                 RoomRemovedEvent.RemoveAllListeners();
@@ -690,7 +640,7 @@ namespace Meta.XR.MRUtilityKit
         [MonoPInvokeCallback(typeof(MRUKNativeFuncs.TrackingSpacePoseGetter))]
         private static Pose GetTrackingSpacePose()
         {
-            var trackingSpace = GetTrackingSpace();
+            var trackingSpace = OVRCameraRig.GetTrackingSpace();
             Pose trackingSpacePose = trackingSpace != null ? new Pose(trackingSpace.position, trackingSpace.rotation) : Pose.identity;
             var openXrPose = FlipZRotateY180(trackingSpacePose);
             return FlipZRotateY180(Pose.identity).GetTransformedBy(openXrPose);
@@ -701,17 +651,11 @@ namespace Meta.XR.MRUtilityKit
         {
             var openXrPoseRelativeToIdentity = FlipZRotateY180(Pose.identity).GetTransformedBy(openXrPose);
             var trackingSpacePose = FlipZRotateY180(openXrPoseRelativeToIdentity);
-            GetTrackingSpace()?.SetPositionAndRotation(trackingSpacePose.position, trackingSpacePose.rotation);
-        }
-
-        private static Transform GetTrackingSpace()
-        {
-            if (Instance != null && Instance._cameraRig != null)
+            var trackingSpace = OVRCameraRig.GetTrackingSpace();
+            if (trackingSpace)
             {
-                return Instance._cameraRig.trackingSpace;
+                trackingSpace.SetPositionAndRotation(trackingSpacePose.position, trackingSpacePose.rotation);
             }
-            Debug.LogError(nameof(OVRCameraRig) + " is not present, but MRUK requires it. Please add " + nameof(OVRCameraRig) + " to your scene via 'Meta / Tools / Building Blocks / Camera Rig'.");
-            return null;
         }
 
         private void Update()
@@ -731,51 +675,38 @@ namespace Meta.XR.MRUtilityKit
 #endif
             }
 
-            UpdateAnchorStore();
+            UpdateGlobalContext();
 
             bool worldLockActive = false;
 
-            if (_cameraRig)
+            var trackingSpace = OVRCameraRig.GetTrackingSpace();
+            if (trackingSpace)
             {
                 if (EnableWorldLock)
                 {
-                    var room = GetCurrentRoom();
-                    if (room)
+                    Pose sharedLibOffset = Pose.identity;
+                    if (MRUKNativeFuncs.GetWorldLockOffset(ref sharedLibOffset))
                     {
-                        Pose sharedLibOffset = Pose.identity;
-                        if (MRUKNativeFuncs.AnchorStoreGetWorldLockOffset(room.Anchor.Uuid, ref sharedLibOffset))
+                        if (_prevTrackingSpacePose is Pose pose && (trackingSpace.position != pose.position || trackingSpace.rotation != pose.rotation))
                         {
-                            if (_prevTrackingSpacePose is Pose pose && (_cameraRig.trackingSpace.position != pose.position || _cameraRig.trackingSpace.rotation != pose.rotation))
-                            {
-                                Debug.LogWarning("MRUK EnableWorldLock is enabled and is controlling the tracking space position.\n" +
-                                                 $"Tracking position was set to {_cameraRig.trackingSpace.position} and rotation to {_cameraRig.trackingSpace.rotation}, this is being overridden by MRUK.\n" +
-                                                 $"Use '{nameof(TrackingSpaceOffset)}' instead to translate or rotate the TrackingSpace.");
-                            }
-
-                            sharedLibOffset = FlipZ(sharedLibOffset);
-                            Pose deltaPose;
-                            if (room.FloorAnchor is not null && room.FloorAnchor.HasValidHandle)
-                            {
-                                deltaPose = room.FloorAnchor.DeltaPose;
-                            }
-                            else
-                            {
-                                deltaPose = room.DeltaPose;
-                            }
-                            deltaPose = sharedLibOffset.GetTransformedBy(deltaPose);
-                            var position = TrackingSpaceOffset.MultiplyPoint3x4(deltaPose.position);
-                            var rotation = TrackingSpaceOffset.rotation * deltaPose.rotation;
-                            _cameraRig.trackingSpace.SetPositionAndRotation(position, rotation);
-                            _prevTrackingSpacePose = new(position, rotation);
-                            worldLockActive = true;
+                            Debug.LogWarning("MRUK EnableWorldLock is enabled and is controlling the tracking space position.\n" +
+                                             $"Tracking position was set to {trackingSpace.position} and rotation to {trackingSpace.rotation}, this is being overridden by MRUK.\n" +
+                                             $"Use '{nameof(TrackingSpaceOffset)}' instead to translate or rotate the TrackingSpace.");
                         }
+
+                        Pose deltaPose = FlipZ(sharedLibOffset);
+                        var position = TrackingSpaceOffset.MultiplyPoint3x4(deltaPose.position);
+                        var rotation = TrackingSpaceOffset.rotation * deltaPose.rotation;
+                        trackingSpace.SetPositionAndRotation(position, rotation);
+                        _prevTrackingSpacePose = new(position, rotation);
+                        worldLockActive = true;
                     }
                 }
                 else if (_worldLockWasEnabled)
                 {
                     // Reset the tracking space when disabling world lock
-                    _cameraRig.trackingSpace.localPosition = Vector3.zero;
-                    _cameraRig.trackingSpace.localRotation = Quaternion.identity;
+                    trackingSpace.localPosition = Vector3.zero;
+                    trackingSpace.localRotation = Quaternion.identity;
                     _prevTrackingSpacePose = null;
                 }
 
@@ -813,11 +744,11 @@ namespace Meta.XR.MRUtilityKit
 
                     // Clone the roomPrefab, but essentially replace all its content
                     // if -1 or out of range, use a random one
-                    var roomIndex = GetRoomIndex(true);
+                    currentRoomLoadedIndex = GetRoomIndex(true);
 
-                    Debug.Log($"Loading prefab room {roomIndex}");
+                    Debug.Log($"Loading prefab room {currentRoomLoadedIndex}");
 
-                    var roomPrefab = SceneSettings.RoomPrefabs[roomIndex];
+                    var roomPrefab = SceneSettings.RoomPrefabs[currentRoomLoadedIndex];
                     await LoadSceneFromPrefab(roomPrefab);
                 }
 
@@ -826,11 +757,11 @@ namespace Meta.XR.MRUtilityKit
                 {
                     if (SceneSettings.SceneJsons.Length != 0)
                     {
-                        var roomIndex = GetRoomIndex(false);
+                        currentRoomLoadedIndex = GetRoomIndex(false);
 
-                        Debug.Log($"Loading SceneJson {roomIndex}");
+                        Debug.Log($"Loading SceneJson {currentRoomLoadedIndex}");
 
-                        var ta = SceneSettings.SceneJsons[roomIndex];
+                        var ta = SceneSettings.SceneJsons[currentRoomLoadedIndex];
                         await LoadSceneFromJsonString(ta.text);
                     }
 #pragma warning disable CS0612 // Type or member is obsolete
@@ -859,27 +790,13 @@ namespace Meta.XR.MRUtilityKit
             var idx = SceneSettings.RoomIndex;
             if (idx == -1)
             {
-                idx = UnityEngine.Random.Range(0, fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
+                idx = UnityEngine.Random.Range(0,
+                    fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
+                currentRoomLoadedIndex = UnityEngine.Random.Range(0,
+                    fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
             }
 
             return idx;
-        }
-
-        /// <summary>
-        ///     Called when the room is destroyed
-        /// </summary>
-        /// <remarks>
-        ///     This is used to keep the list of active rooms up to date.
-        ///     So there should never be any null entries in the list.
-        /// </remarks>
-        /// <param name="room"></param>
-        internal void OnRoomDestroyed(MRUKRoom room)
-        {
-            Rooms.Remove(room);
-            if (_cachedCurrentRoom == room)
-            {
-                _cachedCurrentRoom = null;
-            }
         }
 
         /// <summary>
@@ -887,7 +804,11 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public void ClearScene()
         {
-            ClearSceneSharedLib();
+            if (MRUKNativeFuncs.ClearRooms != null)
+            {
+                MRUKNativeFuncs.ClearRooms();
+            }
+            IsInitialized = false;
         }
 
         /// <summary>

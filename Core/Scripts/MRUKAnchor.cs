@@ -47,6 +47,7 @@ namespace Meta.XR.MRUtilityKit
     /// </example>
     [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_m_r_u_k_anchor")]
     [Feature(Feature.Scene)]
+    [Serializable]
     public class MRUKAnchor : MonoBehaviour
     {
         /// <summary>
@@ -90,28 +91,18 @@ namespace Meta.XR.MRUtilityKit
         public List<string> AnchorLabels => Utilities.SceneLabelsEnumToList(Label);
         /// @endcond
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
         /// <summary>
         /// This is the pose of the anchor when it was created. It is identical to the pose stored in the MRUK Shared library.
-        /// Initially the game object's transform will also be equal to this pose, but if third party code moves the game object it may diverge.
+        /// We use this to ensure third party code doesn't move the game object, doing so will cause the transform to get out
+        /// of sync with the shared library which causes issues.
         /// </summary>
         internal Pose InitialPose
         {
             get;
             set;
         } = Pose.identity;
-
-        /// <summary>
-        /// This is the delta between the pose of the anchor when it was initially created and game object's current transform.
-        /// This will be identity unless third party code has moved the game object after creation.
-        /// </summary>
-        internal Pose DeltaPose
-        {
-            get
-            {
-                var deltaRotation = transform.rotation * Quaternion.Inverse(InitialPose.rotation);
-                return new Pose(transform.position - deltaRotation * InitialPose.position, deltaRotation);
-            }
-        }
+#endif
 
         /// <summary>
         /// The scene label categorizing the anchor.
@@ -135,7 +126,8 @@ namespace Meta.XR.MRUtilityKit
         /// A list of local-space points defining the boundary of the plane associated with the anchor.
         /// This is useful for any spatial calculations.
         /// </summary>
-        public List<Vector2> PlaneBoundary2D { get; internal set; }
+        [field: SerializeField]
+        public List<Vector2> PlaneBoundary2D { get; internal set; } = new();
 
         /// <summary>
         /// Reference to the scene anchor associated with this anchor. You should not need to use this directly, only
@@ -147,16 +139,25 @@ namespace Meta.XR.MRUtilityKit
         /// Reference to the parent room object. This is set during construction.
         /// Do not set this directly.
         /// </summary>
+        [field: SerializeField]
         public MRUKRoom Room { get; internal set; }
 
         /// <summary>
-        /// References to child anchors, populated via <see cref="MRUKRoom.CalculateHierarchyReferences"/>.
+        /// A ParentAnchor can be one of the following:
+        /// - For Wall Art, Door/Window Frames, the parent anchor will be the wall it is attached to
+        /// - For volumes it will the floor or another volume if they are stacked on top of each other
+        ///
+        /// Note that this relationship is inferred based on the positioning and size of the anchors,
+        /// and it is not guaranteed to be 100% accurate.
         /// </summary>
+        [field: SerializeField]
         public MRUKAnchor ParentAnchor { get; internal set; }
 
         /// <summary>
-        /// A list of child anchors associated with this anchor.
+        /// A list of child anchors associated with this anchor. See <see cref="ParentAnchor"/> for details
+        /// on how this relationship is determined.
         /// </summary>
+        [field: SerializeField]
         public List<MRUKAnchor> ChildAnchors { get; internal set; } = new List<MRUKAnchor>();
 
         /// @cond
@@ -217,8 +218,23 @@ namespace Meta.XR.MRUtilityKit
             private set => _mesh = value;
         }
 
+        [field: SerializeField]
         private Mesh _mesh;
 
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void Update()
+        {
+            var position = this is MRUKTrackable ? transform.localPosition : transform.position;
+            var rotation = this is MRUKTrackable ? transform.localRotation : transform.rotation;
+            if (position != InitialPose.position ||
+                rotation != InitialPose.rotation ||
+                transform.localScale != Vector3.one)
+            {
+                Debug.LogError($"The transform of MRUKAnchor has changed! UUID: {Anchor.Uuid}, Semantic Label: {Label}. This should only be modified by MRUK, changing the transform will result in undefined behaviour.");
+            }
+        }
+#endif
 
         /// <summary>
         /// Performs a raycast against the anchor's plane and volume to determine if and where a ray intersects.

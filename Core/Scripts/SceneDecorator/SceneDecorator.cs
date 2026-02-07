@@ -115,25 +115,6 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                         break;
                 }
             }
-
-            if (!TrackUpdates)
-            {
-                return;
-            }
-
-            MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveRoomCreated);
-            MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRoomRemoved);
-        }
-
-        private void OnDestroy()
-        {
-            if (MRUK.Instance == null)
-            {
-                return;
-            }
-
-            MRUK.Instance.RoomCreatedEvent.RemoveListener(ReceiveRoomCreated);
-            MRUK.Instance.RoomRemovedEvent.RemoveListener(ReceiveRoomRemoved);
         }
 
         private void InitPools()

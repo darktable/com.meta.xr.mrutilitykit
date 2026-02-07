@@ -34,7 +34,7 @@ namespace Meta.XR.MRUtilityKit
         private SerializedProperty _globalMeshMaterialProp;
         private SerializedProperty _pointsPerUnitXProp;
         private SerializedProperty _pointsPerUnitYProp;
-        private SerializedProperty _maxPointsCountProp;
+        private SerializedProperty _pointsPerUnitZProp;
         private SerializedProperty _onDestructibleMeshCreatedProp;
 
         private void OnEnable()
@@ -47,7 +47,7 @@ namespace Meta.XR.MRUtilityKit
             _globalMeshMaterialProp = serializedObject.FindProperty("_globalMeshMaterial");
             _pointsPerUnitXProp = serializedObject.FindProperty("_pointsPerUnitX");
             _pointsPerUnitYProp = serializedObject.FindProperty("_pointsPerUnitY");
-            _maxPointsCountProp = serializedObject.FindProperty("_maxPointsCount");
+            _pointsPerUnitZProp = serializedObject.FindProperty("_pointsPerUnitZ");
         }
 
         public override void OnInspectorGUI()
@@ -86,9 +86,8 @@ namespace Meta.XR.MRUtilityKit
                     "Specifies the number of points per unit along the X-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance."));
             EditorGUILayout.PropertyField(_pointsPerUnitYProp, new GUIContent("Points Per Unit Y",
                 "Specifies the number of points per unit along the Y-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance."));
-            EditorGUILayout.PropertyField(_maxPointsCountProp,
-                new GUIContent("Max Point Count",
-                    "The maximum number of points that the destructible mesh can contain. The higher number of points the higher the impact on performance"));
+            EditorGUILayout.PropertyField(_pointsPerUnitZProp, new GUIContent("Points Per Unit Z",
+                "Specifies the number of points per unit along the Z-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance."));
             EditorGUILayout.Space();
 
             EditorGUILayout.PropertyField(_reserveSpaceProp,
@@ -112,9 +111,9 @@ namespace Meta.XR.MRUtilityKit
             EditorGUILayout.Space();
             if (GUILayout.Button("Spawn Destructible Global Mesh"))
             {
-                if (EnsurePlayMode())
+                if (Utilities.EnsurePlayMode())
                 {
-                    ExecuteAction(
+                    Utilities.ExecuteAction(
                         () => spawner.AddDestructibleGlobalMesh(MRUK.Instance.GetCurrentRoom()),
                         "Destructible meshes spawned.");
                 }
@@ -122,50 +121,22 @@ namespace Meta.XR.MRUtilityKit
 
             if (GUILayout.Button("Clear Spawned Mesh"))
             {
-                if (EnsurePlayMode())
+                if (Utilities.EnsurePlayMode())
                 {
-                    ExecuteAction(() => spawner.RemoveDestructibleGlobalMesh(),
+                    Utilities.ExecuteAction(() => spawner.RemoveDestructibleGlobalMesh(),
                         "Spawned destructible meshes cleared.");
                 }
             }
 
-            if (spawner.MaxPointsCount <= 0)
+            if (spawner.PointsPerUnitX <= 0 || spawner.PointsPerUnitY <= 0 || spawner.PointsPerUnitZ <= 0)
             {
-                EditorGUILayout.HelpBox("Max Points Count should be greater than 0.", MessageType.Warning);
-            }
-
-            if (spawner.PointsPerUnitX <= 0 || spawner.PointsPerUnitY <= 0)
-            {
-                EditorGUILayout.HelpBox("Points Per Unit should be greater than 0 for both X and Y axes.",
+                EditorGUILayout.HelpBox("Points Per Unit should be greater than 0 for X, Y, and Z axes.",
                     MessageType.Warning);
             }
 
             serializedObject.ApplyModifiedProperties(); // Write back modified values and handle undo/redo
         }
 
-        private bool EnsurePlayMode()
-        {
-            if (Application.isPlaying)
-            {
-                return true;
-            }
 
-            EditorUtility.DisplayDialog("Operation Not Available",
-                "This operation is only available in Play Mode.", "OK");
-            return false;
-        }
-
-        private void ExecuteAction(Action action, string successMessage)
-        {
-            try
-            {
-                action();
-                Debug.Log(successMessage);
-            }
-            catch (Exception e)
-            {
-                EditorUtility.DisplayDialog("Operation Not Available", e.Message, "OK");
-            }
-        }
     }
 }

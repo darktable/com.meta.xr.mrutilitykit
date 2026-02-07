@@ -19,15 +19,16 @@
  */
 
 using System;
+using System.Collections;
 using Meta.XR.EnvironmentDepth;
 using Meta.XR.MRUtilityKit;
 using UnityEngine;
+using UnityEngine.Android;
 using UnityEngine.Assertions;
 
 namespace Meta.XR
 {
     /// <summary>
-    /// Please note: <see cref="EnvironmentRaycastManager"/> is currently in BETA. You can ship your app to the store with it, but its API may change in future versions of MRUK.<br/>
     /// This component uses Depth API to provide raycasting functionality against the physical environment.<br/>
     /// Enabling this component adds the additional performance cost to the cost of using Depth API, so consider enabling it only when you need the raycasting functionality.<br/>
     /// This component automatically adds and enables the <see cref="EnvironmentDepthManager"/>.
@@ -39,8 +40,21 @@ namespace Meta.XR
         private static readonly IEnvironmentRaycastProvider _provider = CreateProvider();
         private static bool? _isSupported;
 
+        private static bool IsUsingOpenXRProvider()
+        {
+#if META_USE_DEPTH_MANAGER_RAYCASTING
+            return false;
+#else
+            return true;
+#endif
+        }
+
         private static IEnvironmentRaycastProvider CreateProvider()
         {
+            if (IsUsingOpenXRProvider())
+            {
+                return new EnvironmentRaycastProviderMeta();
+            }
             return new EnvironmentRaycastProviderDepthManager();
         }
 
@@ -49,23 +63,31 @@ namespace Meta.XR
             Assert.IsNull(_instance, $"More than one {nameof(EnvironmentRaycastManager)} component. Only one instance is allowed at a time. New instance: {name}");
             if (!IsSupported)
             {
-                Debug.LogError($"{nameof(EnvironmentRaycastManager)} is not supported. Please check the '{nameof(IsSupported)}' property before enabling this component.");
+                Debug.LogError($"{nameof(EnvironmentRaycastManager)} is not supported. Please check the '{nameof(IsSupported)}' property before enabling this component.\n" +
+                               "Open 'Meta > Tools > Project Setup Tool' to see requirements.\n");
+#if UNITY_EDITOR
+                Debug.LogError("When running in Editor over Meta Quest Link, please enable 'Settings > Beta > Spatial Data over Meta Quest Link'.");
+#endif
             }
             _instance = this;
         }
 
         private void OnDestroy() => _instance = null;
 
-        private void Start() => OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadEnvironmentRaycastManager).Send();
+        private void Start()
+        {
+            int markerId = IsUsingOpenXRProvider() ? TelemetryConstants.MarkerId.LoadEnvironmentRaycastManagerOpenXR : TelemetryConstants.MarkerId.LoadEnvironmentRaycastManager;
+            OVRTelemetry.Start(markerId).Send();
+        }
 
         private void OnEnable() => SetProviderEnabled(true);
         private void OnDisable() => SetProviderEnabled(false);
 
-        private static void SetProviderEnabled(bool isEnabled)
+        private void SetProviderEnabled(bool isEnabled)
         {
             if (IsSupported)
             {
-                _provider.SetEnabled(isEnabled);
+                _provider.SetEnabled(isEnabled, this);
             }
         }
 
@@ -100,7 +122,7 @@ namespace Meta.XR
                 }
             }
 
-            void IEnvironmentRaycastProvider.SetEnabled(bool isEnabled)
+            void IEnvironmentRaycastProvider.SetEnabled(bool isEnabled, EnvironmentRaycastManager _)
             {
                 if (isEnabled)
                 {
@@ -261,6 +283,176 @@ namespace Meta.XR
             }
         }
 
+        /// <summary>
+        /// This transform allows you to override the default tracking space.
+        /// </summary>
+        [SerializeField] public Transform CustomTrackingSpace;
+
+        private Transform GetTrackingSpace()
+        {
+            if (CustomTrackingSpace != null)
+            {
+                return CustomTrackingSpace;
+            }
+            return OVRCameraRig.GetTrackingSpace();
+        }
+
+        private class EnvironmentRaycastProviderMeta : IEnvironmentRaycastProvider
+        {
+            private unsafe readonly OVRPlugin.RaycastFilterHeader*[] _filters = new OVRPlugin.RaycastFilterHeader*[1];
+            private bool _isEnabled;
+            private bool _isCreating;
+            private ulong? _handle;
+            private int _lastTrackingSpaceUpdateFrame = -1;
+            private Matrix4x4 _worldToTrackingMatrix = Matrix4x4.identity;
+            private Matrix4x4 _trackingToWorldMatrix = Matrix4x4.identity;
+
+            bool IEnvironmentRaycastProvider.IsSupported => OVRPlugin.GetEnvironmentRaycastSupported(out bool isSupported).IsSuccess() && isSupported;
+
+            void IEnvironmentRaycastProvider.SetEnabled(bool isEnabled, EnvironmentRaycastManager raycastManager)
+            {
+                _isEnabled = isEnabled;
+                if (!_isCreating)
+                {
+                    raycastManager.StopCoroutine(WaitForPermissionsAndCreateHandle());
+                    if (isEnabled)
+                    {
+                        if (Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
+                        {
+                            CreateHandle();
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"{nameof(EnvironmentRaycastManager)} doesn't have the required camera permission: {OVRPermissionsRequester.ScenePermission}. Waiting for permission before enabling environment raycast...", raycastManager);
+                            raycastManager.StartCoroutine(WaitForPermissionsAndCreateHandle());
+                        }
+                    }
+                    else if (_handle.HasValue)
+                    {
+                        DestroyEnvironmentRaycaster(_handle.Value);
+                        _handle = null;
+                    }
+                }
+            }
+
+            private IEnumerator WaitForPermissionsAndCreateHandle()
+            {
+                while (!Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
+                {
+                    yield return null;
+                }
+                CreateHandle();
+            }
+
+            private async void CreateHandle()
+            {
+                var result = OVRPlugin.CreateEnvironmentRaycasterAsync(out ulong future);
+                if (!result.IsSuccess())
+                {
+                    Debug.LogError($"OVRPlugin.CreateEnvironmentRaycasterAsync() failed with result {result}.");
+                    return;
+                }
+
+                _isCreating = true;
+                result = await OVRFuture.When(future);
+                _isCreating = false;
+
+                if (!result.IsSuccess())
+                {
+                    Debug.LogError($"OVRPlugin.CreateEnvironmentRaycasterAsync() future failed with result {result}.");
+                    return;
+                }
+
+                result = OVRPlugin.CreateEnvironmentRaycasterComplete(future, out var completion);
+                if (!result.IsSuccess())
+                {
+                    Debug.LogError($"OVRPlugin.CreateEnvironmentRaycasterComplete() failed with result {result}.");
+                    return;
+                }
+
+                var handle = completion.EnvironmentRaycaster;
+                if (_isEnabled)
+                {
+                    _handle = handle;
+                }
+                else
+                {
+                    DestroyEnvironmentRaycaster(handle);
+                }
+            }
+
+            private static void DestroyEnvironmentRaycaster(ulong handle)
+            {
+                OVRPlugin.DestroyEnvironmentRaycaster(handle); // can fail when the app is quitting, so no need to check the result and log an error
+            }
+
+            public bool IsReady => _handle.HasValue;
+
+            bool IEnvironmentRaycastProvider.Raycast(Ray ray, out EnvironmentRaycastHit hit, float maxDistance, bool reconstructNormal, bool allowOccludedRayOrigin)
+            {
+                int curFrame = Time.frameCount;
+                if (_lastTrackingSpaceUpdateFrame != curFrame)
+                {
+                    _lastTrackingSpaceUpdateFrame = curFrame;
+                    var trackingSpace = _instance.GetTrackingSpace();
+                    if (trackingSpace != null)
+                    {
+                        _worldToTrackingMatrix = trackingSpace.worldToLocalMatrix;
+                        _trackingToWorldMatrix = trackingSpace.localToWorldMatrix;
+                    }
+                }
+
+                Assert.IsTrue(_handle.HasValue);
+                hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NoHit };
+
+                unsafe
+                {
+                    var distanceFilter = new OVRPlugin.RaycastDistanceFilter
+                    {
+                        Type = OVRPlugin.RaycastFilterType.Distance,
+                        MaxDistance = maxDistance
+                    };
+
+                    _filters[0] = (OVRPlugin.RaycastFilterHeader*)&distanceFilter;
+                    fixed (OVRPlugin.RaycastFilterHeader** pinnedFiltersPointer = &_filters[0])
+                    {
+                        var getInfo = new OVRPlugin.RaycastHitPointGetInfo
+                        {
+                            StartPoint = _worldToTrackingMatrix.MultiplyPoint3x4(ray.origin).ToFlippedZVector3f(),
+                            Direction = _worldToTrackingMatrix.MultiplyVector(ray.direction).ToFlippedZVector3f(),
+                            NumFilter = (uint)_filters.Length,
+                            Filters = pinnedFiltersPointer
+                        };
+
+                        var result = OVRPlugin.PerformEnvironmentRaycast(_handle.Value, getInfo, out var raycastHit);
+                        if (!result.IsSuccess())
+                        {
+                            return false;
+                        }
+
+                        hit.status = raycastHit.Status switch
+                        {
+                            OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_Hit or OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_InvalidOrientation => EnvironmentRaycastHitStatus.Hit,
+                            OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_NoHit => EnvironmentRaycastHitStatus.NoHit,
+                            OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_HitPointOccluded => EnvironmentRaycastHitStatus.HitPointOccluded,
+                            OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_HitPointOutsideFoV => EnvironmentRaycastHitStatus.HitPointOutsideOfCameraFrustum,
+                            OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_RayOccluded => EnvironmentRaycastHitStatus.RayOccluded,
+                            _ => throw new Exception($"Unknown OVRPlugin.PerformEnvironmentRaycast() status: {raycastHit.Status}.")
+                        };
+
+                        var pose = MRUK.FlipZRotateY180(new Pose(raycastHit.Pose.Position.FromVector3f(), raycastHit.Pose.Orientation.FromQuatf()));
+                        hit.point = _trackingToWorldMatrix.MultiplyPoint3x4(pose.position);
+                        if (raycastHit.Status == OVRPlugin.EnvironmentRaycastStatus.EnvironmentRaycastStatus_Hit)
+                        {
+                            hit.normal = _trackingToWorldMatrix.MultiplyVector(pose.rotation * Vector3.forward);
+                            hit.normalConfidence = 1f;
+                        }
+
+                        return hit.status == EnvironmentRaycastHitStatus.Hit;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -286,7 +478,7 @@ namespace Meta.XR
         /// The intersection with the environment is found. <see cref="EnvironmentRaycastManager.Raycast"/> returns 'true' only in this case.
         Hit,
         /// The ray intersects with the environment, but the actual hit point is invisible.<br/>
-        /// The <see cref="EnvironmentRaycastHit.point"/> will contain the last visible point of the ray, but <see cref="EnvironmentRaycastManager.Raycast"/> will return 'false'.
+        /// The <see cref="EnvironmentRaycastHit.point"/> will contain the first point on the ray that's occluded by the environment, but <see cref="EnvironmentRaycastManager.Raycast"/> will return 'false'.
         HitPointOccluded,
         /// The raycasting system is not ready yet or the <see cref="EnvironmentRaycastManager"/> is not enabled. It takes several frames after the <see cref="EnvironmentRaycastManager"/> is enabled before the raycast is ready.
         NotReady,
@@ -303,21 +495,8 @@ namespace Meta.XR
     internal interface IEnvironmentRaycastProvider
     {
         bool IsSupported { get; }
-        void SetEnabled(bool isEnabled);
+        void SetEnabled(bool isEnabled, EnvironmentRaycastManager raycastManager);
         bool IsReady { get; }
         bool Raycast(Ray ray, out EnvironmentRaycastHit hit, float maxDistance = 100f, bool reconstructNormal = true, bool allowOccludedRayOrigin = true);
     }
-
-#if UNITY_EDITOR
-    [UnityEditor.CustomEditor(typeof(EnvironmentRaycastManager))]
-    internal class EnvironmentRaycastManagerInspector : UnityEditor.Editor
-    {
-        public override void OnInspectorGUI()
-        {
-            const string msg = "Please note:\n" + nameof(EnvironmentRaycastManager) + " is currently in Beta. You can ship your app to the store with it, but its API may change in future versions of MRUK.";
-            UnityEditor.EditorGUILayout.HelpBox(msg, UnityEditor.MessageType.Warning);
-            base.OnInspectorGUI();
-        }
-    }
-#endif
 }

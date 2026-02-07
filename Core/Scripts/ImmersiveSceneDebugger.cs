@@ -296,7 +296,6 @@ namespace Meta.XR.MRUtilityKit
 
         private void OnSceneLoaded()
         {
-            CreateDebugPrimitives();
             if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
             {
                 _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
@@ -456,6 +455,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         if (_debugCube != null)
                         {
+                            _debugCube.SetActive(true);
                             var anchorSize = largestSurface.PlaneRect.HasValue ? new Vector3(largestSurface.PlaneRect.Value.width,
                                 largestSurface.PlaneRect.Value.height, 0.01f) : largestSurface.VolumeBounds.Value.size;
                             _debugCube.transform.localScale = anchorSize + new Vector3(0.01f, 0.01f, 0.01f);// avoid z-fighting
@@ -621,11 +621,21 @@ namespace Meta.XR.MRUtilityKit
                     if (_debugSphere != null)
                     {
                         _debugSphere.SetActive(true);
-                        var isInRoom = MRUK.Instance?.GetCurrentRoom()
-                            ?.IsPositionInRoom(_debugSphere.transform.position);
+                        var isInRoom = false;
+                        if (MRUK.Instance)
+                        {
+                            foreach (var room in MRUK.Instance.Rooms)
+                            {
+                                if (room.IsPositionInRoom(_debugSphere.transform.position))
+                                {
+                                    isInRoom = true;
+                                    break;
+                                }
+                            }
+                        }
                         _debugSphere.transform.position = ray.GetPoint(0.2f); // add some offset
                         _debugSphere.GetComponent<Renderer>().material.color =
-                            isInRoom.HasValue && isInRoom.Value ? Color.green : Color.red;
+                            isInRoom ? Color.green : Color.red;
                         _debugMessage =
                             $"[{nameof(IsPositionInRoom)}] Position: {_debugSphere.transform.position} " +
                             $"Is inside the Room: {isInRoom}";

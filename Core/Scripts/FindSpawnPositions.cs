@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+using System.Collections.Generic;
 using Meta.XR.Util;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -31,6 +32,8 @@ namespace Meta.XR.MRUtilityKit
     /// to provide a simple interface for spawning content in the room.
     /// </summary>
     [Feature(Feature.Scene)]
+    [HelpURL(
+        "https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_find_spawn_positions")]
     public class FindSpawnPositions : MonoBehaviour
     {
         /// <summary>
@@ -113,6 +116,13 @@ namespace Meta.XR.MRUtilityKit
         [SerializeField, Tooltip("The clearance distance required in front of the surface in order for it to be considered a valid spawn position")]
         public float SurfaceClearanceDistance = 0.1f;
 
+        private List<GameObject> spawnedObjects = new();
+
+        /// <summary>
+        /// The list containing all the objects instantiated by this component
+        /// </summary>
+        public IReadOnlyList<GameObject> SpawnedObjects => spawnedObjects;
+
         private void Start()
         {
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadFindSpawnPositions).Send();
@@ -152,10 +162,10 @@ namespace Meta.XR.MRUtilityKit
         public void StartSpawn(MRUKRoom room)
         {
             var prefabBounds = Utilities.GetPrefabBounds(SpawnObject);
-            float minRadius = 0.0f;
+            var minRadius = 0.0f;
             const float clearanceDistance = 0.01f;
-            float baseOffset = -prefabBounds?.min.y ?? 0.0f;
-            float centerOffset = prefabBounds?.center.y ?? 0.0f;
+            var baseOffset = -prefabBounds?.min.y ?? 0.0f;
+            var centerOffset = prefabBounds?.center.y ?? 0.0f;
             Bounds adjustedBounds = new();
 
             if (prefabBounds.HasValue)
@@ -177,19 +187,20 @@ namespace Meta.XR.MRUtilityKit
                 adjustedBounds.SetMinMax(min, max);
                 if (OverrideBounds > 0)
                 {
-                    Vector3 center = new Vector3(0f, clearanceDistance, 0f);
-                    Vector3 size = new Vector3(OverrideBounds * 2f, clearanceDistance * 2f, OverrideBounds * 2f); // OverrideBounds represents the extents, not the size
+                    var center = new Vector3(0f, clearanceDistance, 0f);
+                    var size = new Vector3(OverrideBounds * 2f, clearanceDistance * 2f,
+                        OverrideBounds * 2f); // OverrideBounds represents the extents, not the size
                     adjustedBounds = new Bounds(center, size);
                 }
             }
 
-            for (int i = 0; i < SpawnAmount; ++i)
+            for (var i = 0; i < SpawnAmount; ++i)
             {
-                bool foundValidSpawnPosition = false;
-                for (int j = 0; j < MaxIterations; ++j)
+                var foundValidSpawnPosition = false;
+                for (var j = 0; j < MaxIterations; ++j)
                 {
-                    Vector3 spawnPosition = Vector3.zero;
-                    Vector3 spawnNormal = Vector3.zero;
+                    var spawnPosition = Vector3.zero;
+                    var spawnNormal = Vector3.zero;
                     if (SpawnLocations == SpawnLocation.Floating)
                     {
                         var randomPos = room.GenerateRandomPositionInRoom(minRadius, true);
@@ -247,7 +258,7 @@ namespace Meta.XR.MRUtilityKit
                         }
                     }
 
-                    Quaternion spawnRotation = Quaternion.FromToRotation(Vector3.up, spawnNormal);
+                    var spawnRotation = Quaternion.FromToRotation(Vector3.up, spawnNormal);
                     if (CheckOverlaps && prefabBounds.HasValue)
                     {
                         if (Physics.CheckBox(spawnPosition + spawnRotation * adjustedBounds.center, adjustedBounds.extents, spawnRotation, LayerMask, QueryTriggerInteraction.Ignore))
@@ -260,7 +271,8 @@ namespace Meta.XR.MRUtilityKit
 
                     if (SpawnObject.gameObject.scene.path == null)
                     {
-                        Instantiate(SpawnObject, spawnPosition, spawnRotation, transform);
+                        var item = Instantiate(SpawnObject, spawnPosition, spawnRotation, transform);
+                        spawnedObjects.Add(item);
                     }
                     else
                     {
@@ -278,6 +290,23 @@ namespace Meta.XR.MRUtilityKit
                     break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Destroys all the game objects instantiated and clears the <see cref="SpawnedObjects"/> list.
+        /// </summary>
+        public void ClearSpawnedPrefabs()
+        {
+            for (var i = spawnedObjects.Count - 1; i >= 0; i--)
+            {
+                var spawnedObject = spawnedObjects[i];
+                if (spawnedObject)
+                {
+                    Destroy(spawnedObject);
+                }
+            }
+
+            spawnedObjects.Clear();
         }
     }
 }

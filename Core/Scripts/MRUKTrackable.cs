@@ -18,12 +18,7 @@
  * limitations under the License.
  */
 
-using System;
-using System.Collections.Generic;
 using Meta.XR.Util;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -43,7 +38,7 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// This specific type of trackable this <see cref="MRUKTrackable"/> represents.
         /// </summary>
-        public OVRAnchor.TrackableType TrackableType { get; private set; }
+        public OVRAnchor.TrackableType TrackableType { get; internal set; }
 
         /// <summary>
         /// Whether this trackable is current considered tracked.
@@ -64,7 +59,7 @@ namespace Meta.XR.MRUtilityKit
         /// If this trackable is not a marker, or its payload is not a string, this property is `null`.
         /// </remarks>
         /// <seealso cref="MarkerPayloadBytes"/>
-        public string MarkerPayloadString { get; private set; }
+        public string MarkerPayloadString { get; internal set; }
 
         /// <summary>
         /// The marker's payload as raw bytes.
@@ -75,97 +70,6 @@ namespace Meta.XR.MRUtilityKit
         /// If this trackable is not a marker, then this property is `null`.
         /// </remarks>
         /// <seealso cref="MarkerPayloadString"/>
-        public byte[] MarkerPayloadBytes { get; private set; }
-
-        // Invoked by MRUK when a fetch (FetchTrackablesAsync) completes, as this could have updated some component data
-        internal void OnFetch()
-        {
-            TrackableType = Anchor.GetTrackableType();
-
-            using (new OVRObjectPool.ListScope<OVRPlugin.SpaceComponentType>(out var supportedComponents))
-            {
-                if (!Anchor.GetSupportedComponents(supportedComponents))
-                {
-                    return;
-                }
-
-                foreach (var componentType in supportedComponents)
-                {
-                    if (!OVRPlugin.GetSpaceComponentStatus(Anchor.Handle, componentType, out var isEnabled, out _) ||
-                        !isEnabled)
-                    {
-                        continue;
-                    }
-
-                    switch (componentType)
-                    {
-                        case OVRPlugin.SpaceComponentType.MarkerPayload:
-                        {
-                            var component = Anchor.GetComponent<OVRMarkerPayload>();
-                            using var buffer = new NativeArray<byte>(component.ByteCount, Allocator.Temp);
-                            Span<byte> bytes;
-                            unsafe
-                            {
-                                var temp = new Span<byte>((byte*)buffer.GetUnsafePtr(), buffer.Length);
-                                bytes = temp[..component.GetBytes(temp)];
-                            }
-
-                            if (!bytes.SequenceEqual(MarkerPayloadBytes))
-                            {
-                                MarkerPayloadBytes = bytes.ToArray();
-                                MarkerPayloadString = component.PayloadType == OVRMarkerPayloadType.StringQRCode
-                                    ? System.Text.Encoding.UTF8.GetString(MarkerPayloadBytes)
-                                    : null;
-                            }
-
-                            break;
-                        }
-                        case OVRPlugin.SpaceComponentType.Bounded2D:
-                        {
-                            static List<Vector2> GetUpdatedBoundary(OVRBounded2D component, List<Vector2> currentBoundary)
-                            {
-                                if (component.TryGetBoundaryPointsCount(out var count))
-                                {
-                                    using var newBoundary = new NativeArray<Vector2>(count, Allocator.Temp);
-                                    if (component.TryGetBoundaryPoints(newBoundary))
-                                    {
-                                        // Only allocate a new list if we need to.
-                                        currentBoundary ??= new(capacity: newBoundary.Length);
-                                        currentBoundary.Clear();
-                                        foreach (var point in newBoundary)
-                                        {
-                                            currentBoundary.Add(point);
-                                        }
-
-                                        return currentBoundary;
-                                    }
-                                }
-
-                                return null;
-                            }
-
-                            var component = Anchor.GetComponent<OVRBounded2D>();
-                            PlaneRect = component.BoundingBox;
-                            PlaneBoundary2D = GetUpdatedBoundary(component, PlaneBoundary2D);
-
-                            break;
-                        }
-                        case OVRPlugin.SpaceComponentType.Bounded3D:
-                        {
-                            VolumeBounds = Anchor.GetComponent<OVRBounded3D>().BoundingBox;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Invoked by MRUK when this MRUKTrackable is first instantiated
-        internal void OnInstantiate(OVRAnchor anchor)
-        {
-            Anchor = anchor;
-            IsTracked = true;
-            OnFetch();
-        }
+        public byte[] MarkerPayloadBytes { get; internal set; }
     }
 }

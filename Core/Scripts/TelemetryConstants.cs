@@ -39,7 +39,9 @@ namespace Meta.XR.MRUtilityKit
             public const int LoadSceneDecoration = 651888752;
             public const int LoadDestructibleGlobalMeshSpawner = 651898938;
             public const int LoadEnvironmentRaycastManager = 651891190;
+            public const int LoadEnvironmentRaycastManagerOpenXR = 651888817;
             public const int LoadSpaceMapGPU = 651896914;
+            public const int LoadPassthroughCameraAccess = 651892106;
         }
 
         public static class AnnotationType
