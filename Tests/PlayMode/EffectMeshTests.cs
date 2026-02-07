@@ -43,19 +43,18 @@ namespace Meta.XR.MRUtilityKit.Tests
 
 
         [UnitySetUp]
-        public new IEnumerator SetUp()
+        public IEnumerator SetUp()
         {
-            SceneToLoad = @"Packages\com.meta.xr.mrutilitykit\Tests\EffectMeshTests.unity";
-            yield return base.SetUp();
+            yield return LoadScene(@"Packages\com.meta.xr.mrutilitykit\Tests\EffectMeshTests.unity");
 
             _jsonTestHelper = FindObjectOfType<JSONTestHelper>();
         }
 
         [UnityTearDown]
-        public new IEnumerator TearDown()
+        public IEnumerator TearDown()
         {
             DestroyAll();
-            yield return base.TearDown();
+            yield return UnloadScene();
         }
 
         private int GetRoom1Vertices()

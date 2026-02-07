@@ -27,7 +27,7 @@ namespace Meta.XR.MRUtilityKit
     [Feature(Feature.Scene)]
     public class RoomGuardian : MonoBehaviour
     {
-        [Tooltip("How far the camera should be from a Scene API object before the grid appears.")]
+        [Tooltip("Material to use for the Guardian effect")]
         public Material GuardianMaterial;
 
         [Tooltip("How far the camera should be from a Scene API object before the grid appears.")]

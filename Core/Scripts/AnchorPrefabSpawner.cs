@@ -83,8 +83,7 @@ namespace Meta.XR.MRUtilityKit
         [Serializable]
         public struct AnchorPrefabGroup : IEquatable<AnchorPrefabGroup>
         {
-            [FormerlySerializedAs("_include")]
-            [SerializeField, Tooltip("Anchors to include.")]
+            [FormerlySerializedAs("_include")] [SerializeField, Tooltip("Anchors to include.")]
             public MRUKAnchor.SceneLabels Labels;
 
             [SerializeField, Tooltip("Prefab(s) to spawn (randomly chosen from list.)")]
@@ -155,11 +154,7 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Specify a seed value for consistent prefab selection (0 = Random).")]
         public int SeedValue;
 
-        public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects
-        {
-            get;
-            private set;
-        } = new();
+        public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects { get; private set; } = new();
 
         [Obsolete("Event onPrefabSpawned will be deprecated in a future version"), NonSerialized]
         public UnityEvent onPrefabSpawned = new();
@@ -502,30 +497,29 @@ namespace Meta.XR.MRUtilityKit
         private GameObject LabelToPrefab(MRUKAnchor.SceneLabels labels, MRUKAnchor anchor,
             out AnchorPrefabGroup prefabGroup)
         {
-            if (PrefabsToSpawn != null)
+            foreach (var item in PrefabsToSpawn)
             {
-                foreach (var item in PrefabsToSpawn)
+                if ((item.Labels & labels) == 0 || ((item.Prefabs == null ||
+                                                     item.Prefabs.Count == 0) &&
+                                                    item.PrefabSelection != SelectionMode.Custom))
                 {
-                    if ((item.Labels & labels) == 0 || item.Prefabs == null || item.Prefabs.Count == 0)
-                    {
-                        continue;
-                    }
-
-                    GameObject prefabObjectToSpawn = null;
-                    if (item.PrefabSelection == SelectionMode.Custom)
-                    {
-                        prefabObjectToSpawn = CustomPrefabSelection(anchor, item.Prefabs);
-                    }
-                    else
-                    {
-                        prefabObjectToSpawn =
-                            AnchorPrefabSpawnerUtilities.SelectPrefab(anchor, item.PrefabSelection, item.Prefabs,
-                                _random);
-                    }
-
-                    prefabGroup = item;
-                    return prefabObjectToSpawn;
+                    continue;
                 }
+
+                GameObject prefabObjectToSpawn = null;
+                if (item.PrefabSelection == SelectionMode.Custom)
+                {
+                    prefabObjectToSpawn = CustomPrefabSelection(anchor, item.Prefabs);
+                }
+                else
+                {
+                    prefabObjectToSpawn =
+                        AnchorPrefabSpawnerUtilities.SelectPrefab(anchor, item.PrefabSelection, item.Prefabs,
+                            _random);
+                }
+
+                prefabGroup = item;
+                return prefabObjectToSpawn;
             }
 
             prefabGroup = new();
@@ -535,7 +529,6 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///     Initializes a new instance of the Random class using the current seed.
         /// </summary>
-        /// <returns>A new instance of the Random class.</returns>
         public void InitializeRandom(ref int seed)
         {
             if (seed == 0)

@@ -58,3 +58,4 @@ MonoBehaviour:
   SceneWithRoom1LessAnchors: {fileID: 4900000, guid: 52a6ad6da7715b34c98dbb115c3ad31d, type: 3}
   UnityExpectedSerializedScene: {fileID: 4900000, guid: 49c29501d7bdd2f408965b1ff74f87ff, type: 3}
   UnrealExpectedSerializedScene: {fileID: 4900000, guid: 311bd7295fa3c0940bcc0a3bf9948967, type: 3}
+  HierarchyObjects: {fileID: 4900000, guid: e1d17dd044806c345ae79b772dd556ab, type: 3}

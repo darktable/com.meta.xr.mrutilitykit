@@ -330,7 +330,7 @@ namespace Meta.XR.MRUtilityKit
 
             return rawColor.b > 0 ? InsideObjectColor : MapGradient.Evaluate(1 - rawColor.r);
         }
-        
+
         private void InitEffectMesh(MRUK.RoomFilter roomFilter)
         {
             _effectMeshFloor = InitEffectMeshComponent(_effectMeshFloor, colorFloorWall, FloorWallLabel);
@@ -508,7 +508,6 @@ namespace Meta.XR.MRUtilityKit
 
             var bb = GetBoudingBoxByFilter(roomFilter);
             transform.position = CalculateCameraPosition(bb);
-            transform.Rotate(new Vector3(1, 0, 0), 90f);
             _captureCamera.orthographicSize = CalculateOrthographicSize(bb);
         }
 

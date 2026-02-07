@@ -38,5 +38,6 @@ public class JSONTestHelper : MonoBehaviour
     [SerializeField] internal TextAsset SceneWithRoom1LessAnchors;
     [SerializeField] internal TextAsset UnityExpectedSerializedScene;
     [SerializeField] internal TextAsset UnrealExpectedSerializedScene;
+    [SerializeField] internal TextAsset HierarchyObjects;
 }
 

@@ -29,21 +29,19 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class MRUKTestBase : MonoBehaviour
     {
-        public string SceneToLoad = "";
         protected const int DefaultTimeoutMs = 10000;
-        public bool AwaitMRUKInit = true;
 
-        protected IEnumerator SetUp()
+        protected IEnumerator LoadScene(string sceneToLoad, bool awaitMRUKInit = true)
         {
-            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(SceneToLoad,
+            yield return EditorSceneManager.LoadSceneAsyncInPlayMode(sceneToLoad,
                 new LoadSceneParameters(LoadSceneMode.Single));
-            if(AwaitMRUKInit)
+            if (awaitMRUKInit)
             {
                 yield return new WaitUntil(() => MRUK.Instance.IsInitialized);
             }
         }
 
-        protected IEnumerator TearDown()
+        protected IEnumerator UnloadScene()
         {
             for (int i = SceneManager.sceneCount - 1; i >= 1; i--)
             {

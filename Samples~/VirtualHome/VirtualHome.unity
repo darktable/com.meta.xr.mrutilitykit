@@ -931,6 +931,65 @@ Light:
   m_UseViewFrustumForShadowCasterCull: 1
   m_ShadowRadius: 0
   m_ShadowAngle: 0
+--- !u!1 &436668353
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 436668355}
+  - component: {fileID: 436668354}
+  m_Layer: 0
+  m_Name: BiggestAnchorPrefabSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &436668354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 436668353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14b7cd22cb19d544894202a49a75df0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SpawnOnStart: 1
+  SeedValue: 0
+  PrefabsToSpawn:
+  - Labels: 8
+    Prefabs: []
+    PrefabSelection: 2
+    MatchAspectRatio: 0
+    CalculateFacingDirection: 1
+    Scaling: 3
+    Alignment: 4
+    IgnorePrefabSize: 0
+  BiggestPrefab: {fileID: 8286028807052152038, guid: 1e4d418e94bee674a9f18b1a0e5a5627, type: 3}
+  AnchorToFurnitureX: 1
+  AnchorToFurnitureY: 0
+  AnchorToFurnitureZ: 1
+--- !u!4 &436668355
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 436668353}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.30190116, y: 1.508411, z: -0.1665278}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 11
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &658179445
 GameObject:
   m_ObjectHideFlags: 0
@@ -961,20 +1020,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 2
-  TrackUpdates: 1
+  SeedValue: 0
   PrefabsToSpawn:
   - Labels: 64
     Prefabs:
     - {fileID: 6094938084426028576, guid: 72ecaa0f4aaa5a846b00a73df9d9644a, type: 3}
+    PrefabSelection: 0
     MatchAspectRatio: 0
     CalculateFacingDirection: 0
     Scaling: 0
     Alignment: 3
     IgnorePrefabSize: 1
-  SeedValue: 0
-  onPrefabSpawned:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!4 &658179448
 Transform:
   m_ObjectHideFlags: 0
@@ -1674,13 +1730,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 2
-  TrackUpdates: 1
   MeshMaterial: {fileID: 2100000, guid: e78b1877dccb6bf468a6663e85075da1, type: 2}
   BorderSize: 0
   Colliders: 1
   CutHoles: 0
   castShadows: 1
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 0
     WallV: 0
@@ -2255,6 +2311,26 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4822654255926254250, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822654255926254250, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822654255926254250, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822654255926254250, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4822654255926254250, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5340829500762835419, guid: 61049dfb4690be642a843757d529ca97, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -2272,6 +2348,26 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5340829500762835419, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481288438128613600, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481288438128613600, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481288438128613600, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481288438128613600, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481288438128613600, guid: 61049dfb4690be642a843757d529ca97, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
@@ -2317,6 +2413,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6673665375202355514, guid: 61049dfb4690be642a843757d529ca97, type: 3}
       propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6673665375202355514, guid: 61049dfb4690be642a843757d529ca97, type: 3}
+      propertyPath: m_AnchorMin.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7539454808281626106, guid: 61049dfb4690be642a843757d529ca97, type: 3}
@@ -3052,13 +3152,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 2
-  TrackUpdates: 1
   MeshMaterial: {fileID: 2100000, guid: a0d3297910c4fe4479f4552df6e060df, type: 2}
   BorderSize: 0
   Colliders: 1
   CutHoles: 0
   castShadows: 1
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 0
     WallV: 0
@@ -3387,13 +3487,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 2
-  TrackUpdates: 1
   MeshMaterial: {fileID: 2100000, guid: 4038c4f6e2c4d5c498146148958b9509, type: 2}
   BorderSize: 0
   Colliders: 0
   CutHoles: 0
   castShadows: 1
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 0
     WallV: 0
@@ -3438,6 +3538,10 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 8168381574322655305, guid: c740c85d41f2e3747b952a5a5bba21e1, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8168381574322655305, guid: c740c85d41f2e3747b952a5a5bba21e1, type: 3}
       propertyPath: PrefabsToSpawn.Array.data[1].Scaling
       value: 0
@@ -3583,6 +3687,10 @@ PrefabInstance:
     - target: {fileID: 8868484198026453108, guid: 7aa22b276f1770f4e9ab8adcbba4c655, type: 3}
       propertyPath: m_Name
       value: Spawner_BlobShadows
+      objectReference: {fileID: 0}
+    - target: {fileID: 8868484198026453110, guid: 7aa22b276f1770f4e9ab8adcbba4c655, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8868484198026453111, guid: 7aa22b276f1770f4e9ab8adcbba4c655, type: 3}
       propertyPath: m_RootOrder

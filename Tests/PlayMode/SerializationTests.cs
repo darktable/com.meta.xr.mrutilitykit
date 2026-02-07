@@ -37,17 +37,16 @@ namespace Meta.XR.MRUtilityKit.Tests
         private JSONTestHelper _jsonTestHelper;
 
         [UnitySetUp]
-        public new IEnumerator SetUp()
+        public IEnumerator SetUp()
         {
-            SceneToLoad = @"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity";
-            yield return base.SetUp();
+            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity");
             _jsonTestHelper = FindObjectOfType<JSONTestHelper>();
         }
 
         [UnityTearDown]
-        public new IEnumerator TearDown()
+        public IEnumerator TearDown()
         {
-            yield return base.TearDown();
+            yield return UnloadScene();
         }
 
         /// <summary>
@@ -199,19 +198,13 @@ namespace Meta.XR.MRUtilityKit.Tests
                 {
                     var loadedPlaneBoundary2D = loadedAnchor.PlaneBoundary2D;
                     var expectedPlaneBoundary2D = expectedAnchor.PlaneBoundary2D;
-                    for (int j = 0; j < Utilities.SceneLabelsEnumToList(loadedAnchor.Label).Count; j++)
-                    {
-                        Assert.That(loadedPlaneBoundary2D[j], Is.EqualTo(expectedPlaneBoundary2D[j]).Using(Vector2EqualityComparer.Instance));
-                    }
+                    Assert.IsTrue(loadedPlaneBoundary2D.SequenceEqual(expectedPlaneBoundary2D, Vector2EqualityComparer.Instance));
                 }
 
                 Assert.AreEqual(expectedAnchor.Label, loadedAnchor.Label);
                 var loadedBoundsFaceCenters = loadedAnchor.GetBoundsFaceCenters();
                 var expectedBoundsFaceCenters = expectedAnchor.GetBoundsFaceCenters();
-                for (int j = 0; j < loadedAnchor.GetBoundsFaceCenters().Length; j++)
-                {
-                    Assert.That(loadedBoundsFaceCenters[j], Is.EqualTo(expectedBoundsFaceCenters[j]).Using(Vector3EqualityComparer.Instance));
-                }
+                Assert.IsTrue(loadedBoundsFaceCenters.SequenceEqual(expectedBoundsFaceCenters, Vector3EqualityComparer.Instance));
             }
         }
     }

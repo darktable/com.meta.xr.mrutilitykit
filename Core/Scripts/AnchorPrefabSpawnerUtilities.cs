@@ -265,6 +265,11 @@ namespace Meta.XR.MRUtilityKit
         public static GameObject SelectPrefab(MRUKAnchor anchor, AnchorPrefabSpawner.SelectionMode prefabSelectionMode,
             List<GameObject> prefabs, System.Random random)
         {
+            if (prefabs == null || prefabs.Count == 0)
+            {
+                return null;
+            }
+
             GameObject selectedPrefab = null;
             switch (prefabSelectionMode)
             {

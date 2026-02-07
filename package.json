@@ -1,7 +1,7 @@
 {
   "name": "com.meta.xr.mrutilitykit",
   "displayName": "Meta MR Utility Kit",
-  "version": "67.0.0",
+  "version": "68.0.0",
   "description": "Helper tools & functions to simplify development with Scene API. Works on Mac & PC, without a device attached.",
   "samples": [
     {
@@ -38,6 +38,11 @@
       "displayName": "Bouncing Ball",
       "description": "A scene showing virtual balls interacting with physical environment",
       "path": "Samples~/BouncingBall"
+    },
+    {
+      "displayName": "Scene Decorator",
+      "description": "A scene with basic decorations and SceneDecorator to populate the environment",
+      "path": "Samples~/SceneDecorator"
     }
   ],
   "unity": "2021.3",
@@ -46,8 +51,6 @@
     "name": "Meta Platforms, Inc.",
     "url": "https://developer.oculus.com/"
   },
-  "documentationUrl": "https://developer.oculus.com/documentation/unity/",
-  "changelogUrl": "https://developer.oculus.com/downloads/package/unity-integration/",
   "licensesUrl": "https://developer.oculus.com/licenses/oculussdk",
   "licenseMessage": "By adding or using this package you agree to the terms and conditions of the Meta Platforms Technologies SDK License Agreement: https://developer.oculus.com/licenses/oculussdk",
   "keywords": [
@@ -56,7 +59,9 @@
   "dependencies": {
     "com.unity.ai.navigation": "1.1.4",
     "com.unity.nuget.newtonsoft-json": "3.0.2",
-    "com.meta.xr.sdk.core": "67.0.0",
+    "com.meta.xr.sdk.core": "68.0.0",
     "com.unity.textmeshpro": "3.0.6"
-  }
+  },
+  "documentationUrl": "https://developer.oculus.com/documentation/unity/unity-mr-utility-kit-overview",
+  "changelogUrl": "https://developer.oculus.com/downloads/package/meta-xr-mr-utility-kit-upm/"
 }

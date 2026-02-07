@@ -46,13 +46,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 1
-  TrackUpdates: 1
   MeshMaterial: {fileID: 2100000, guid: 07e415bcbeb844f969df36f3565e4bf1, type: 2}
   BorderSize: 0
   Colliders: 0
   CutHoles: 0
   castShadows: 1
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 0
     WallV: 0
@@ -70,5 +70,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f5ea71b329ca64fd28e8d440dbc1cbab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GuardianMaterial: {fileID: 0}
+  GuardianMaterial: {fileID: 2100000, guid: 07e415bcbeb844f969df36f3565e4bf1, type: 2}
   GuardianDistance: 1

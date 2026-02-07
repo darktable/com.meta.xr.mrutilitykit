@@ -28,6 +28,10 @@ using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Manages the creation and updating of a navigation mesh (NavMesh) for scene navigation.
+    /// This class handles dynamic NavMesh generation based on scene data, including rooms and anchors, and responds to changes in the scene.
+    /// </summary>
     [Feature(Feature.Scene)]
     public class SceneNavigation : MonoBehaviour
     {
@@ -596,8 +600,12 @@ namespace Meta.XR.MRUtilityKit
                         return;
                     }
 
-                    var pos = pose.ComputeWorldPosition(Camera.main);
-                    var rot = pose.ComputeWorldRotation(Camera.main);
+                    var pos = pose.ComputeWorldPosition(MRUK.Instance._cameraRig.trackingSpace);
+                    var rot = pose.ComputeWorldRotation(MRUK.Instance._cameraRig.trackingSpace);
+                    if (!pos.HasValue || !rot.HasValue)
+                    {
+                        return;
+                    }
 
                     anchor.transform.SetPositionAndRotation(pos.Value, rot.Value);
                     anchor.GlobalMesh = anchor.LoadGlobalMeshTriangles();

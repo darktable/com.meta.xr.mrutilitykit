@@ -93,11 +93,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
         [UnitySetUp]
-        public new IEnumerator SetUp()
+        public IEnumerator SetUp()
         {
-            SceneToLoad = @"Packages\\com.meta.xr.mrutilitykit\\Tests\\GridSliceResizerTests.unity";
-            AwaitMRUKInit = false;
-            yield return base.SetUp();
+            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\GridSliceResizerTests.unity", false);
             _resizer = FindObjectOfType<GridSliceResizer>();
             if (_resizer)
             {
@@ -106,9 +104,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
         [UnityTearDown]
-        public new IEnumerator TearDown()
+        public IEnumerator TearDown()
         {
-            yield return base.TearDown();
+            yield return UnloadScene();
         }
 
         /// <summary>

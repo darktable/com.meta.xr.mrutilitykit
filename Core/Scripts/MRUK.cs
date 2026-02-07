@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Meta.XR.Util;
 using Unity.Collections;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Events;
@@ -75,6 +76,12 @@ namespace Meta.XR.MRUtilityKit
             ///     Load Scene from a Json file
             /// </summary>
             Json,
+
+            /// <summary>
+            ///     First try to load data from the device and if none can be found
+            ///     fall back to loading from a Json file
+            /// </summary>
+            DeviceWithJsonFallback,
         }
 
         public enum RoomFilter
@@ -234,7 +241,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public bool EnableWorldLock = true;
 
-        private OVRCameraRig _cameraRig;
+        internal OVRCameraRig _cameraRig { get; private set; }
         private bool _worldLockWasEnabled = false;
         private bool _loadSceneCalled = false;
         private Pose? _prevTrackingSpacePose = default;
@@ -458,6 +465,7 @@ namespace Meta.XR.MRUtilityKit
             }
 
 
+
             if (SceneSettings == null)
             {
                 return;
@@ -469,17 +477,21 @@ namespace Meta.XR.MRUtilityKit
 #pragma warning disable CS4014
 #if !UNITY_EDITOR && UNITY_ANDROID
                 // If we are going to load from device we need to ensure we have permissions first
-                if ((SceneSettings.DataSource == SceneDataSource.Device || SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback) &&
+                if ((SceneSettings.DataSource == SceneDataSource.Device || SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback || SceneSettings.DataSource == SceneDataSource.DeviceWithJsonFallback) &&
                     !Permission.HasUserAuthorizedPermission(OVRPermissionsRequester.ScenePermission))
                 {
                     var callbacks = new PermissionCallbacks();
                     callbacks.PermissionDenied += permissionId =>
                     {
                         Debug.LogWarning("User denied permissions to use scene data");
-                        // Permissions denied, if data source is using prefab fallback let's load the prefab scene instead
+                        // Permissions denied, if data source is using prefab fallback let's load the prefab or Json scene instead
                         if (SceneSettings.DataSource == SceneDataSource.DeviceWithPrefabFallback)
                         {
                             LoadScene(SceneDataSource.Prefab);
+                        }
+                        else if (SceneSettings.DataSource == SceneDataSource.DeviceWithJsonFallback)
+                        {
+                            LoadScene(SceneDataSource.Json);
                         }
                     };
                     callbacks.PermissionGranted += permissionId =>
@@ -581,7 +593,8 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 if (dataSource == SceneDataSource.Device ||
-                    dataSource == SceneDataSource.DeviceWithPrefabFallback)
+                    dataSource == SceneDataSource.DeviceWithPrefabFallback ||
+                    dataSource == SceneDataSource.DeviceWithJsonFallback)
                 {
                     await LoadSceneFromDevice();
                 }
@@ -605,7 +618,8 @@ namespace Meta.XR.MRUtilityKit
                     LoadSceneFromPrefab(roomPrefab);
                 }
 
-                if (dataSource == SceneDataSource.Json)
+                if (dataSource == SceneDataSource.Json ||
+                    (dataSource == SceneDataSource.DeviceWithJsonFallback && Rooms.Count == 0))
                 {
                     if (SceneSettings.SceneJsons.Length != 0)
                     {
@@ -902,8 +916,8 @@ namespace Meta.XR.MRUtilityKit
                     {
                         if (locatable.TryGetSceneAnchorPose(out var pose))
                         {
-                            var position = pose.ComputeWorldPosition(Camera.main);
-                            var rotation = pose.ComputeWorldRotation(Camera.main);
+                            var position = pose.ComputeWorldPosition(_cameraRig.trackingSpace);
+                            var rotation = pose.ComputeWorldRotation(_cameraRig.trackingSpace);
                             if (rotation.HasValue && rotation.HasValue)
                             {
                                 anchorData.Transform.Translation = position.Value;

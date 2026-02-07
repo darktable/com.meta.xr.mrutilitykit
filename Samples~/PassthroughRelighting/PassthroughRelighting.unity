@@ -1388,13 +1388,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 2
-  TrackUpdates: 1
   MeshMaterial: {fileID: 2100000, guid: 69e54be2e702f984683fa4816dc4b0f8, type: 2}
   BorderSize: 0.1
   Colliders: 1
   CutHoles: 0
   castShadows: 0
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 0
     WallV: 0
@@ -1569,13 +1569,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   SpawnOnStart: 0
-  TrackUpdates: 1
   MeshMaterial: {fileID: 2100000, guid: 69e54be2e702f984683fa4816dc4b0f8, type: 2}
   BorderSize: 0.1
   Colliders: 1
   CutHoles: 0
   castShadows: 0
   hideMesh: 0
+  Layer: 0
   textureCoordinateModes:
   - WallU: 0
     WallV: 0
@@ -1891,18 +1891,6 @@ PrefabInstance:
   m_Modification:
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 485879771344656263, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
-      propertyPath: m_Avatar
-      value: 
-      objectReference: {fileID: 9000000, guid: a9bcfc3da5a1a0d4f93ba0db7ab4484f, type: 3}
-    - target: {fileID: 2759262911002873242, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 39.9
-      objectReference: {fileID: 0}
-    - target: {fileID: 2759262911002873242, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -0.5
-      objectReference: {fileID: 0}
     - target: {fileID: 5224702894496734085, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
       propertyPath: m_RootOrder
       value: 4
@@ -1959,12 +1947,7 @@ PrefabInstance:
       propertyPath: m_Name
       value: Oppy
       objectReference: {fileID: 0}
-    - target: {fileID: 7107983976591372239, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 1863129030, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
+    m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bd8120e4a733d1b4ab18fbeb92853d5a, type: 3}
 --- !u!114 &1676643475 stripped
 MonoBehaviour:

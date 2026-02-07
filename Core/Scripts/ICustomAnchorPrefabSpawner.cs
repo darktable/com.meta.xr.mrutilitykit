@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit
         ///     Selects a prefab based on custom logic.
         /// </summary>
         /// <param name="anchor">The anchor info to use.</param>
-        /// <param name="prefabs">The list of prefabs to select from.</param>
+        /// <param name="prefabs">The list of prefabs to select from. Can be null.</param>
         /// <returns>The selected prefab.</returns>
         /// <remarks>
         ///     This method is intended to be overridden in a class that extends <see cref="AnchorPrefabSpawner" /> with custom logic for selecting a prefab.

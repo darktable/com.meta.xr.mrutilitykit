@@ -12,7 +12,9 @@
         "meta.xr.mrutilitykit.editor"
     ],
     "includePlatforms": [],
-    "excludePlatforms": [],
+    "excludePlatforms": [
+        "Android"
+    ],
     "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [

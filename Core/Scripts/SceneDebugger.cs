@@ -21,6 +21,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using Meta.XR.Util;
 using TMPro;
 using UnityEngine;
@@ -46,6 +47,7 @@ namespace Meta.XR.MRUtilityKit
 
         public TextMeshProUGUI logs;
         public TMP_Dropdown surfaceTypeDropdown;
+        public TMP_Dropdown exportGlobalMeshJSONDropdown;
         public TMP_Dropdown positioningMethodDropdown;
         public TextMeshProUGUI RoomDetails;
         public List<Image> Tabs = new();
@@ -788,6 +790,35 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        public void ExportJSON(bool isOn)
+        {
+            try
+            {
+                if (isOn)
+                {
+                    bool exportGlobalMesh = true;
+                    if (exportGlobalMeshJSONDropdown)
+                    {
+                        exportGlobalMesh = exportGlobalMeshJSONDropdown.options[exportGlobalMeshJSONDropdown.value].text.ToLower() == "true";
+                    }
+
+                    var scene = SerializationHelpers.Serialize(SerializationHelpers.CoordinateSystem.Unity, exportGlobalMesh);
+                    var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
+                    var path = Path.Combine(Application.persistentDataPath, filename);
+                    File.WriteAllText(path, scene);
+
+                }
+            }
+            catch (Exception e)
+            {
+                SetLogsText("\n[{0}]\n {1}\n{2}",
+                    nameof(ExportJSON),
+                    e.Message,
+                    e.StackTrace
+                );
+            }
+        }
+
         /// <summary>
         ///     Displays a texture in  the right info panel about your spacemap
         /// </summary>
@@ -1220,16 +1251,10 @@ namespace Meta.XR.MRUtilityKit
 
         private IEnumerator SnapCanvasInFrontOfCamera()
         {
-            yield return 0; // wait one frame to make sure the camera is set up
-            if (_cameraRig)
-            {
-                if (_cameraRig.centerEyeAnchor.transform.position == Vector3.zero)
-                {
-                    yield return 0; // wait until the camera is set up
-                }
-                transform.position = _cameraRig.centerEyeAnchor.transform.position +
-                                     _cameraRig.centerEyeAnchor.transform.forward * _spawnDistanceFromCamera;
-            }
+            yield return new WaitUntil(
+                () => _cameraRig && _cameraRig.centerEyeAnchor.transform.position != Vector3.zero);
+            transform.position = _cameraRig.centerEyeAnchor.transform.position +
+                                 _cameraRig.centerEyeAnchor.transform.forward * _spawnDistanceFromCamera;
         }
     }
 }

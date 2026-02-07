@@ -928,9 +928,9 @@ namespace Meta.XR.MRUtilityKit
                     {
                         if (Anchors[k].VolumeBounds.HasValue)
                         {
-                            Vector3 volumeCenterBottom = Anchors[k].transform.position - Vector3.up * Anchors[k].VolumeBounds.Value.size.z;
+                            Vector3 volumeCenterBottom = Anchors[k].transform.position + Vector3.up * Anchors[k].VolumeBounds.Value.min.z;
 
-                            bool volumeOnFloor = Mathf.Abs(Anchors[i].transform.position.y - volumeCenterBottom.y) <= coPlanarTolerance;
+                            bool volumeOnFloor = (volumeCenterBottom.y - Anchors[i].transform.position.y) <= coPlanarTolerance;
 
                             if (volumeOnFloor)
                             {
@@ -955,11 +955,12 @@ namespace Meta.XR.MRUtilityKit
 
                         if (Anchors[k].VolumeBounds.HasValue)
                         {
-                            Bounds childVolumeBounds = Anchors[k].VolumeBounds.Value;
-                            Vector3 childAnchorBottom = Anchors[k].transform.position - Vector3.up * childVolumeBounds.size.z;
+                            var childVolumeBounds = Anchors[k].VolumeBounds.Value;
+                            var childAnchorBottom =  Anchors[k].transform.position + Vector3.up * Anchors[k].VolumeBounds.Value.min.z;
+                            var parentAnchorTop = Anchors[i].transform.position + Vector3.up * Anchors[i].VolumeBounds.Value.max.z;
 
                             // if the child's bottom is coplanar with the parent's top, this is likely a hierarchy
-                            bool isOnTop = Mathf.Abs(Anchors[i].transform.position.y - childAnchorBottom.y) <= coPlanarTolerance;
+                            var isOnTop = Mathf.Abs(childAnchorBottom.y - parentAnchorTop.y) <= coPlanarTolerance;
 
                             if (isOnTop)
                             {
@@ -973,8 +974,14 @@ namespace Meta.XR.MRUtilityKit
                                     cornerPos = Anchors[k].transform.TransformPoint(cornerPos);
 
                                     Vector3 parentRelativeCorner = Anchors[i].transform.InverseTransformPoint(cornerPos);
-                                    if (parentRelativeCorner.x >= parentVolumeBounds.min.x && parentRelativeCorner.x <= parentVolumeBounds.max.x &&
-                                        parentRelativeCorner.y >= parentVolumeBounds.min.y && parentRelativeCorner.y <= parentVolumeBounds.max.y)
+
+                                    const float fpTolerance = 0.001f; //1 mm
+                                    var b1 = fpTolerance + (parentRelativeCorner.x - parentVolumeBounds.min.x) >= 0;
+                                    var b2 = fpTolerance + (parentVolumeBounds.max.x - parentRelativeCorner.x) >= 0;
+                                    var b3 = fpTolerance + (parentRelativeCorner.y - parentVolumeBounds.min.y) >= 0;
+                                    var b4 = fpTolerance + (parentVolumeBounds.max.y - parentRelativeCorner.y) >= 0;
+
+                                    if (b1 && b2 && b3 && b4)
                                     {
                                         anyCornerInside = true;
                                         break;
@@ -983,6 +990,15 @@ namespace Meta.XR.MRUtilityKit
 
                                 if (anyCornerInside)
                                 {
+
+                                    //check if we already have identified a floor
+                                    if (Anchors[k].ParentAnchor != null)
+                                    {
+                                        if (Anchors[k].ParentAnchor.HasAnyLabel(MRUKAnchor.SceneLabels.FLOOR))
+                                        {
+                                            continue; //we do not overwrite an identified floor parent. this can happen when bounding boxes on the floor are colliding
+                                        }
+                                    }
                                     // take careful note of the iterators (i,k)
                                     Anchors[i].AddChildReference(Anchors[k]);
                                     Anchors[k].ParentAnchor = Anchors[i];

@@ -850,8 +850,9 @@ namespace Meta.XR.MRUtilityKit
                         float xDir = Mathf.Sign(UVx - 0.5f);
                         float yDir = Mathf.Sign(UVy - 0.5f);
 
-                        Vector3 basePoint = fwd * rotatedDim.z * 0.5f + right * rotatedDim.x * 0.5f - up * rotatedDim.y * 0.5f;
-                        basePoint += up * rotatedDim.y * UVy - right * rotatedDim.x * UVx;
+                        Vector3 centerPoint = anchorInfo.VolumeBounds.Value.center - up * rotatedDim.y * 0.5f + right * rotatedDim.x * 0.5f + fwd * rotatedDim.z * 0.5f;
+                        centerPoint += up * rotatedDim.y * UVy - right * rotatedDim.x * UVx;
+
                         Vector2 quadUV = new Vector2(UVx, UVy);
 
                         for (int x = 0; x < UVChannelCount; x++)
@@ -872,7 +873,7 @@ namespace Meta.XR.MRUtilityKit
                             }
                         }
 
-                        MeshVertices[vertCounter] = basePoint - Vector3.forward * dim.z * 0.5f;
+                        MeshVertices[vertCounter] = centerPoint;
                         MeshColors[vertCounter] = createBorder ? Color.black : Color.white;
                         MeshNormals[vertCounter] = fwd;
                         MeshTangents[vertCounter] = new Vector4(-right.x, -right.y, -right.z, -1);
@@ -1315,8 +1316,12 @@ namespace Meta.XR.MRUtilityKit
                     return;
                 }
 
-                var pos = pose.ComputeWorldPosition(Camera.main);
-                var rot = pose.ComputeWorldRotation(Camera.main);
+                var pos = pose.ComputeWorldPosition(MRUK.Instance._cameraRig.trackingSpace);
+                var rot = pose.ComputeWorldRotation(MRUK.Instance._cameraRig.trackingSpace);
+                if (!pos.HasValue || !rot.HasValue)
+                {
+                    return;
+                }
 
                 globalMeshGO.transform.SetPositionAndRotation(pos.Value, rot.Value);
                 globalMeshAnchor.GlobalMesh = globalMeshAnchor.LoadGlobalMeshTriangles();

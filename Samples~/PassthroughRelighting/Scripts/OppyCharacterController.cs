@@ -29,7 +29,7 @@ using UnityEngine;
 public class OppyCharacterController : MonoBehaviour
 {
     /// <summary>
-    ///     The transform whose the forward vector for Oppy's motion
+    ///     The transform who's the forward vector for Oppy's motion
     /// </summary>
     [SerializeField] private Transform movementFrameOfReference;
 
@@ -99,10 +99,11 @@ public class OppyCharacterController : MonoBehaviour
 
     private void GetLocomotionInput()
     {
-        float hInput = Input.GetAxis("Horizontal");
-        float vInput = Input.GetAxis("Vertical");
-        Vector2 thumbstickAxis = OVRInput.Get(OVRInput.RawAxis2D.RThumbstick);
-        _motionInput = new Vector2(hInput + thumbstickAxis.x, vInput + thumbstickAxis.y);
+        var hInput =
+             OVRInput.Get(OVRInput.RawAxis2D.RThumbstick).x ;
+         var vInput =
+             OVRInput.Get(OVRInput.RawAxis2D.RThumbstick).y;
+         _motionInput = new Vector2(hInput, vInput);
     }
 
     private void ApplyMotion()
@@ -137,8 +138,8 @@ public class OppyCharacterController : MonoBehaviour
 
     private void HandleJumping()
     {
-        bool jumpButtonDown = OVRInput.GetDown(jumpButton) || Input.GetButtonDown("Jump");
-        bool jumpButtonPressed = OVRInput.Get(jumpButton) || Input.GetButton("Jump");
+        bool jumpButtonDown = OVRInput.GetDown(jumpButton);
+        bool jumpButtonPressed = OVRInput.Get(jumpButton);
 
         if (_jumpRequested)
         {

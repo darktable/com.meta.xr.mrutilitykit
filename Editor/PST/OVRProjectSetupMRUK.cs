@@ -47,6 +47,7 @@ namespace Meta.XR.MRUtilityKit.Editor
                 {
                     var projectConfig = OVRProjectConfig.CachedProjectConfig;
                     projectConfig.sceneSupport = OVRProjectConfig.FeatureSupport.Required;
+                    projectConfig.anchorSupport = OVRProjectConfig.AnchorSupport.Enabled;
                     OVRProjectConfig.CommitProjectConfig(projectConfig);
                 },
                 fixMessage: "Set Scene Support to \"Required\" in the project config"

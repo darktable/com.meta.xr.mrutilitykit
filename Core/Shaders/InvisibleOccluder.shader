@@ -15,41 +15,80 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 Shader "Meta/MRUK/MixedReality/InvisibleOccluder" {
-  Properties {
-  }
-  SubShader {
-    Tags{"RenderType" = "Transparent"}
-    LOD 100
-    Cull off
-    ZWrite On
-    ZTest Less
-    Blend Zero One, Zero One
-    Pass {
-      CGPROGRAM
-#pragma vertex vert
-#pragma fragment frag
-#pragma multi_compile_fog
-#include "UnityCG.cginc"
+    SubShader
+    {
+        PackageRequirements
+        {
+            "com.unity.render-pipelines.universal"
+        }
+        Tags{ "RenderPipeline" = "UniversalPipeline"  "Queue" = "Transparent"}
 
-      struct appdata {
-        float4 vertex : POSITION;
-      };
+        Pass
+        {
+            // Lightmode matches the ShaderPassName set in UniversalRenderPipeline.cs. SRPDefaultUnlit and passes with
+            // no LightMode tag are also rendered by Universal Render Pipeline
+            Name "ForwardLit"
 
-      struct v2f {
-        float4 vertex : SV_POSITION;
-      };
+            Tags{"LightMode" = "UniversalForward"}
 
-      v2f vert(appdata v) {
-        v2f o;
-        o.vertex = UnityObjectToClipPos(v.vertex);
-        return o;
-      }
+            Cull off
+            ZWrite On
+            ZTest Less
+            Blend Zero One, Zero One
 
-      fixed4 frag(v2f i) : SV_Target {
-        return float4(0,0,0,0);
-      }
-      ENDCG
+            HLSLPROGRAM
+            // Required to compile gles 2.0 with standard SRP library
+            // All shaders must be compiled with HLSLcc and currently only gles is not using HLSLcc by default
+            #pragma prefer_hlslcc gles
+            #pragma exclude_renderers d3d11_9x
+            #pragma target 2.0
+            #pragma multi_compile_instancing
+
+            #pragma vertex LitPassVertex
+            #pragma fragment LitPassFragment
+
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitInput.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitForwardPass.hlsl"
+            ENDHLSL
+        }
     }
-  }
+
+    SubShader
+    {
+      Tags{"RenderType" = "Transparent"}
+      LOD 100
+      Cull off
+      ZWrite On
+      ZTest Less
+      Blend Zero One, Zero One
+      Pass
+      {
+        CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #include "UnityCG.cginc"
+
+        struct appdata {
+          float4 vertex : POSITION;
+        };
+
+        struct v2f {
+          float4 vertex : SV_POSITION;
+        };
+
+        v2f vert(appdata v) {
+          v2f o;
+          o.vertex = UnityObjectToClipPos(v.vertex);
+          return o;
+        }
+
+        fixed4 frag(v2f i) : SV_Target {
+          return float4(0, 0, 0, 0);
+        }
+        ENDCG
+      }
+    }
 }

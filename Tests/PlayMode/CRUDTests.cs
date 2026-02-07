@@ -34,16 +34,15 @@ namespace Meta.XR.MRUtilityKit.Tests
         private JSONTestHelper _jsonTestHelper;
 
         [UnitySetUp]
-        public new IEnumerator SetUp()
+        public IEnumerator SetUp()
         {
-            SceneToLoad = @"Packages\\com.meta.xr.mrutilitykit\\Tests\\CRUDTests.unity";
-            yield return base.SetUp();
+            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\CRUDTests.unity");
             _currentRoom = MRUK.Instance.GetCurrentRoom();
             _jsonTestHelper = FindObjectOfType<JSONTestHelper>();
         }
 
         [UnityTearDown]
-        public new IEnumerator TearDown()
+        public IEnumerator TearDown()
         {
             if (MRUK.Instance != null)
             {
@@ -58,7 +57,7 @@ namespace Meta.XR.MRUtilityKit.Tests
                 MRUK.Instance.RoomRemovedEvent.RemoveAllListeners();
             }
 
-            yield return base.TearDown();
+            yield return UnloadScene();
         }
 
         [UnityTest]

@@ -34,17 +34,16 @@ namespace Meta.XR.MRUtilityKit.Tests
         private MRUKRoom _currentRoom;
 
         [UnitySetUp]
-        public new IEnumerator SetUp()
+        public IEnumerator SetUp()
         {
-            SceneToLoad = @"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity";
-            yield return base.SetUp();
+            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity");
             _currentRoom = MRUK.Instance.GetCurrentRoom();
         }
 
         [UnityTearDown]
-        public new IEnumerator TearDown()
+        public IEnumerator TearDown()
         {
-            yield return base.TearDown();
+            yield return UnloadScene();
         }
 
         /// <summary>

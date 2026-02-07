@@ -33,7 +33,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         private SpaceMapGPUTestHelper SpaceMapGPUTestHelper;
 
         [UnitySetUp]
-        public new IEnumerator SetUp()
+        public IEnumerator SetUp()
         {
             // batchmode (or better -nographics) will not have a GPU
             // and compute shaders only run on GPU's
@@ -42,17 +42,15 @@ namespace Meta.XR.MRUtilityKit.Tests
                 yield return true;
                 yield break;
             }
-            SceneToLoad = @"Packages\com.meta.xr.mrutilitykit\Tests\SpaceMapGPUTests.unity";
-            AwaitMRUKInit = false;
-            yield return base.SetUp();
+            yield return LoadScene(@"Packages\com.meta.xr.mrutilitykit\Tests\SpaceMapGPUTests.unity", false);
             SpaceMapGPU = FindObjectOfType<SpaceMapGPU>();
             SpaceMapGPUTestHelper = FindObjectOfType<SpaceMapGPUTestHelper>();
         }
 
         [UnityTearDown]
-        public new IEnumerator TearDown()
+        public IEnumerator TearDown()
         {
-            yield return base.TearDown();
+            yield return UnloadScene();
         }
 
         [UnityTest]
