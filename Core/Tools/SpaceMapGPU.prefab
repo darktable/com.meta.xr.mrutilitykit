@@ -47,9 +47,6 @@ MonoBehaviour:
   <SpaceMapCreatedEvent>k__BackingField:
     m_PersistentCalls:
       m_Calls: []
-  SpaceMapRoomCreatedEvent:
-    m_PersistentCalls:
-      m_Calls: []
   <SpaceMapUpdatedEvent>k__BackingField:
     m_PersistentCalls:
       m_Calls: []
@@ -88,7 +85,7 @@ MonoBehaviour:
   CSSpaceMap: {fileID: 7200000, guid: 59e8a77a6e68f9e4ead6050275ee7c0c, type: 3}
   SceneObjectLabels: 73624
   InsideObjectColor: {r: 0, g: 0.053680897, b: 1, a: 0}
-  CameraCaptureBorderBuffer: 2
+  CameraCaptureBorderBuffer: 5
   CreateOutputTexture: 1
   OutputTexture: {fileID: 2800000, guid: 66f900de077201e439e789d69e676228, type: 3}
   DebugPlane: {fileID: 0}

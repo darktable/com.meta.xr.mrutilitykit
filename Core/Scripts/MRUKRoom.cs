@@ -40,8 +40,7 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// The primary anchor associated with the room.
         /// </summary>
-        public OVRAnchor Anchor = OVRAnchor.Null;
-
+        public OVRAnchor Anchor { get; internal set; } = OVRAnchor.Null;
 
 
         /// <summary>
@@ -70,23 +69,19 @@ namespace Meta.XR.MRUtilityKit
         /// The floor anchor in the room.
         /// </summary>
         public MRUKAnchor FloorAnchor
-        ;
+        { get; internal set; }
 
 
         /// <summary>
         /// The ceiling anchor in the room.
         /// </summary>
         public MRUKAnchor CeilingAnchor
-        ;
+        { get; internal set; }
 
         /// <summary>
         /// The global mesh anchor in the room.
         /// </summary>
-        public MRUKAnchor GlobalMeshAnchor
-        {
-            get;
-            internal set;
-        }
+        public MRUKAnchor GlobalMeshAnchor { get; internal set; }
 
         /// <summary>
         /// A list of seat poses in the room:
@@ -95,8 +90,14 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public struct CouchSeat
         {
-            public MRUKAnchor couchAnchor; // The anchor associated with the couch. This anchor provides the spatial context for the seat poses.
-            public List<Pose> couchPoses; // A list of poses representing suggested placements for avatars or users on the couch. Each pose is relative to the couch anchor's space.
+            /// <summary>
+            /// The anchor associated with the couch. This anchor provides the spatial context for the seat poses.
+            /// </summary>
+            public MRUKAnchor couchAnchor { get; internal set; }
+            /// <summary>
+            /// A list of poses representing suggested placements for avatars or users on the couch. Each pose is relative to the couch anchor's space.
+            /// </summary>
+            public List<Pose> couchPoses { get; internal set; }
         };
 
         /// <summary>
@@ -128,32 +129,17 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///     Gets fired when a new anchor of this room has been created
         /// </summary>
-        [field: SerializeField, FormerlySerializedAs(nameof(AnchorCreatedEvent))]
-        public UnityEvent<MRUKAnchor> AnchorCreatedEvent
-        {
-            get;
-            private set;
-        } = new();
+        public UnityEvent<MRUKAnchor> AnchorCreatedEvent { get; private set; } = new();
 
         /// <summary>
         ///     Gets fired after a component of the corresponding anchor has changed
         /// </summary>
-        [field: SerializeField, FormerlySerializedAs(nameof(AnchorUpdatedEvent))]
-        public UnityEvent<MRUKAnchor> AnchorUpdatedEvent
-        {
-            get;
-            private set;
-        } = new();
+        public UnityEvent<MRUKAnchor> AnchorUpdatedEvent { get; private set; } = new();
 
         /// <summary>
         ///     Gets fired when the anchor has been deleted.
         /// </summary>
-        [field: SerializeField, FormerlySerializedAs(nameof(AnchorRemovedEvent))]
-        public UnityEvent<MRUKAnchor> AnchorRemovedEvent
-        {
-            get;
-            private set;
-        } = new();
+        public UnityEvent<MRUKAnchor> AnchorRemovedEvent { get; private set; } = new();
 
         /// <summary>
         ///     Registers a callback function to be called when an anchor is created.
@@ -246,6 +232,27 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <summary>
+        /// Shares this room with the specified group
+        /// </summary>
+        /// <param name="groupUuid">UUID of the group to which the room should be shared.</param>
+        /// <returns>A task that tracks the asynchronous operation.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if <see cref="Anchor"/> is <see cref="OVRAnchor.Null"/></exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="groupUuid"/> is empty.</exception>
+        public OVRTask<OVRResult<OVRAnchor.ShareResult>> ShareRoomAsync(Guid groupUuid)
+        {
+            if (Anchor == OVRAnchor.Null)
+            {
+                throw new InvalidOperationException($"{nameof(Anchor)} must not be {nameof(OVRAnchor.Null)}");
+            }
+
+
+            if (Guid.Empty == groupUuid)
+            {
+                throw new ArgumentException(nameof(groupUuid));
+            }
+            return Anchor.ShareAsync(groupUuid);
+        }
 
         internal void UpdateRoom(Data.RoomData roomData)
         {
@@ -1648,7 +1655,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="roomData">The other room data.</param>
         /// <returns>True if the two rooms are identical, false otherwise.</returns>
-        public bool IsIdenticalRoom(Data.RoomData roomData)
+        internal bool IsIdenticalRoom(Data.RoomData roomData)
         {
             bool allAnchorsEqual = true;
             foreach (var anchor in Anchors)
@@ -1680,7 +1687,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="roomData">The other room data.</param>
         /// <returns>True if the two rooms are the same, false otherwise.</returns>
-        public bool IsSameRoom(Data.RoomData roomData)
+        internal bool IsSameRoom(Data.RoomData roomData)
         {
             foreach (var anchor in Anchors)
             {

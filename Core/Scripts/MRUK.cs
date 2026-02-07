@@ -27,16 +27,16 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Assertions;
+using UnityEngine.Diagnostics;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
+using Meta.XR.ImmersiveDebugger;
 
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
     ///     This class contains convenience functions that allow you to
-    ///     query your scene.
-    ///     Use together with <seealso cref="MRUKLoader" /> to
-    ///     load data via link, fake data, or on-device data.
+    ///     query your scene. It also contains functions to load a scene from prefabs or json to work within the Unity editor.
     /// </summary>
     [Feature(Feature.Scene)]
     public partial class MRUK : MonoBehaviour
@@ -490,6 +490,8 @@ namespace Meta.XR.MRUtilityKit
             private set;
         }
 
+        [SerializeField] internal GameObject _immersiveSceneDebuggerPrefab;
+
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -560,6 +562,16 @@ namespace Meta.XR.MRUtilityKit
                 }
 #pragma warning restore CS4014
             }
+
+            // Activate SceneDebugger when ImmersiveDebugger is enabled.
+            if (RuntimeSettings.Instance.ImmersiveDebuggerEnabled && _immersiveSceneDebuggerPrefab != null)
+            {
+                var sceneDebuggerExist = ImmersiveSceneDebugger.Instance != null;
+                if (!sceneDebuggerExist)
+                {
+                    Instantiate(_immersiveSceneDebuggerPrefab);
+                }
+            }
         }
 
         private void OnDestroy()
@@ -578,8 +590,9 @@ namespace Meta.XR.MRUtilityKit
         {
             if (!_cameraRig)
             {
-                _cameraRig = FindObjectOfType<OVRCameraRig>();
+                _cameraRig = FindAnyObjectByType<OVRCameraRig>();
             }
+
         }
 
         private void Update()
@@ -755,6 +768,94 @@ namespace Meta.XR.MRUtilityKit
             _cachedCurrentRoom = null;
         }
 
+        /// <summary>
+        /// Loads the scene based on scene data previously shared with the user via
+        /// <see cref="MRUKRoom.ShareRoomAsync"/>.
+        /// </summary>
+        /// <remarks>
+        ///
+        /// This function should be used in co-located multi-player experiences by "guest"
+        /// clients that require scene data previously shared by the "host".
+        ///
+        /// </remarks>
+        /// <param name="roomUuids">A collection of UUIDs of room anchors for which scene data will be loaded from the given group context.</param>
+        /// <param name="groupUuid">UUID of the group from which to load the shared rooms.</param>
+        /// <param name="alignmentData">Use this parameter to correctly align local and host coordinates when using co-location.<br/>
+        /// alignmentRoomUuid: the UUID of the room used for alignment.<br/>
+        /// floorWorldPoseOnHost: world-space pose of the FloorAnchor on the host device.<br/>
+        /// Using 'null' will disable the alignment, causing the mismatch between the host and the guest. Do this only if your app has custom coordinate alignment.</param>
+        /// <param name="removeMissingRooms">
+        ///     When enabled, rooms that are already loaded but are not found in roomUuids will be removed.
+        ///     This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
+        /// </param>
+        /// <returns>An enum indicating whether loading was successful or not.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="roomUuids"/> is `null`.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="groupUuid"/> equals `Guid.Empty`.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="alignmentData.alignmentRoomUuid"/> equals `Guid.Empty`.</exception>
+        public async Task<LoadDeviceResult> LoadSceneFromSharedRooms(IEnumerable<Guid> roomUuids, Guid groupUuid, (Guid alignmentRoomUuid, Pose floorWorldPoseOnHost)? alignmentData, bool removeMissingRooms = true)
+        {
+            if (roomUuids == null)
+            {
+                throw new ArgumentNullException(nameof(roomUuids));
+            }
+
+            if (groupUuid == Guid.Empty)
+            {
+                throw new ArgumentException(nameof(groupUuid));
+            }
+
+            if (alignmentData?.alignmentRoomUuid == Guid.Empty)
+            {
+                throw new ArgumentException(nameof(alignmentData.Value.alignmentRoomUuid));
+            }
+
+            return await LoadSceneFromDeviceInternal(requestSceneCaptureIfNoDataFound: false, removeMissingRooms, new SharedRoomsData { roomUuids = roomUuids, groupUuid = groupUuid, alignmentData = alignmentData });
+        }
+
+        private struct SharedRoomsData
+        {
+            internal IEnumerable<Guid> roomUuids;
+            internal Guid groupUuid;
+            internal (Guid alignmentRoomUuid, Pose floorWorldPoseOnHost)? alignmentData;
+        }
+
+        /// <summary>
+        /// Shares multiple MRUK rooms with a group
+        /// </summary>
+        /// <param name="rooms">A collection of rooms to be shared.</param>
+        /// <param name="groupUuid">UUID of the group to which the room should be shared.</param>
+        /// <returns>A task that tracks the asynchronous operation.</returns>
+        /// <exception cref="ArgumentNullException">Thrown if <paramref name="rooms"/> is `null`.</exception>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="groupUuid"/> equals `Guid.Empty`.</exception>
+        public OVRTask<OVRResult<OVRAnchor.ShareResult>> ShareRoomsAsync(IEnumerable<MRUKRoom> rooms,
+            Guid groupUuid)
+        {
+
+            if (rooms == null)
+            {
+                throw new ArgumentNullException(nameof(rooms));
+            }
+
+            if (groupUuid == Guid.Empty)
+            {
+                throw new ArgumentException(nameof(groupUuid));
+            }
+
+            using (new OVRObjectPool.ListScope<OVRAnchor>(out var roomAnchors))
+            {
+                foreach (var room in rooms)
+                {
+                    if (!room.IsLocal)
+                    {
+                        Debug.LogError($"Sharing JSON or Prefab rooms is not supported. Only rooms loaded from device ({nameof(MRUKRoom)}.{nameof(MRUKRoom.IsLocal)} == true) can be shared.");
+                        return OVRTask.FromResult(OVRResult<OVRAnchor.ShareResult>.FromFailure(OVRAnchor.ShareResult.FailureOperationFailed));
+                    }
+                    roomAnchors.Add(room.Anchor);
+                }
+
+                return OVRAnchor.ShareAsync(roomAnchors, groupUuid);
+            }
+        }
 
         /// <summary>
         ///     Loads the scene from the data stored on the device.
@@ -782,9 +883,11 @@ namespace Meta.XR.MRUtilityKit
 
         private async Task<LoadDeviceResult> LoadSceneFromDeviceInternal(
             bool requestSceneCaptureIfNoDataFound, bool removeMissingRooms
+            , SharedRoomsData? sharedRoomsData = null
         )
         {
             var results = await CreateSceneDataFromDevice(
+                sharedRoomsData
             );
 
             if (results.SceneData.Rooms.Count == 0)
@@ -816,8 +919,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         // Try again but this time don't request a space setup again if there are no rooms to avoid
                         // the user getting stuck in an infinite loop.
-                        return await LoadSceneFromDeviceInternal(false, removeMissingRooms
-                        );
+                        return await LoadSceneFromDeviceInternal(false, removeMissingRooms, sharedRoomsData);
                     }
                 }
 
@@ -829,8 +931,7 @@ namespace Meta.XR.MRUtilityKit
                 return (LoadDeviceResult)results.FetchResult;
             }
 
-            if (!UpdateScene(results.SceneData, removeMissingRooms
-                ))
+            if (!UpdateScene(results.SceneData, removeMissingRooms, sharedRoomsData))
             {
                 return LoadDeviceResult.FailureDataIsInvalid;
             }
@@ -852,16 +953,20 @@ namespace Meta.XR.MRUtilityKit
         ///     Attempts to create scene data from the device.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the operation was successful, the created scene data, and a list of OVRAnchors.</returns>
-        private async Task<CreateSceneDataResults> CreateSceneDataFromDevice(
-        )
+        private async Task<CreateSceneDataResults> CreateSceneDataFromDevice(SharedRoomsData? sharedRoomsData = null)
         {
             var componentType = typeof(OVRRoomLayout);
             var rooms = new List<OVRAnchor>();
-            var status = (await FetchAnchors()).Status;
-
-            async OVRTask<OVRResult<List<OVRAnchor>, OVRAnchor.FetchResult>> FetchAnchors()
+            OVRAnchor.FetchResult status;
+            if (sharedRoomsData.HasValue)
             {
-                return await OVRAnchor.FetchAnchorsAsync(rooms, new OVRAnchor.FetchOptions { SingleComponentType = componentType });
+                status = (await OVRAnchor.FetchSharedAnchorsAsync(sharedRoomsData.Value.groupUuid, sharedRoomsData.Value.roomUuids, rooms)).Status;
+                // Remove all anchors that don't have the OVRRoomLayout component because the query for anchors shared by group includes all scene anchors
+                rooms.RemoveAll(x => !x.TryGetComponent<OVRRoomLayout>(out _));
+            }
+            else
+            {
+                status = (await OVRAnchor.FetchAnchorsAsync(rooms, new OVRAnchor.FetchOptions { SingleComponentType = componentType })).Status;
             }
 
             var sceneData = new Data.SceneData()
@@ -870,12 +975,10 @@ namespace Meta.XR.MRUtilityKit
                 Rooms = new List<Data.RoomData>()
             };
 
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromDevice)
                 .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, rooms.Count.ToString())
                 .SetResult(status == OVRAnchor.FetchResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
                 .Send();
-#endif
 
             foreach (var roomAnchor in rooms)
             {
@@ -908,10 +1011,19 @@ namespace Meta.XR.MRUtilityKit
 
                 var room = roomAnchor.GetComponent<OVRAnchorContainer>();
                 var childAnchors = new List<OVRAnchor>();
-                await OVRAnchor.FetchAnchorsAsync(childAnchors, new OVRAnchor.FetchOptions
+                if (sharedRoomsData.HasValue)
                 {
-                    Uuids = room.Uuids
-                });
+                    await OVRAnchor.FetchSharedAnchorsAsync(sharedRoomsData.Value.groupUuid, room.Uuids, childAnchors);
+                }
+                else
+                {
+                    await OVRAnchor.FetchAnchorsAsync(childAnchors, new OVRAnchor.FetchOptions
+                    {
+                        Uuids = room.Uuids
+                    });
+                }
+
+
 
                 if (childAnchors.Count == 0)
                 {
@@ -920,6 +1032,10 @@ namespace Meta.XR.MRUtilityKit
                     continue;
                 }
 
+                if (roomAnchor.TryGetComponent<OVRSharable>(out var sharable))
+                {
+                    await sharable.SetEnabledAsync(true);
+                }
 
                 var tasks = new List<OVRTask<bool>>();
 
@@ -941,20 +1057,20 @@ namespace Meta.XR.MRUtilityKit
 
                 foreach (var child in childAnchors)
                 {
-                    var semanticClassifications = new List<string>(1);
+                    MRUKAnchor.SceneLabels semanticClassifications = 0;
                     if (child.TryGetComponent(out OVRSemanticLabels labels) && labels.IsEnabled)
                     {
                         labels.GetClassifications(_classificationsBuffer);
                         foreach (var classification in _classificationsBuffer)
                         {
-                            semanticClassifications.Add(OVRSemanticLabels.ToApiLabel(classification));
+                            semanticClassifications |= Utilities.ClassificationToSceneLabel(classification);
                         }
                     }
 
                     var anchorData = new Data.AnchorData
                     {
                         Anchor = child,
-                        SemanticClassifications = semanticClassifications
+                        Labels = semanticClassifications
                     };
 
                     if (child.TryGetComponent(out OVRBounded2D bounds2) && bounds2.IsEnabled)
@@ -1055,11 +1171,9 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="clearSceneFirst">If true, clears the current scene before loading the new one.</param>
         public void LoadSceneFromPrefab(GameObject scenePrefab, bool clearSceneFirst = true)
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromPrefab)
                 .AddAnnotation(TelemetryConstants.AnnotationType.SceneName, scenePrefab.name)
                 .Send();
-#endif
 
             if (clearSceneFirst)
             {
@@ -1337,6 +1451,7 @@ namespace Meta.XR.MRUtilityKit
             return SerializationHelpers.Serialize(coordinateSystem, includeGlobalMesh, rooms);
         }
 
+
         /// <summary>
         ///     Loads the scene from a JSON string representing the scene data.
         /// </summary>
@@ -1348,11 +1463,9 @@ namespace Meta.XR.MRUtilityKit
 
             UpdateScene(newSceneData, removeMissingRooms);
 
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromJson)
                 .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count.ToString())
                 .Send();
-#endif
 
             InitializeScene();
         }
@@ -1452,15 +1565,56 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///     Manages the scene by creating, updating, or deleting rooms and anchors based on new scene data.
         /// </summary>
-        /// <param name="newSceneData">The new scene data.</param>
-        /// <param name="removeMissingRooms">When enabled, rooms that are already loaded but are not found in newSceneData will be removed.
+        /// <param name="newSceneData"> The new scene data.</param>
+        /// <param name="removeMissingRooms"> When enabled, rooms that are already loaded but are not found in newSceneData will be removed.
         /// This is to support the case where a user deletes a room from their device and the change needs to be reflected in the app.
         /// </param>
+        /// <param name="sharedRoomsData"> Used to align the local room with the host's room. </param>
         /// <returns>A list of managed MRUKRoom objects.</returns>
-        private bool UpdateScene(Data.SceneData newSceneData, bool removeMissingRooms
-        )
+        private bool UpdateScene(Data.SceneData newSceneData, bool removeMissingRooms, SharedRoomsData? sharedRoomsData = null)
         {
             var anchorOffset = Matrix4x4.identity;
+            if (sharedRoomsData.HasValue && sharedRoomsData.Value.alignmentData.HasValue)
+            {
+                // Find the local room with the uuid of the host's room used for alignment.
+                // And re-align all rooms so that the local floor matches the global coordinate of the host floor.
+                Data.RoomData? foundRoom = null;
+                var alignmentRoomUuid = sharedRoomsData.Value.alignmentData.Value.alignmentRoomUuid;
+                foreach (var room in newSceneData.Rooms)
+                {
+                    if (room.Anchor.Uuid == alignmentRoomUuid)
+                    {
+                        foundRoom = room;
+                        break;
+                    }
+                }
+                if (!foundRoom.HasValue)
+                {
+                    Debug.LogError($"Room with uuid {alignmentRoomUuid} not found.");
+                    return false;
+                }
+                var floorAnchorIndex = foundRoom.Value.Anchors.FindIndex(x => (x.Labels & MRUKAnchor.SceneLabels.FLOOR) != 0);
+                if (floorAnchorIndex == -1)
+                {
+                    Debug.LogError($"Room with uuid {alignmentRoomUuid} doesn't have the {nameof(MRUKRoom.FloorAnchor)}.");
+                    return false;
+                }
+                var floorAnchor = foundRoom.Value.Anchors[floorAnchorIndex];
+                var floorWorldPoseOnHost = sharedRoomsData.Value.alignmentData.Value.floorWorldPoseOnHost;
+                var rotDiff = floorWorldPoseOnHost.rotation * Quaternion.Inverse(Quaternion.Euler(floorAnchor.Transform.Rotation));
+                var posDiff = floorWorldPoseOnHost.position - rotDiff * floorAnchor.Transform.Translation;
+                anchorOffset = Matrix4x4.TRS(posDiff, rotDiff, Vector3.one);
+
+                if (!EnableWorldLock)
+                {
+                    // If the World Lock is disabled, apply the offset to the tracking space.
+                    // Otherwise, camera will not be in sync with the scene anchors.
+                    var trackingSpace = _cameraRig.trackingSpace;
+                    trackingSpace.position = anchorOffset.MultiplyPoint3x4(trackingSpace.position);
+                    trackingSpace.rotation = anchorOffset.rotation * trackingSpace.rotation;
+                    Debug.LogWarning(nameof(EnableWorldLock) + " is disabled. MRUK applied the colocation alignment to the " + nameof(OVRCameraRig.trackingSpace) + ". Please enable " + nameof(EnableWorldLock) + " setting to disable this warning.");
+                }
+            }
 
             List<Data.RoomData> newRoomsToCreate = new();
 

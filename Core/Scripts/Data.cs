@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using Meta.XR.Util;
 using Newtonsoft.Json;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -30,13 +31,13 @@ namespace Meta.XR.MRUtilityKit
     /// Provides a container for various data structures used in MR Utility Kit.
     /// </summary>
     [Feature(Feature.Scene)]
-    public static class Data
+    internal static class Data
     {
         /// <summary>
         /// Represents transformation data including translation, rotation, and scale.
         /// </summary>
         [Serializable]
-        public struct TransformData
+        internal struct TransformData
         {
             /// <summary>
             /// The translation vector representing position in three-dimensional space.
@@ -56,7 +57,7 @@ namespace Meta.XR.MRUtilityKit
         /// Defines the 2D bounds of a plane using minimum and maximum vectors.
         /// </summary>
         [Serializable]
-        public struct PlaneBoundsData
+        internal struct PlaneBoundsData
         {
             /// <summary>
             /// The minimum vector of the plane bounds.
@@ -72,7 +73,7 @@ namespace Meta.XR.MRUtilityKit
         /// Defines the 3D volume bounds using minimum and maximum vectors.
         /// </summary>
         [Serializable]
-        public struct VolumeBoundsData
+        internal struct VolumeBoundsData
         {
             /// <summary>
             /// The minimum vector of the volume bounds.
@@ -88,7 +89,7 @@ namespace Meta.XR.MRUtilityKit
         /// Contains data related to an anchor including its UUID and associated properties.
         /// </summary>
         [Serializable]
-        public struct AnchorData
+        internal struct AnchorData
         {
             /// <summary>
             /// The UUID of the anchor, used for serialization.
@@ -118,33 +119,68 @@ namespace Meta.XR.MRUtilityKit
             /// A list of 2D vectors representing the boundary of the plane.
             /// </summary>
             [JsonProperty("PlaneBoundary2D")] public List<Vector2> PlaneBoundary2D;
+
+
             /// <summary>
-            /// Optional global <see cref="GlobalMeshData"/> associated with the anchor.
+            /// Optional <see cref="MeshData"/> associated with the anchor representing the global mesh.
             /// </summary>
-            [JsonProperty("GlobalMesh")] public GlobalMeshData? GlobalMesh;
+            [JsonProperty("GlobalMesh")] public MeshData? GlobalMesh;
+
+            [JsonIgnore] private MRUKAnchor.SceneLabels? _labels;
+
+            internal MRUKAnchor.SceneLabels Labels
+            {
+                get
+                {
+                    if (_labels.HasValue)
+                    {
+                        return _labels.Value;
+                    }
+
+
+                    _labels = Utilities.StringLabelsToEnum(SemanticClassifications);
+                    return _labels.Value;
+                }
+                set => _labels = value;
+            }
+
+            internal MeshData? MeshData
+            {
+                get
+                {
+                    return GlobalMesh;
+                }
+                set
+                {
+                    GlobalMesh = value;
+                }
+            }
         }
 
+
         /// <summary>
-        /// Represents the mesh data of a global mesh anchor.
+        /// Represents the mesh data of an anchor.
         /// </summary>
         [Serializable]
-        public struct GlobalMeshData
+        internal struct MeshData
         {
             /// <summary>
             /// Array of indices that define the vertices of the mesh.
             /// </summary>
             [JsonProperty("Positions")] public Vector3[] Positions;
+
             /// <summary>
             /// Array of indices that define the triangles of the mesh.
             /// </summary>
             [JsonProperty("Indices")] public int[] Indices;
         }
 
+
         /// <summary>
         /// Contains UUIDs for different components of a room layout such as floor, ceiling, and walls.
         /// </summary>
         [Serializable]
-        public struct RoomLayoutData
+        internal struct RoomLayoutData
         {
             /// <summary>
             /// The UUID of the floor component.
@@ -165,7 +201,7 @@ namespace Meta.XR.MRUtilityKit
         /// Contains data related to a room including its layout and associated anchors.
         /// </summary>
         [Serializable]
-        public struct RoomData
+        internal struct RoomData
         {
             /// <summary>
             /// The UUID of the room anchor.
@@ -187,7 +223,7 @@ namespace Meta.XR.MRUtilityKit
         /// Represents the entire scene data including coordinate system and rooms.
         /// </summary>
         [Serializable]
-        public struct SceneData
+        internal struct SceneData
         {
             /// <summary>
             /// The coordinate system used in the scene.

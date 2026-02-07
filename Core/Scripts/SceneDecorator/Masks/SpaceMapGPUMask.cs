@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         {
             if (spaceMap == null)
             {
-                spaceMap = FindObjectOfType<SpaceMapGPU>();
+                spaceMap = FindAnyObjectByType<SpaceMapGPU>();
                 if (spaceMap == null)
                 {
                     Debug.LogWarning($"SpaceMapGPU cannot be found, does it exist in the Scene?");

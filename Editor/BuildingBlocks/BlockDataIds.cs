@@ -27,5 +27,6 @@ namespace Meta.XR.MRUtilityKit.Editor
         public const string SceneDebugger = "8ac24146-90e9-4802-8a61-9d72ceaa2450";
         public const string AnchorPrefabSpawner = "b9d9309f-2bf0-40ca-9cee-803aa6a91dae";
         public const string FindSpawnPositions = "93762ef0-9738-45f4-bb87-bdb9a0acb994";
+        public const string InstantContentPlacement = "b1be16cb-cbc7-4157-a226-edb9a63ef3fb";
     }
 }

@@ -39,8 +39,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\RayCastTests.unity");
-            _jsonTestHelper = FindObjectOfType<JSONTestHelper>();
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/RayCastTests.unity");
+            _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
@@ -56,7 +56,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator SerializationToUnity()
         {
-            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unity);
+            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unity
+            );
 
             var splitJson = json.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
             var splitExpected = _jsonTestHelper.UnityExpectedSerializedScene.text.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -96,7 +97,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator SerializationToUnreal()
         {
-            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unreal);
+            var json = MRUK.Instance.SaveSceneToJsonString(SerializationHelpers.CoordinateSystem.Unreal
+            );
 
             var splitJson = json.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
             var splitExpected = _jsonTestHelper.UnrealExpectedSerializedScene.text.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);

@@ -19,6 +19,7 @@ MonoBehaviour:
   tags:
     array:
     - name: Scene
+    - name: MRUK
   thumbnail: {fileID: 2800000, guid: 38f69350382be7f4887ee22dcc0d4b2c, type: 3}
   order: 5
   prefab: {fileID: 8477560934378440801, guid: 61049dfb4690be642a843757d529ca97, type: 3}
@@ -31,3 +32,5 @@ MonoBehaviour:
   packageDependencies: []
   isSingleton: 1
   usageInstructions: 
+  featureDocumentationName: Scene Debugger
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/unity-mr-utility-kit-features#scenedebugger

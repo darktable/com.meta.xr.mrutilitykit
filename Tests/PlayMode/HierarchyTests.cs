@@ -42,8 +42,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\CRUDTests.unity");
-            _jsonTestHelper = FindObjectOfType<JSONTestHelper>();
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/CRUDTests.unity");
+            _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
         }
         [UnityTearDown]
         public IEnumerator TearDown()

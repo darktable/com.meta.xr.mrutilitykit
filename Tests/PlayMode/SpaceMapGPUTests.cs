@@ -42,9 +42,9 @@ namespace Meta.XR.MRUtilityKit.Tests
                 yield return true;
                 yield break;
             }
-            yield return LoadScene(@"Packages\com.meta.xr.mrutilitykit\Tests\SpaceMapGPUTests.unity", false);
-            SpaceMapGPU = FindObjectOfType<SpaceMapGPU>();
-            SpaceMapGPUTestHelper = FindObjectOfType<SpaceMapGPUTestHelper>();
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SpaceMapGPUTests.unity", false);
+            SpaceMapGPU = FindAnyObjectByType<SpaceMapGPU>();
+            SpaceMapGPUTestHelper = FindAnyObjectByType<SpaceMapGPUTestHelper>();
         }
 
         [UnityTearDown]
@@ -96,18 +96,13 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return CheckRoom(0, true);
         }
 
-        private IEnumerator CheckRoom(int index, bool updateAnchors = false)
+        private async IAsyncEnumerable<bool> CheckRoom(int index, bool updateAnchors = false)
         {
             MRUK.Instance.SceneSettings.RoomIndex = index;
             MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
             SpaceMapGPU = SetupSpaceMapGPU();
 
-            SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
-
-            while (SpaceMapGPU.Dirty)
-            {
-                yield return null;
-            }
+            await SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
 
             if (CompareTextures(SpaceMapGPU.OutputTexture, index == 0 ? SpaceMapGPUTestHelper.Room : SpaceMapGPUTestHelper.RoomLessAnchors))
             {
@@ -121,12 +116,8 @@ namespace Meta.XR.MRUtilityKit.Tests
                 MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
                 SpaceMapGPU = SetupSpaceMapGPU();
 
-                SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
+                await SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
 
-                while (SpaceMapGPU.Dirty)
-                {
-                    yield return null;
-                }
                 if (CompareTextures(SpaceMapGPU.OutputTexture, SpaceMapGPUTestHelper.RoomLessAnchors))
                 {
                     yield return true;
@@ -138,7 +129,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private SpaceMapGPU SetupSpaceMapGPU()
         {
-            var spaceMap = FindObjectOfType<SpaceMapGPU>();
+            var spaceMap = FindAnyObjectByType<SpaceMapGPU>();
             if (spaceMap == null)
             {
                 Assert.Fail();

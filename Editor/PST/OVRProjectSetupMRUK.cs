@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+using Meta.XR.ImmersiveDebugger;
 using UnityEditor;
 using UnityEngine.SceneManagement;
 using UnityEngine;
@@ -54,7 +55,29 @@ namespace Meta.XR.MRUtilityKit.Editor
                 },
                 fixMessage: "Set Scene Support to \"Required\" in the project config"
             );
+
+            // Immersive Scene Debugger prefab reference
+            OVRProjectSetup.AddTask(
+                level: OVRProjectSetup.TaskLevel.Recommended,
+                group: OVRProjectSetup.TaskGroup.Features,
+                isDone: buildTargetGroup =>
+                {
+                    var mruk = FindComponentInScene<MRUK>();
+                    return !RuntimeSettings.Instance.ImmersiveDebuggerEnabled || mruk == null || mruk._immersiveSceneDebuggerPrefab != null;
+                },
+                message: "ImmersiveSceneDebugger prefab reference is missing in MRUK component. Scene debug will be unavailable in Immersive Debugger.",
+                fix: buildTargetGroup => ReferenceImmersiveSceneDebuggerFromAsset(),
+                fixMessage: "Set ImmersiveSceneDebugger prefab reference in MRUK component"
+            );
         }
+
+        private static void ReferenceImmersiveSceneDebuggerFromAsset()
+        {
+            var mruk = FindComponentInScene<MRUK>();
+            const string pathToAsset = "Packages/com.meta.xr.mrutilitykit/Core/Tools/ImmersiveSceneDebugger.prefab";
+            mruk._immersiveSceneDebuggerPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(pathToAsset);
+        }
+
         private static T FindComponentInScene<T>() where T : Component
         {
             var scene = SceneManager.GetActiveScene();

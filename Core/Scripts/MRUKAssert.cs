@@ -18,23 +18,17 @@
  * limitations under the License.
  */
 
-using UnityEngine;
+using System.Diagnostics;
+using UnityEngine.Assertions;
 
 namespace Meta.XR.MRUtilityKit
 {
-    public class EnableUnpremultipliedAlpha : MonoBehaviour
+    internal static class MRUKAssert
     {
-        void Start()
+        [Conditional("OVR_INTERNAL_CODE")]
+        internal static void AreEqual<T>(T expected, T actual, string message = null)
         {
-            // Since the alpha values for Selective Passthrough are written to the framebuffers after the color pass, we
-            // need to ensure that the color values get multiplied by the alpha value during compositing. By default, this is
-            // not the case, as framebuffers typically contain premultiplied color values. This step is only needed when
-            // Selective Passthrough is non-binary (i.e. alpha values are neither 0 nor 1), and it doesn't work if the
-            // framebuffer contains semi-transparent pixels even without Selective Passthrough, as those will have
-            // premultiplied colors.
-#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_ANDROID
-            OVRManager.eyeFovPremultipliedAlphaModeEnabled = false;
-#endif
+            Assert.AreEqual(expected, actual, message);
         }
     }
 }

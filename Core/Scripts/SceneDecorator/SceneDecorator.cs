@@ -79,9 +79,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             _poolManagerComponent = gameObject.AddComponent<PoolManagerComponent>();
             InitPools();
 
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDecoration).Send();
-#endif
             if (MRUK.Instance is null)
             {
                 return;
@@ -573,6 +571,10 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                             }
                         }
 
+                        break;
+                    case Target.SCENE_ANCHORS:
+                        var ray = new Ray(worldPos, rayDir);
+                        sceneAnchor.Raycast(ray, float.PositiveInfinity, out closestHit);
                         break;
                 }
             }

@@ -187,7 +187,8 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="roomFilter">The <see cref="MRUK.RoomFilter"/> that determines which rooms are included in the space map,
         /// influencing how the space map is generated.</param>
-        public async void StartSpaceMap(MRUK.RoomFilter roomFilter)
+        /// <returns></returns>
+        public async Task StartSpaceMap(MRUK.RoomFilter roomFilter)
         {
             Dirty = true;
             await InitUpdateGradientTexture();
@@ -237,15 +238,7 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            MRUK.Instance.RegisterSceneLoadedCallback(() =>
-            {
-                if (CreateOnStart == MRUK.RoomFilter.None)
-                {
-                    return;
-                }
-
-                StartSpaceMap(CreateOnStart);
-            });
+            MRUK.Instance.RegisterSceneLoadedCallback(SceneLoaded);
 
             if (!TrackUpdates)
             {
@@ -254,6 +247,17 @@ namespace Meta.XR.MRUtilityKit
 
             MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveCreatedRoom);
             MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
+            MRUK.Instance.RoomUpdatedEvent.AddListener(ReceiveUpdatedRoom);
+        }
+
+        private async void SceneLoaded()
+        {
+            if (CreateOnStart == MRUK.RoomFilter.None)
+            {
+                return;
+            }
+
+            await StartSpaceMap(CreateOnStart);
         }
 
         private void InitBuffer()
@@ -432,6 +436,16 @@ namespace Meta.XR.MRUtilityKit
 
             MRUK.Instance.RoomCreatedEvent.RemoveListener(ReceiveCreatedRoom);
             MRUK.Instance.RoomRemovedEvent.RemoveListener(ReceiveRemovedRoom);
+            MRUK.Instance.SceneLoadedEvent.RemoveListener(SceneLoaded);
+        }
+
+        private void ReceiveUpdatedRoom(MRUKRoom room)
+        {
+            if (TrackUpdates)
+            {
+                RegisterAnchorUpdates(room);
+                UpdateBuffer(room);
+            }
         }
 
         private void ReceiveCreatedRoom(MRUKRoom room)
@@ -524,7 +538,8 @@ namespace Meta.XR.MRUtilityKit
 
             var rawColor = OutputTexture.GetPixelBilinear(xPixel, yPixel);
 
-            return rawColor.b > 0 ? InsideObjectColor : MapGradient.Evaluate(1 - rawColor.r);
+            var time = 1 - rawColor.r;
+            return rawColor.b > 0 ? InsideObjectColor : MapGradient.Evaluate(time is >= 0 and <= 1 ? time : 0);
         }
 
         private void InitUpdateRT()
@@ -694,6 +709,11 @@ namespace Meta.XR.MRUtilityKit
             var centerX = (minX + maxX) / 2;
             var centerZ = (minZ + maxZ) / 2;
 
+            if (centerX is float.NaN || centerZ is float.NaN || sizeX is float.NegativeInfinity || sizeZ is float.NegativeInfinity)
+            {
+                return;
+            }
+
             DebugPlane.transform.localScale = new Vector3(sizeX, 1, sizeZ);
             DebugPlane.transform.position = new Vector3(centerX, DebugPlane.transform.position.y, centerZ);
         }
@@ -718,7 +738,7 @@ namespace Meta.XR.MRUtilityKit
 
         private Vector3 CalculateCameraPosition(Rect boundingBox)
         {
-            return new Vector3(boundingBox.center.x, float.IsNaN(_cameraDistance) ? 0 : _cameraDistance, boundingBox.center.y);
+            return new Vector3(float.IsNaN(boundingBox.center.x) ? 0 : boundingBox.center.x, float.IsNaN(_cameraDistance) ? 0 : _cameraDistance, float.IsNaN(boundingBox.center.y) ? 0 : boundingBox.center.y);
         }
 
         private float CalculateOrthographicSize(Rect boundingBox)

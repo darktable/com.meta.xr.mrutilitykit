@@ -33,6 +33,7 @@ namespace Meta.XR.MRUtilityKit
     ///     stretched. In essence, the GridSliceResizer is a 27-Slice-Scaler for 3D meshes.
     ///     The component operates by dividing the bounding box of a 3D mesh into 27 cuboids, as illustrated below.
     ///     Not all cuboids are visible in this picture. Only the once that are front facing:
+    ///     @verbatim
     ///         +-----+-----------+-----+
     ///        /_____/___________/_____/|
     ///       /_____/___________/_____/||
@@ -46,6 +47,7 @@ namespace Meta.XR.MRUtilityKit
     ///     +-----+-----------+-----+ |/
     ///     |  G  |     H     |  I  | /
     ///     +-----+-----+-----+-----+
+    ///     @endverbatim
     ///     The scaling behaviour is as follows (assuming all other faces of the bounding box are divided as the
     ///     front facing one):
     ///     Center Cuboid (E): Vertices within this cuboid stretch on two axes (Y, Z).
@@ -59,7 +61,11 @@ namespace Meta.XR.MRUtilityKit
     ///     will occur. Typically, you'll want the pivot in the middle of the mesh and the borders set to around 0.8.
     ///     You can visualize the borders and pivot either in the editor, in the prefab mode and during play.
     ///     This component is only compatible with meshes that have read/write access enabled.
+    ///     It is usually used in conjunction with the <see cref="AnchorPrefabSpawner" /> component to dinamically instantiate
+    ///     and resize prefabs based on anchors without losing the proportions of specific sections of the mesh.
     /// </summary>
+    [HelpURL(
+        "https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_grid_slice_resizer")]
     [RequireComponent(typeof(MeshFilter))]
     [ExecuteInEditMode]
     public class GridSliceResizer : MonoBehaviour
@@ -93,50 +99,102 @@ namespace Meta.XR.MRUtilityKit
         }
 
 
+        /// <summary>
+        ///    Represents the offset from the pivot point of the mesh. This offset is used to adjust the origin of scaling operations.
+        /// </summary>
         [Tooltip(
             "Represents the offset from the pivot point of the mesh. This offset is used to adjust the origin of scaling operations.")]
         public Vector3 PivotOffset;
 
+        /// <summary>
+        /// Specifies the proportion of the mesh along the positive X-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the positive X-axis that is protected from scaling.")]
+        [Space(15)]
+        public Method ScalingX;
 
-        [Space(15)] public Method ScalingX;
-
+        /// <summary>
+        /// Specifies the proportion of the mesh along the negative X-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the negative X-axis that is protected from scaling.")]
-        [Range(0, 1f)] public float BorderXNegative;
+        [Range(0, 1f)]
+        public float BorderXNegative;
 
-
+        /// <summary>
+        /// Specifies the proportion of the mesh along the positive X-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the positive X-axis that is protected from scaling.")]
-        [Range(0, 1f)] public float BorderXPositive;
+        [Range(0, 1f)]
+        public float BorderXPositive;
 
+        /// <summary>
+        /// Defines the scaling method to be applied along the Y-axis of the mesh.
+        /// </summary>
         [Tooltip(" Defines the scaling method to be applied along the Y-axis of the mesh.")]
-        [Space(15)] public Method ScalingY;
+        [Space(15)]
+        public Method ScalingY;
 
+        /// <summary>
+        /// Specifies the proportion of the mesh along the negative Y-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the negative Y-axis that is protected from scaling.")]
-        [Range(0, 1f)] public float BorderYNegative;
+        [Range(0, 1f)]
+        public float BorderYNegative;
 
+        /// <summary>
+        /// Specifies the proportion of the mesh along the positive Y-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the positive Y-axis that is protected from scaling.")]
-        [Range(0, 1f)] public float BorderYPositive;
+        [Range(0, 1f)]
+        public float BorderYPositive;
 
+        /// <summary>
+        /// Defines the scaling method to be applied along the Z-axis of the mesh.
+        /// </summary>
         [Tooltip("Defines the scaling method to be applied along the Z-axis of the mesh.")]
-        [Space(15)] public Method ScalingZ;
+        [Space(15)]
+        public Method ScalingZ;
 
+        /// <summary>
+        /// Specifies the proportion of the mesh along the negative Z-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the negative Z-axis that is protected from scaling.")]
-        [Range(0, 1f)] public float BorderZNegative;
+        [Range(0, 1f)]
+        public float BorderZNegative;
 
+        /// <summary>
+        /// Specifies the proportion of the mesh along the positive Z-axis that is protected from scaling.
+        /// </summary>
         [Tooltip("Specifies the proportion of the mesh along the positive Z-axis that is protected from scaling.")]
-        [Range(0, 1f)] public float BorderZPositive;
+        [Range(0, 1f)]
+        public float BorderZPositive;
 
+        /// <summary>
+        /// Specifies which axes should allow the center part of the object to stretch.
+        /// This setting is used to control the stretching behavior of the central section of the mesh
+        /// allowing for selective stretching along specified axes.
+        /// </summary>
         [Tooltip("Specifies which axes should allow the center part of the object to stretch." +
                  "This setting is used to control the stretching behavior of the central section of the mesh" +
                  " allowing for selective stretching along specified axes.")]
         public StretchCenterAxis StretchCenter = 0;
 
+        /// <summary>
+        /// Indicates whether the resizer should update the mesh in play mode.
+        /// When set to true, the mesh will continue to be updated based on the scaling settings during runtime.
+        /// This can be useful for dynamic scaling effects but may impact performance if used excessively.
+        /// When instantiating prefab through the <see cref="AnchorPrefabSpawner" /> component, this property
+        /// should be set to true.
+        /// /// </summary>
         [Tooltip(
             "Indicates whether the resizer should update the mesh in play mode." +
             "When set to true, the mesh will continue to be updated based on the scaling settings during runtime." +
             "This can be useful for dynamic scaling effects but may impact performance if used excessively.")]
         public bool UpdateInPlayMode = true;
 
+        /// <summary>
+        /// The original mesh before any modifications. This mesh is used as the baseline for all scaling operations
+        /// </summary>
         [Tooltip(
             "The original mesh before any modifications. This mesh is used as the baseline for all scaling operations")]
         public Mesh OriginalMesh;
@@ -189,9 +247,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadGridSliceResizer).Send();
-#endif
         }
 
         public void Update()

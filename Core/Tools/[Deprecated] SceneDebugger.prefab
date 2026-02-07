@@ -15768,7 +15768,7 @@ GameObject:
   - component: {fileID: 1108382200330573997}
   - component: {fileID: 8477560934378440804}
   m_Layer: 0
-  m_Name: SceneDebugger
+  m_Name: '[Deprecated] SceneDebugger'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -15805,7 +15805,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f2456caa2cc63f409cefafc263e1b9d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  visualHelperMaterial: {fileID: 2100000, guid: 92f2a37e0f30c434e9c65b408c007b74, type: 2}
+  visualHelperMaterial: {fileID: 2100000, guid: 6fb60ad978ac4184da102fbaf103225d, type: 2}
   ShowDebugAnchors: 0
   MoveCanvasInFrontOfCamera: 1
   SetupInteractions: 1
@@ -16467,7 +16467,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 3902826853880120542}
   m_HandleRect: {fileID: 6673665375202355514}
   m_Direction: 2
-  m_Value: 1.0000049
+  m_Value: 1.0000075
   m_Size: 0.8918122
   m_NumberOfSteps: 0
   m_OnValueChanged:

@@ -27,16 +27,77 @@ using Quaternion = UnityEngine.Quaternion;
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    ///     A utility class for spawning prefabs at anchor points in the scene.
+    /// A utility class for spawning prefabs based on anchor data, providing methods to calculate transformations
+    /// and alignments based on anchor volumes and plane rectangles.
     /// </summary>
+    /// <remarks>
+    /// This class facilitates the transformation and alignment of prefabs.
+    /// Systems similar to the <see cref="AnchorPrefabSpawner"/> can be created by leveraging this utilites.
+    /// </remarks>
+    /// <example> Custom prefab spawning system that aligns the prefab to sit in front the anchor's volume:
+    /// <code><![CDATA[
+    /// public class FullyCustomAnchorPrefabSpawner : MonoBehaviour
+    /// {
+    ///     public GameObject Prefab; // A prefab to spawn for each anchor
+    ///     public MRUKAnchor.SceneLabels AnchorsToInclude; // The labels of the anchors for which to spawn the prefab
+    ///
+    ///     private void Start()
+    ///     {
+    ///         MRUK.Instance.RegisterSceneLoadedCallback(() =>
+    ///         {
+    ///             // Get all anchors in the scene
+    ///             var anchors = FindObjectsOfType<MRUKAnchor>();
+    ///             // Iterate over each anchor
+    ///             foreach (var anchor in anchors)
+    ///             {
+    ///                 // Check if the anchor's labels match the exhibit label
+    ///                 if ((anchor.Label & AnchorsToInclude) == 0)
+    ///                 {
+    ///                  continue;
+    ///                 }
+    ///
+    ///                 var newPanel = Instantiate(Prefab, anchor.transform);
+    ///
+    ///                 // Use AnchorPrefabSpawnerUtilities to scale and position the new panel based on the anchor's volume
+    ///                 var trs = AnchorPrefabSpawnerUtilities.GetTransformationMatrixMatchingAnchorVolume(anchor, false,
+    ///                     true, null);
+    ///                 newPanel.transform.localPosition = CustomPrefabAlignment(anchor.VolumeBounds.Value, null);
+    ///                 newPanel.transform.localRotation = trs.rotation;
+    ///                 newPanel.transform.localScale = trs.lossyScale / 40;
+    ///             }
+    ///         });
+    ///     }
+    ///
+    ///
+    ///     /// <summary>
+    ///     /// Custom alignment method that aligns the prefab to sit in front the anchor's volume
+    ///     /// </summary>
+    ///     public Vector3 CustomPrefabAlignment(Bounds anchorVolumeBounds,
+    ///         Bounds? prefabBounds)
+    ///     {
+    ///         Vector3 prefabPivot = new();
+    ///         if (prefabBounds.HasValue)
+    ///         {
+    ///             var center = prefabBounds.Value.center;
+    ///             var min = prefabBounds.Value.min;
+    ///             prefabPivot = new Vector3(center.x, center.z, min.y);
+    ///         }
+    ///
+    ///         var anchorVolumePivot = anchorVolumeBounds.center;
+    ///         anchorVolumePivot.z = anchorVolumeBounds.max.z;
+    ///         anchorVolumePivot.y = anchorVolumeBounds.max.y;
+    ///         return anchorVolumePivot - prefabPivot;
+    ///     }
+    /// }
+    /// ]]></code></example>
     public static class AnchorPrefabSpawnerUtilities
     {
-        // Utilities to use when dealing with anchors that have valid volume bounds (e.g.: couches, tables, etc.)
-
         #region VolumeUtilities
 
         /// <summary>
         ///     Calculates a transformation matrix that matches the volume of the anchor.
+        ///     See also <see cref="AnchorPrefabSpawnerUtilities.GetTransformationMatrixMatchingAnchorPlaneRect" /> for
+        ///     matching the plane rect of an anchor.
         /// </summary>
         /// <param name="anchorInfo">The anchor of which volume has to be match.</param>
         /// <param name="matchAspectRatio">Whether to match the aspect ratio of the anchor.</param>
@@ -64,17 +125,54 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Scales a prefab based on the specified scaling mode.
+        ///     see also <see cref="AnchorPrefabSpawnerUtilities.ScalePrefab(Vector2, AnchorPrefabSpawner.ScalingMode)"/> for
+        ///     for scaling a prefab based on the anchor's plane rect.
         /// </summary>
         /// <param name="localScale">The local scale of the prefab.</param>
         /// <param name="scalingMode">The scaling mode to use. See <see cref="AnchorPrefabSpawner.ScalingMode" />.</param>
         /// <returns>The scaled local scale of the prefab.</returns>
+        /// <example> Example usage:
+        /// <code><![CDATA[
+        ///  var anchor = FindObjectsOfType<MRUKAnchor>()[0];
+        ///  var prefabSize = prefabBounds?.size ?? Vector3.one;
+        ///  var scale = new Vector3(VolumeBounds.Value.size.x / prefabSize.x, VolumeBounds.Value.size.z / prefabSize.y
+        ///         VolumeBounds.Value.size.y / prefabSize.z);
+        ///  scale = AnchorPrefabSpawnerUtilities.ScalePrefab(scale, AnchorPrefabSpawner.ScalingMode.Stretch);
+        /// ]]></code></example>
         /// <remarks>
-        ///     This method is used to scale a prefab when instantiating it as an anchor with a volume.
-        ///     If the scaling mode is UniformScaling, it scales the prefab uniformly based on the smallest axis.
-        ///     If the scaling mode is UniformXZScale, it scales the prefab uniformly on the X and Z axes.
-        ///     If the scaling mode is NoScaling, it returns a unit vector.
-        ///     If the scaling mode is Custom, it uses the provided custom scaling logic.
-        ///     If the scaling mode is Stretch, it returns the anchor's original local scale.
+        ///     The scaling logic modes are as follows:
+        /// <list type="bullet">
+        ///     <item>
+        ///         <term>UniformScaling</term>
+        ///         <description>
+        ///             If the scaling mode is UniformScaling, it scales the prefab uniformly based on the smallest axis.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>UniformXZScaling</term>
+        ///         <description>
+        ///             If the scaling mode is UniformXZScaling, it scales the prefab uniformly on the X and Z axes
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>NoScaling</term>
+        ///         <description>
+        ///             If the scaling mode is NoScaling, it returns a unit vector.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>Custom</term>
+        ///         <description>
+        ///             If the scaling mode is Custom, it uses the provided custom scaling logic. See also <see cref="AnchorPrefabSpawner.CustomPrefabScaling(Vector3)" />.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>Stretch</term>
+        ///         <description>
+        ///             If the scaling mode is Stretch, it returns the anchor's original local scale.
+        ///         </description>
+        ///     </item>
+        /// </list>
         /// </remarks>
         public static Vector3 ScalePrefab(Vector3 localScale,
             AnchorPrefabSpawner.ScalingMode scalingMode = AnchorPrefabSpawner.ScalingMode.Stretch)
@@ -105,20 +203,50 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Aligns the pivot points of a prefab and of the anchors' volumebased on the specified alignment mode.
+        ///     Aligns the pivot points of a prefab and of the anchors' volume based on the specified <see cref="AnchorPrefabSpawner.AlignMode" />.
+        ///     See also <see cref="AnchorPrefabSpawnerUtilities.AlignPrefabPivot(Rect, Bounds?, Vector2, AnchorPrefabSpawner.AlignMode)"/>
+        ///     for aligning a prefab based on the anchor's plane rect.
         /// </summary>
         /// <param name="anchorVolumeBounds">The volume bounds of the anchor.</param>
         /// <param name="prefabBounds">The bounds of the prefab.</param>
         /// <param name="localScale">The local scale of the prefab.</param>
         /// <param name="alignMode">The alignment mode to use. See <see cref="AnchorPrefabSpawner.AlignMode" />.</param>
         /// <returns>The pivot points of the prefab and of the anchor's volume.</returns>
+        /// <example> Example usage:
+        /// <code><![CDATA[
+        ///  var anchor = FindObjectsOfType<MRUKAnchor>()[0];
+        ///  var volumeBounds = anchor.VolumeBounds.Value;
+        ///  var prefabBounds = Utilities.GetPrefabBounds(prefab);
+        ///  var prefabSize = prefabBounds?.size ?? Vector3.one;
+        ///  var scale = new Vector3(volumeSize.x / prefabSize.x, volumeSize.z / prefabSize.y,
+        ///         volumeSize.y / prefabSize.z);
+        ///  scale = AnchorPrefabSpawnerUtilities.ScalePrefab(scale, AnchorPrefabSpawner.ScalingMode.Stretch);
+        ///  var localPosition = AnchorPrefabSpawnerUtilities.AlignPrefabPivot(volumeBounds, prefabBounds, scale,
+        ///         AnchorPrefabSpawner.AlignMode.Automatic);
+        /// ]]></code></example>
         /// <remarks>
-        ///     This method aligns the pivots of a prefab and of an anchor based on the specified alignment mode.
-        ///     The pivot calculations will impact where the prefab will be instantiated in the scene.
-        ///     If the alignment mode is Automatic or Bottom, it aligns the pivot at the bottom center of the prefab.
-        ///     If the alignment mode is Center, it aligns the pivot at the center of the prefab.
-        ///     If the alignment mode is Custom, it uses the provided custom alignment logic.
-        ///     It then scales the pivot point of the prefab and returns the pivot points of the prefab and the anchor.
+        /// The alignment logic modes are as follows:
+        /// <list type="bullet">
+        ///     <item>
+        ///         <term>Automatic</term>
+        ///         <description>
+        ///             If the alignment mode is Automatic or Bottom, it aligns the pivot at the bottom center of the prefab
+        ///             and the anchor's volume.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>Center</term>
+        ///         <description>
+        ///             If the alignment mode is Center, it aligns the pivot at the center of the prefab.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>Custom</term>
+        ///         <description>
+        ///             If the alignment mode is Custom, it uses the provided custom alignment logic. See also <see cref="AnchorPrefabSpawner.CustomPrefabAlignment(Bounds,Bounds?)" />.
+        ///         </description>
+        ///     </item>
+        /// </list>
         /// </remarks>
         public static Vector3 AlignPrefabPivot(
             Bounds anchorVolumeBounds, Bounds? prefabBounds, Vector3 localScale,
@@ -180,6 +308,7 @@ namespace Meta.XR.MRUtilityKit
         ///     It then calculates the volume of the anchor and each prefab in the list.
         ///     It selects the prefab with the smallest difference in size to the anchor's volume.
         /// </remarks>
+        /// <seealso cref="MRUKAnchor.VolumeBounds" />
         public static bool GetPrefabWithClosestSizeToAnchor(MRUKAnchor anchor, List<GameObject> prefabList,
             out GameObject sizeMatchingPrefab)
         {
@@ -226,6 +355,8 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Calculates a transformation matrix that matches the plane rectangle of the anchor.
+        ///     See also <see cref="AnchorPrefabSpawnerUtilities.GetTransformationMatrixMatchingAnchorVolume"/> for
+        ///     matching the volume of an anchor.
         /// </summary>
         /// <param name="anchorInfo">Information about the anchor.</param>
         /// <param name="prefabBounds">The bounds of the prefab.</param>
@@ -236,6 +367,7 @@ namespace Meta.XR.MRUtilityKit
         ///     This method calculates and returns a transformation matrix for a prefab that matches the plane rect of
         ///     an anchor, by determining the local scale and pose of the prefab based on the rect.
         /// </remarks>
+        /// <seealso cref="MRUKAnchor.PlaneRect"/>
         public static Matrix4x4 GetTransformationMatrixMatchingAnchorPlaneRect(MRUKAnchor anchorInfo,
             Bounds? prefabBounds,
             AnchorPrefabSpawner.ScalingMode scaling = AnchorPrefabSpawner.ScalingMode.Stretch,
@@ -299,20 +431,45 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Aligns the pivots of a prefab and of the anchor's plane rect, based on the specified alignment mode.
+        ///     Aligns the pivots of a prefab and of the anchor's plane rect, based on the specified <see cref="AnchorPrefabSpawner.AlignMode" />.
         /// </summary>
         /// <param name="planeRect">The plane rectangle of the anchor.</param>
         /// <param name="prefabBounds">The bounds of the prefab.</param>
         /// <param name="localScale">The local scale of the prefab.</param>
         /// <param name="alignMode">The alignment mode to use. See <see cref="AnchorPrefabSpawner.AlignMode" />.</param>
         /// <returns>The pivot points of the prefab and the anchor plane rectangle.</returns>
+        /// <example> Example usage:
+        /// <code><![CDATA[
+        ///  var anchor = FindObjectsOfType<MRUKAnchor>()[0];
+        ///  var prefabBounds = Utilities.GetPrefabBounds(prefab);
+        ///  var prefabSize = prefabBounds?.size ?? Vector3.one;
+        ///  var scale = new Vector2(anchor.PlaneRect.Value.size.x / prefabSize.x, anchor.PlaneRect.Value.size.y);
+        ///  scale = AnchorPrefabSpawnerUtilities.ScalePrefab(scale, AnchorPrefabSpawner.ScalingMode.Stretch);
+        ///  var localPosition = AnchorPrefabSpawnerUtilities.AlignPrefabPivot(anchor.PlaneRect.Value, prefabBounds, scale,
+        ///         AnchorPrefabSpawner.AlignMode.Automatic);
+        /// ]]></code></example>
         /// <remarks>
-        ///     This method aligns the pivots of a prefab and of an anchor based on the specified alignment mode.
-        ///     The pivot calculations will impact where the prefab will be instantiated in the scene.
-        ///     If the alignment mode is Automatic or Center, it aligns the pivot at the center of the prefab.
-        ///     If the alignment mode is Bottom, it aligns the pivot at the bottom of the prefab.
-        ///     If the alignment mode is Custom, it uses the provided custom alignment logic.
-        ///     It then scales the pivot point of the prefab and returns the pivot points of the prefab and the anchor plane rectangle.
+        /// The alignment logic modes are as follows:]
+        /// <list type="bullet">
+        ///     <item>
+        ///         <term>Automatic</term>
+        ///         <description>
+        ///             If the alignment mode is Automatic or Center, it aligns the pivot at the center of the prefab.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>Bottom</term>
+        ///         <description>
+        ///             If the alignment mode is Bottom, it aligns the pivot at the bottom of the prefab.
+        ///         </description>
+        ///     </item>
+        ///     <item>
+        ///         <term>Custom</term>
+        ///         <description>
+        ///             If the alignment mode is Custom, it uses the provided custom alignment logic. See also <see cref="AnchorPrefabSpawner.CustomPrefabAlignment(Rect,Bounds?)"/>.
+        ///         </description>
+        ///     </item>
+        /// </list>
         /// </remarks>
         public static Vector3 AlignPrefabPivot(
             Rect planeRect, Bounds? prefabBounds, Vector2 localScale,
@@ -358,16 +515,49 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Scales a prefab based on the specified scaling mode.
+        ///     See also <see cref="AnchorPrefabSpawnerUtilities.ScalePrefab(Vector3, AnchorPrefabSpawner.ScalingMode)"/>
+        ///     for scaling a prefab based on the anchor's volume.
         /// </summary>
         /// <param name="localScale">The local scale of the prefab.</param>
         /// <param name="scalingMode">The scaling mode to use. See <see cref="AnchorPrefabSpawner.ScalingMode" />.</param>
         /// <returns>The scaled local scale of the prefab.</returns>
+        /// <example> Example usage:
+        /// <code><![CDATA[
+        ///  var anchor = FindObjectsOfType<MRUKAnchor>()[0];
+        ///  var prefabBounds = Utilities.GetPrefabBounds(prefab);
+        ///  var prefabSize = prefabBounds?.size ?? Vector3.one;
+        ///  var scale = new Vector2(anchor.PlaneRect.Value.size.x / prefabSize.x, anchor.Plane
+        ///  .Rect.Value.size.y / prefabSize.y);
+        ///  scale = AnchorPrefabSpawnerUtilities.ScalePrefab(scale, AnchorPrefabSpawner.ScalingMode.Stretch);
+        /// ]]></code></example>
         /// <remarks>
-        ///     This method is used to scale a prefab when instantiating it as an anchor with a PlaneRect.
-        ///     If the scaling mode is Stretch, it returns the original local scale.
-        ///     If the scaling mode is UniformScaling or UniformXZScale, it scales the prefab uniformly.
-        ///     If the scaling mode is NoScaling, it returns a unit vector.
-        ///     If the scaling mode is Custom, it uses the provided custom scaling logic.
+        ///     The scaling logic modes are as follows:
+        ///     <list type="bullet">
+        ///         <item>
+        ///             <term>Stretch</term>
+        ///             <description>
+        ///                 If the scaling mode is Stretch, it returns the original local scale.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <term>UniformScaling</term>
+        ///             <description>
+        ///                 If the scaling mode is UniformScaling or UniformXZScaling, it scales the prefab uniformly.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <term>NoScaling</term>
+        ///             <description>
+        ///                 If the scaling mode is NoScaling, it returns a unit vector.
+        ///             </description>
+        ///         </item>
+        ///         <item>
+        ///             <term>Custom</term>
+        ///             <description>
+        ///                 If the scaling mode is Custom, it uses the provided custom scaling logic.
+        ///             </description>
+        ///         </item>
+        ///     </list>
         /// </remarks>
         public static Vector3 ScalePrefab(Vector2 localScale,
             AnchorPrefabSpawner.ScalingMode scalingMode = AnchorPrefabSpawner.ScalingMode.Stretch)
@@ -413,6 +603,7 @@ namespace Meta.XR.MRUtilityKit
         ///     This method calculates the local scale of a prefab based on the anchor's volume,
         ///     adjusting for aspect ratio if necessary, and applies the scaling mode before returning the local scale.
         /// </remarks>
+
         internal static Vector3 GetPrefabScaleBasedOnAnchorVolume(MRUKAnchor anchorInfo, bool matchAspectRatio,
             bool calculateFacingDirection, Bounds? prefabBounds, out int cardinalAxisIndex,
             AnchorPrefabSpawner.ScalingMode scaling = AnchorPrefabSpawner.ScalingMode.Stretch)

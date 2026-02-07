@@ -7,9 +7,10 @@
         "UnityEditor.TestRunner",
         "Meta.XR.BuildingBlocks.Editor",
         "Meta.XR.BuildingBlocks",
-        "PlayModeTests",
+        "Oculus.VR.PlayModeTests",
         "meta.xr.mrutilitykit",
-        "meta.xr.mrutilitykit.editor"
+        "meta.xr.mrutilitykit.editor",
+        "Unity.AI.Navigation"
     ],
     "includePlatforms": [],
     "excludePlatforms": [

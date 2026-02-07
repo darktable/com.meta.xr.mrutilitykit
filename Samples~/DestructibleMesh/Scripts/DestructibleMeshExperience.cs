@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Meta.XR.MRUtilityKit;
@@ -36,7 +35,7 @@ public class DestructibleMeshExperience : MonoBehaviour
 
     private void Awake()
     {
-        _cameraRig = FindObjectOfType<OVRCameraRig>();
+        _cameraRig = FindAnyObjectByType<OVRCameraRig>();
     }
 
     private void OnEnable()
@@ -79,9 +78,9 @@ public class DestructibleMeshExperience : MonoBehaviour
 
         if ((OVRInput.GetDown(OVRInput.Button.PrimaryHandTrigger) ||
              OVRInput.GetDown(OVRInput.Button.SecondaryHandTrigger)) &&
-            _destructibleMeshComponent != null)
+            _destructibleMeshComponent)
         {
-            SceneDebugger.DebugDestructibleMeshComponent(_destructibleMeshComponent);
+            _destructibleMeshComponent.DebugDestructibleMeshComponent();
         }
     }
 
@@ -124,30 +123,32 @@ public class DestructibleMeshExperience : MonoBehaviour
     private void TryDestroyMeshSegment()
     {
         var ray = GetControllerRay();
-        if (Physics.Raycast(ray, out var hit))
+        if (!Physics.Raycast(ray, out var hit))
         {
-            var hitObject = hit.collider.gameObject;
-            if (_globalMeshSegments.Contains(hitObject) && hitObject != _destructibleMeshComponent.ReservedSegment)
-            {
-                // The DestroySegment function is preferred when destroying mesh segments
-                // as it takes care of destroying the assets instantiated.
-                _destructibleMeshComponent.DestroySegment(hitObject);
-            }
+            return;
+        }
+
+        var hitObject = hit.collider.gameObject;
+        if (_globalMeshSegments.Contains(hitObject) && hitObject != _destructibleMeshComponent.ReservedSegment)
+        {
+            // The DestroySegment function is preferred when destroying mesh segments
+            // as it takes care of destroying the assets instantiated.
+            _destructibleMeshComponent.DestroySegment(hitObject);
         }
     }
 
-    private DestructibleMeshComponent.MeshSegmentationResult AddBarycentricCoordinates(
+    private static DestructibleMeshComponent.MeshSegmentationResult AddBarycentricCoordinates(
         DestructibleMeshComponent.MeshSegmentationResult meshSegmentationResult)
     {
         var newSegments = new List<DestructibleMeshComponent.MeshSegment>();
 
         foreach (var segment in meshSegmentationResult.segments)
         {
-            var newSegment = addBarycentricCoordinaatesToMeshSegment(segment);
+            var newSegment = AddBarycentricCoordinatesToMeshSegment(segment);
             newSegments.Add(newSegment);
         }
 
-        var newReservedSegment = addBarycentricCoordinaatesToMeshSegment(meshSegmentationResult.reservedSegment);
+        var newReservedSegment = AddBarycentricCoordinatesToMeshSegment(meshSegmentationResult.reservedSegment);
 
         return new DestructibleMeshComponent.MeshSegmentationResult()
         {
@@ -156,33 +157,35 @@ public class DestructibleMeshExperience : MonoBehaviour
         };
     }
 
-    private static DestructibleMeshComponent.MeshSegment addBarycentricCoordinaatesToMeshSegment(
+    private static DestructibleMeshComponent.MeshSegment AddBarycentricCoordinatesToMeshSegment(
         DestructibleMeshComponent.MeshSegment segment)
     {
         using var vs = new NativeArray<Vector3>(segment.positions, Allocator.Temp);
         using var ts = new NativeArray<int>(segment.indices, Allocator.Temp);
         var vertices = new Vector3[ts.Length];
         var idx = new int[ts.Length];
-        var barCoord = new Vector4[ts.Length];
+        var barCoord = new Color[ts.Length];
 
         for (var i = 0; i < ts.Length; i += 3)
         {
             vertices[i + 0] = vs[ts[i + 0]];
             vertices[i + 1] = vs[ts[i + 1]];
             vertices[i + 2] = vs[ts[i + 2]];
-            barCoord[i + 0] = new Vector4(1, 0, 0, 0); // Barycentric coordinates for vertex 1
-            barCoord[i + 1] = new Vector4(0, 1, 0, 0); // Barycentric coordinates for vertex 2
-            barCoord[i + 2] = new Vector4(0, 0, 1, 0); // Barycentric coordinates for vertex 3
+            barCoord[i + 0] = new Color(1, 0, 0, 0); // Barycentric coordinates for vertex 1
+            barCoord[i + 1] = new Color(0, 1, 0, 0); // Barycentric coordinates for vertex 2
+            barCoord[i + 2] = new Color(0, 0, 1, 0); // Barycentric coordinates for vertex 3
         }
 
-        for (var i = 0; i < ts.Length; i++) idx[i] = i;
-
+        for (var i = 0; i < ts.Length; i++)
+        {
+            idx[i] = i;
+        }
 
         var newSegment = new DestructibleMeshComponent.MeshSegment()
         {
             indices = idx,
             positions = vertices,
-            tangents = barCoord
+            colors = barCoord
         };
         return newSegment;
     }

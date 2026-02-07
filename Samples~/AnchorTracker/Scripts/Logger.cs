@@ -20,12 +20,14 @@
 
 using System;
 using System.Collections.Generic;
+using Meta.XR.Samples;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Android;
 
 namespace Meta.XR.MRUtilityKitSamples
 {
+    [MetaCodeSample("MRUK-KeyboardTracker")]
     public class Logger : MonoBehaviour
     {
         [SerializeField]

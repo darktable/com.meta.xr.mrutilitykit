@@ -40,8 +40,8 @@ MonoBehaviour:
   spawnHierarchy: 3
   distributionType: 0
   gridDistribution:
-    spacingX: 0.2
-    spacingY: 0.2
+    spacingX: 0.4
+    spacingY: 0.4
   simplexDistribution:
     pointSamplingConfig:
       pointsPerUnitX: 0
@@ -59,7 +59,7 @@ MonoBehaviour:
     mask: {fileID: -8594217588378178190}
     modeCheck: 0
     min: 0
-    max: 0.15
+    max: 0.5
   modifiers: []
   discardParentScaling: 1
   lifetime: 0

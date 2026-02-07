@@ -40,6 +40,7 @@ public class DebugPanel : MonoBehaviour
     [SerializeField] private OppyCharacterController _oppyController;
     [SerializeField] private OppyLightGlow _oppyLightGlow;
     [SerializeField] private OVRPassthroughLayer _passthroughLayer;
+    [SerializeField] private bool _highlights;
 
     private EffectMesh[] effectMeshes;
     private const string HighLightAttenuationShaderPropertyName = "_HighLightAttenuation";
@@ -51,10 +52,14 @@ public class DebugPanel : MonoBehaviour
         _highlightsToggle.onValueChanged.AddListener(HighlightSettingsToggled);
         _geometryDropDown.onValueChanged.AddListener(GeometrySettingsChanged);
         _respawnButton.onClick.AddListener(_oppyController.Respawn);
+        _highlights = true;
         _lightIntensitySlider.onValueChanged.AddListener(
             (val) =>
             {
-                _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val);
+                if (_highlights)
+                {
+                    _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, val);
+                }
             }
         );
         _lightBlendFactor.onValueChanged.AddListener(
@@ -69,7 +74,7 @@ public class DebugPanel : MonoBehaviour
                 _passthroughLayer.SetBrightnessContrastSaturation(brightness);
             }
         );
-        effectMeshes = FindObjectsOfType<EffectMesh>();
+        effectMeshes = FindObjectsByType<EffectMesh>(FindObjectsInactive.Include, FindObjectsSortMode.None);
     }
 
     private void Start()
@@ -134,8 +139,13 @@ public class DebugPanel : MonoBehaviour
 
     private void HighlightSettingsToggled(bool highlightsOn)
     {
+        _highlights = highlightsOn;
         _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, highlightsOn ? 1 : 0);
         _oppyLightGlow.SetGlowActive(highlightsOn);
+        if (highlightsOn)
+        {
+            _sceneMaterial.SetFloat(HighLightAttenuationShaderPropertyName, _lightIntensitySlider.value);
+        }
     }
 
     private void ShadowsSettingsChanged(int dynamicShadow)

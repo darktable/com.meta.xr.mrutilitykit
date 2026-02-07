@@ -26,18 +26,34 @@ using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEditor;
 using UnityEngine.Events;
+using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
     /// The <c>DestructibleMeshComponent</c> handles the segmentation and manipulation of a mesh to create a segmented version of the original.
-    /// Used mainly to build destructible environments in conjunction with a global mesh. For mor details on its usage see <see cref="DestructibleGlobalMeshSpawner"/>
+    /// This class is automatically instantiated by <see cref="DestructibleGlobalMeshSpawner"/> on each destructible mesh game object.
+    /// Used mainly to build destructible environments in conjunction with a global mesh.
     /// It uses asynchronous tasks to perform the computations for mesh segmentation based on specified parameters and reserved areas.
     /// </summary>
+    /// <example> This example shows how to add mesh colliders to the mesh segments:
+    /// <code><![CDATA[
+    ///  private void OnDestructibleMeshCreated(DestructibleMeshComponent destructibleMeshComponent)
+    /// {
+    ///     _destructibleMeshComponent = destructibleMeshComponent;
+    ///     destructibleMeshComponent.GetDestructibleMeshSegments(_globalMeshSegments);
+    ///     foreach (var globalMeshSegment in _globalMeshSegments)
+    ///     {
+    ///         globalMeshSegment.AddComponent<MeshCollider>();
+    ///     }
+    /// }
+    /// ]]></code></example>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_destructible_mesh_component")]
     public class DestructibleMeshComponent : MonoBehaviour
     {
         /// <summary>
         /// Event triggered when a destructible mesh is successfully created.
+        /// Is automatically set to the <see cref="DestructibleGlobalMeshSpawner.OnDestructibleMeshCreated"/>  event
         /// </summary>
         public UnityEvent<DestructibleMeshComponent> OnDestructibleMeshCreated;
 
@@ -89,22 +105,76 @@ namespace Meta.XR.MRUtilityKit
         public GameObject ReservedSegment { get; private set; }
 
         /// <summary>
-        /// Represents a single mesh segment with position data, indices for mesh topology, UVs for texturing, and tangents for normal mapping.
+        /// Represents a single mesh segment with position data, indices for mesh topology, UVs for texturing, tangents for normal mapping and colors.
+        /// This struct is essential for defining the geometric and visual properties of a mesh segment.The <see cref="DestructibleGlobalMeshSpawner"/> uses this struct to create and manage mesh segments.
         /// </summary>
         public struct MeshSegment
         {
+            /// <summary>
+            /// The vertex positions of the mesh segment.
+            /// Use the <see cref="MeshSegmentationResult"/> struct to create and manage mesh segments.
+            /// </summary>
             public Vector3[] positions;
+            /// <summary>
+            /// The indices that define the mesh topology.\
+            /// Use the <see cref="MeshSegmentationResult"/> struct to create and manage mesh segments.
+            /// </summary>
             public int[] indices;
+            /// <summary>
+            /// The UV coordinates for texturing the mesh segment.
+            /// UVs map the 2D texture to the 3D surface of the mesh.
+            /// </summary>
             public Vector2[] uv;
+            /// <summary>
+            /// The tangents used for normal mapping.
+            /// Tangents are necessary for advanced lighting effects, such as bump mapping.
+            /// </summary>
             public Vector4[] tangents;
+
+            /// <summary>
+            /// The colors applied to each vertex of the mesh segment.
+            /// Vertex colors can be used for a variety of effects, including vertex-based shading and color blending.
+            /// </summary>
+            public Color[] colors;
         }
 
         /// <summary>
         /// Contains the results of a mesh segmentation operation, including a list of mesh segments and a specially reserved segment.
+        /// The reserved segment is a portion of the mesh that will be kept as one segment and should be indestructible.
+        /// The <see cref="DestructibleGlobalMeshSpawner.OnSegmentationCompleted"/> event is triggered when this data is available and it can be used to modify the segmentation results before they are instantiated
+        /// by accessing the <see cref="MeshSegmentationResult.segments"/> and <see cref="MeshSegmentationResult.reservedSegment"/> properties.
         /// </summary>
+        /// <example> This example shows how to modify the segmentation results before they are instantiated:
+        /// <code><![CDATA[
+        ///  private static DestructibleMeshComponent.MeshSegmentationResult ModifySegmentationResult(
+        ///     DestructibleMeshComponent.MeshSegmentationResult meshSegmentationResult)
+        /// {
+        ///     var newSegments = new List<DestructibleMeshComponent.MeshSegment>();
+        ///     foreach (var segment in meshSegmentationResult.segments)
+        ///     {
+        ///         var newSegment = ModifyMeshSegment(segment);
+        ///         newSegments.Add(newSegment);
+        ///     }
+        ///     var newReservedSegment = ModifyMeshSegment(meshSegmentationResult.reservedSegment);
+        ///     return new DestructibleMeshComponent.MeshSegmentationResult()
+        ///     {
+        ///         segments = newSegments,
+        ///         reservedSegment = newReservedSegment
+        ///     };
+        /// }
+        /// ]]></code></example>
         public struct MeshSegmentationResult
         {
+            /// <summary>
+            /// A list of  resulting from the segmentation operation.
+            /// Each <see cref="MeshSegment"/>  represents a distinct part of the original mesh.
+            /// </summary>
             public List<MeshSegment> segments;
+
+            /// <summary>
+            /// A specially reserved segment that remains indestructible.
+            /// This segment is kept intact and is not subject to the usual segmentation process.
+            /// </summary>
             public MeshSegment reservedSegment;
         }
 
@@ -347,18 +417,18 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var segment in result.segments)
             {
-                CreateMeshSegment(segment.positions, segment.indices, uv: segment.uv, tangents: segment.tangents);
+                CreateMeshSegment(segment.positions, segment.indices, segment.uv, segment.tangents, segment.colors);
             }
 
             if (result.reservedSegment.indices.Length > 0)
             {
                 ReservedSegment = CreateMeshSegment(result.reservedSegment.positions, result.reservedSegment.indices,
-                    uv: result.reservedSegment.uv, tangents: result.reservedSegment.tangents, isReserved: true);
+                    result.reservedSegment.uv, result.reservedSegment.tangents, result.reservedSegment.colors, true);
             }
         }
 
         private GameObject CreateMeshSegment(Vector3[] positions, int[] indices, Vector2[] uv = null,
-            Vector4[] tangents = null, bool isReserved = false)
+            Vector4[] tangents = null, Color[] colors = null, bool isReserved = false)
         {
             if (positions.Length == 0 || indices.Length == 0)
             {
@@ -368,11 +438,14 @@ namespace Meta.XR.MRUtilityKit
             meshObject.transform.SetParent(transform, false);
             var meshFilter = meshObject.AddComponent<MeshFilter>();
             var meshRenderer = meshObject.AddComponent<MeshRenderer>();
-
+            meshFilter.mesh.indexFormat = positions.Length > ushort.MaxValue
+                ? IndexFormat.UInt32
+                : IndexFormat.UInt16;
             meshFilter.mesh.SetVertices(positions);
             meshFilter.mesh.SetIndices(indices, MeshTopology.Triangles, 0);
             meshFilter.mesh.SetTangents(tangents);
             meshFilter.mesh.SetUVs(0, uv);
+            meshFilter.mesh.SetColors(colors);
             meshRenderer.material = GlobalMeshMaterial;
             return meshObject;
         }
@@ -398,8 +471,28 @@ namespace Meta.XR.MRUtilityKit
             _segmentationTask.Dispose();
             _segmentationTask = null;
         }
-    }
 
+        /// <summary>
+        /// Debugging method to color each segment with a unique color.
+        /// </summary>
+        public void DebugDestructibleMeshComponent()
+        {
+            var segments = new List<GameObject>();
+            GetDestructibleMeshSegments(segments);
+            foreach (var segment in segments)
+            {
+                // Create a new material with a random color for each segment
+                var newMaterial = new Material(Shader.Find("Meta/Lit"))
+                {
+                    color = UnityEngine.Random.ColorHSV()
+                };
+                if (segment.TryGetComponent<MeshRenderer>(out var renderer))
+                {
+                    renderer.material = newMaterial;
+                }
+            }
+        }
+    }
 #if UNITY_EDITOR
     [CustomEditor(typeof(DestructibleMeshComponent))]
     public class DestructibleMeshComponentEditor : Editor
@@ -419,7 +512,7 @@ namespace Meta.XR.MRUtilityKit
                 {
                     try
                     {
-                        SceneDebugger.DebugDestructibleMeshComponent(component);
+                        component.DebugDestructibleMeshComponent();
                         Debug.Log("Debugging of destructible meshes completed.");
                     }
                     catch (Exception e)

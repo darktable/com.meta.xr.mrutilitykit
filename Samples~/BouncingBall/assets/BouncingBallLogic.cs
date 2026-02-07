@@ -113,7 +113,11 @@ public class BouncingBallLogic : MonoBehaviour
         isReleased = true;
         Rigidbody.position = pos; // set the origin to match target
         Rigidbody.isKinematic = false;
+#if UNITY_6000_0_OR_NEWER
+        Rigidbody.linearVelocity = vel;
+#else
         Rigidbody.velocity = vel;
+#endif
         Rigidbody.angularVelocity = angVel;
     }
 

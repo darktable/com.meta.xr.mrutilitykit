@@ -57,7 +57,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             {
                 if (_instance == null && Application.isPlaying)
                 {
-                    var existingInstances = FindObjectsOfType<T>(true);
+                    var existingInstances = FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 
                     // We don't handle multiple singletons in the scene, make the user clean it up
                     Assert.IsFalse(existingInstances.Length > 1,

@@ -28,7 +28,7 @@ namespace Meta.XR.MRUtilityKit
     {
         protected override List<GameObject> InstallRoutine(GameObject selectedGameObject)
         {
-            var existingMRUK = FindObjectOfType<MRUK>();
+            var existingMRUK = FindAnyObjectByType<MRUK>();
 
             if (existingMRUK == null)
             {

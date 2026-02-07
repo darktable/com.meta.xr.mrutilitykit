@@ -33,7 +33,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     {
         public override float SampleMask(Candidate candidate)
         {
-            var spaceMap = FindObjectOfType<SpaceMap>();
+            var spaceMap = FindAnyObjectByType<SpaceMap>();
 
             var value = spaceMap.GetColorAtPosition(candidate.hit.point);
             return value.r;

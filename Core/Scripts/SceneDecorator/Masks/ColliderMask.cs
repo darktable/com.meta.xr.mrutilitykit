@@ -32,6 +32,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         [SerializeField] private int MaxCheckColliders = 10;
         [SerializeField] private bool IgnoreFloorCollision = true;
         [SerializeField] private bool IgnoreGlobalMeshCollision = true;
+        [SerializeField] private LayerMask CheckLayers = ~0;
 
         public override float SampleMask(Candidate c)
         {
@@ -55,7 +56,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             if (prefabCollider is BoxCollider boxCollider)
             {
                 var size = Physics.OverlapBoxNonAlloc(c.hit.point, boxCollider.size / 2
-                    , colliders);
+                    , colliders, Quaternion.identity, CheckLayers);
                 return CheckColliderHitsForMRUK(colliders, size);
             }
 
@@ -66,7 +67,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                     = meshCollider.bounds.center - c.decorationPrefab.transform.position; // Convert to local space
                 tempBoxCollider.size = meshCollider.bounds.size;
                 var size = Physics.OverlapBoxNonAlloc(c.hit.point, tempBoxCollider.size / 2
-                    , colliders);
+                    , colliders, Quaternion.identity, CheckLayers);
 
                 Destroy(tempBoxCollider);
                 return CheckColliderHitsForMRUK(colliders, size);
@@ -76,14 +77,14 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             {
                 var size = Physics.OverlapCapsuleNonAlloc(capsuleCollider.transform.position
                     , c.hit.point + Vector3.up * capsuleCollider.height, capsuleCollider.radius
-                    , colliders);
+                    , colliders, CheckLayers);
                 return CheckColliderHitsForMRUK(colliders, size);
             }
 
             if (prefabCollider is SphereCollider sphereCollider)
             {
                 var size = Physics.OverlapSphereNonAlloc(c.hit.point, sphereCollider.radius
-                    , colliders);
+                    , colliders, CheckLayers);
                 return CheckColliderHitsForMRUK(colliders, size);
             }
 

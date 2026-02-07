@@ -20,9 +20,11 @@
 
 using UnityEngine;
 using Meta.XR.MRUtilityKit;
+using Meta.XR.Samples;
 
 namespace Meta.XR.MRUtilityKitSamples
 {
+    [MetaCodeSample("MRUK-KeyboardTracker")]
     public sealed class KeyboardManager : MonoBehaviour
     {
         [SerializeField]

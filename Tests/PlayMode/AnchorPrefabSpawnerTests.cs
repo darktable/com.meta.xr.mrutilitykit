@@ -55,9 +55,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return EditorSceneManager.LoadSceneAsyncInPlayMode(
-                "Packages\\com.meta.xr.mrutilitykit\\Tests\\AnchorPrefabSpawnerTests.unity",
+                "Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity",
                 new LoadSceneParameters(LoadSceneMode.Single));
-            Helper = FindObjectOfType<JSONTestHelper>();
+            Helper = FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
@@ -190,7 +190,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator CountSpawnedItemsRoom1WallsOnly()
         {
             var anchorPrefabSpawner = SetupAnchorPrefabSpawner();
-            string[] searchResults = AssetDatabase.FindAssets("WALL", new[] { "Packages\\com.meta.xr.mrutilitykit\\Core\\Prefabs\\" });
+            string[] searchResults = AssetDatabase.FindAssets("WALL", new[] { "Packages/com.meta.xr.mrutilitykit/Core/Prefabs/" });
             string prefabPath = AssetDatabase.GUIDToAssetPath(searchResults[0]);
 
             anchorPrefabSpawner.PrefabsToSpawn = new List<AnchorPrefabSpawner.AnchorPrefabGroup>()
@@ -307,7 +307,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private AnchorPrefabSpawner SetupAnchorPrefabSpawner()
         {
-            var anchorPrefabSpawner = FindObjectOfType<AnchorPrefabSpawner>();
+            var anchorPrefabSpawner = FindAnyObjectByType<AnchorPrefabSpawner>();
             if (anchorPrefabSpawner == null)
             {
                 Assert.Fail();
@@ -318,7 +318,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private IEnumerator DestroyAnchors()
         {
-            var allObjects = (MRUKAnchor[])GameObject.FindObjectsOfType(typeof(MRUKAnchor));
+            var allObjects = FindObjectsByType<MRUKAnchor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var anchor in allObjects)
             {
                 DestroyImmediate(anchor);

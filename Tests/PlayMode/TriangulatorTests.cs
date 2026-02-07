@@ -43,28 +43,6 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
 
-        private float CalculateTriangleArea(Vector2 p1, Vector2 p2, Vector2 p3)
-        {
-            return (p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y)) / 2.0f;
-        }
-
-        // Use the triangulated area as a proxy to ensure the triangulation worked as expected
-        private float CalculateTriangulatedArea(Vector2[] vertices, int[] indices)
-        {
-            float area = 0f;
-            for (int i = 0; i < indices.Length; i += 3)
-            {
-                var p1 = vertices[indices[i]];
-                var p2 = vertices[indices[i + 1]];
-                var p3 = vertices[indices[i + 2]];
-                var triangleArea = CalculateTriangleArea(p1, p2, p3);
-                Assert.GreaterOrEqual(triangleArea, 0f);
-                area += triangleArea;
-            }
-
-            return area;
-        }
-
         /// <summary>
         /// Tests that the triangulator is able to triangulate a simple quad
         /// </summary>
@@ -76,7 +54,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Triangulator.TriangulatePoints(vertices, null, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(6, indices.Length);
-            Assert.AreEqual(1.0f, CalculateTriangulatedArea(outVertices, indices));
+            Assert.AreEqual(1.0f, TestUtilities.CalculateTriangulatedArea(outVertices, indices));
         }
 
         /// <summary>
@@ -91,7 +69,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Triangulator.TriangulatePoints(vertices, holes, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(24, indices.Length);
-            Assert.AreEqual(3.0f, CalculateTriangulatedArea(outVertices, indices));
+            Assert.AreEqual(3.0f, TestUtilities.CalculateTriangulatedArea(outVertices, indices));
         }
 
         /// <summary>
@@ -111,7 +89,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Triangulator.TriangulatePoints(vertices, holes, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(42, indices.Length);
-            Assert.AreEqual(35858.1445f, CalculateTriangulatedArea(outVertices, indices), 0.01f);
+            Assert.AreEqual(35858.1445f, TestUtilities.CalculateTriangulatedArea(outVertices, indices), 0.01f);
         }
 
         /// <summary>
@@ -134,7 +112,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Triangulator.TriangulatePoints(vertices, holes, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(78, indices.Length);
-            Assert.AreEqual(12.0f, CalculateTriangulatedArea(outVertices, indices), 0.01f);
+            Assert.AreEqual(12.0f, TestUtilities.CalculateTriangulatedArea(outVertices, indices), 0.01f);
         }
 
         /// <summary>
@@ -148,7 +126,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Triangulator.TriangulatePoints(vertices, null, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(12, indices.Length);
-            Assert.AreEqual(3.0f, CalculateTriangulatedArea(outVertices, indices));
+            Assert.AreEqual(3.0f, TestUtilities.CalculateTriangulatedArea(outVertices, indices));
         }
 
         /// <summary>
@@ -162,7 +140,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             Triangulator.TriangulatePoints(vertices, null, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(18, indices.Length);
-            Assert.AreEqual(5.0f, CalculateTriangulatedArea(outVertices, indices));
+            Assert.AreEqual(5.0f, TestUtilities.CalculateTriangulatedArea(outVertices, indices));
         }
     }
 }

@@ -76,47 +76,43 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// The scene label categorizing the anchor.
         /// </summary>
-        public SceneLabels Label
-        {
-            get;
-            internal set;
-        }
+        public SceneLabels Label { get; internal set; }
 
         /// <summary>
         /// Optional rectangular bounds on a plane associated with the anchor.
         /// </summary>
-        public Rect? PlaneRect;
+        public Rect? PlaneRect { get; internal set; }
 
         /// <summary>
         /// Optional volumetric bounds associated with the anchor.
         /// </summary>
-        public Bounds? VolumeBounds;
+        public Bounds? VolumeBounds { get; internal set; }
 
         /// <summary>
         /// A list of local-space points defining the boundary of the plane associated with the anchor.
         /// </summary>
-        public List<Vector2> PlaneBoundary2D;
+        public List<Vector2> PlaneBoundary2D { get; internal set; }
 
         /// <summary>
         /// Reference to the scene anchor associated with this anchor. You should not need to use this directly, only
         /// use this if you know what you are doing.
         /// </summary>
-        public OVRAnchor Anchor = OVRAnchor.Null;
+        public OVRAnchor Anchor { get; internal set; } = OVRAnchor.Null;
 
         /// <summary>
         /// Reference to the parent room object. This is set during construction.
         /// </summary>
-        public MRUKRoom Room;
+        public MRUKRoom Room { get; internal set; }
 
         /// <summary>
         /// References to child anchors, populated via <see cref="MRUKRoom.CalculateHierarchyReferences"/>.
         /// </summary>
-        [NonSerialized] public MRUKAnchor ParentAnchor;
+        public MRUKAnchor ParentAnchor { get; internal set; }
 
         /// <summary>
         /// A list of child anchors associated with this anchor.
         /// </summary>
-        public List<MRUKAnchor> ChildAnchors = new List<MRUKAnchor>();
+        public List<MRUKAnchor> ChildAnchors { get; internal set; } = new List<MRUKAnchor>();
 
         [Obsolete("Use PlaneRect.HasValue instead.")]
         public bool HasPlane => PlaneRect != null; //!< Use PlaneRect.HasValue instead.
@@ -134,6 +130,14 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public bool HasValidHandle => Anchor.Handle != 0;
 
+        internal Mesh Mesh
+        {
+            get
+            {
+                return GlobalMesh;
+            }
+        }
+
         /// <summary>
         /// The triangle mesh which covers the entire space, associated to the global mesh anchor.
         /// </summary>
@@ -141,17 +145,18 @@ namespace Meta.XR.MRUtilityKit
         {
             get
             {
-                if (!_globalMesh)
+                if (!_mesh)
                 {
-                    _globalMesh = LoadGlobalMeshTriangles();
+                    _mesh = LoadGlobalMeshTriangles();
                 }
 
-                return _globalMesh;
+                return _mesh;
             }
-            private set => _globalMesh = value;
+            private set => _mesh = value;
         }
 
-        Mesh _globalMesh;
+        private Mesh _mesh;
+
 
         /// <summary>
         /// Performs a raycast against the anchor's plane and volume to determine if and where a ray intersects.
@@ -572,14 +577,23 @@ namespace Meta.XR.MRUtilityKit
         {
             if (!HasAnyLabel(SceneLabels.GLOBAL_MESH))
             {
-                return null; // for now only global mesh is supported
+                return null;
             }
 
+            return LoadObjectMeshTriangles() ?? new Mesh();
+        }
+
+        /// <summary>
+        /// Loads a mesh representing the object tracked anchor, if available.
+        /// </summary>
+        /// <returns>A Mesh object containing the triangles representing the anchor's mesh, or null if not available.</returns>
+        internal Mesh LoadObjectMeshTriangles()
+        {
             Anchor.TryGetComponent(out OVRTriangleMesh mesh);
 
             if (!mesh.TryGetCounts(out var vcount, out var tcount))
             {
-                return new Mesh();
+                return null;
             }
 
             var trimesh = new Mesh
@@ -597,7 +611,6 @@ namespace Meta.XR.MRUtilityKit
 
             trimesh.SetVertices(vs);
             trimesh.SetIndices(ts, MeshTopology.Triangles, 0, true, 0);
-
             return trimesh;
         }
 
@@ -631,8 +644,9 @@ namespace Meta.XR.MRUtilityKit
             PlaneBoundary2D = newData.PlaneBoundary2D;
             PlaneRect = Utilities.GetPlaneRectFromAnchorData(newData);
             VolumeBounds = Utilities.GetVolumeBoundsFromAnchorData(newData);
-            GlobalMesh = Utilities.GetGlobalMeshFromAnchorData(newData);
-            Label = Utilities.StringLabelsToEnum(newData.SemanticClassifications);
+            _mesh = Utilities.GetMeshFromAnchorData(newData);
+
+            Label = newData.Labels;
         }
 
         /// <summary>
@@ -649,12 +663,12 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="anchorData">The Data.AnchorData object to compare with.</param>
         /// <returns>True if both objects are equal, false otherwise.</returns>
-        public bool Equals(Data.AnchorData anchorData)
+        internal bool Equals(Data.AnchorData anchorData)
         {
             return Anchor == anchorData.Anchor &&
                    PlaneRect == Utilities.GetPlaneRectFromAnchorData(anchorData) &&
                    VolumeBounds == Utilities.GetVolumeBoundsFromAnchorData(anchorData) &&
-                   Label == Utilities.StringLabelsToEnum(anchorData.SemanticClassifications) &&
+                   Label == anchorData.Labels &&
                    PlaneBoundary2D.SequenceEqual(anchorData.PlaneBoundary2D);
         }
     }

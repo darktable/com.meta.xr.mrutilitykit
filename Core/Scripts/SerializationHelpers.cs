@@ -43,6 +43,7 @@ namespace Meta.XR.MRUtilityKit
             Unreal,
         }
 
+
         private class GuidConverter : JsonConverter<Guid>
         {
             public override void WriteJson(JsonWriter writer, Guid value, JsonSerializer serializer)
@@ -238,14 +239,12 @@ namespace Meta.XR.MRUtilityKit
         };
 
         /// <summary>
-        ///     Serializes the scene data into a JSON string. The scene data includes rooms, anchors, and their associated properties.
-        ///     The method allows for the specification of the coordinate system (Unity or Unreal) and whether to include the global mesh data.
+        /// This method is internal and should not be used directly.
+        /// Please use <see cref="MRUK.SaveSceneToJsonString"/> for serializing scene data.
         /// </summary>
-        /// <param name="coordinateSystem">The coordinate system to use for the serialization (Unity or Unreal).</param>
-        /// <param name="includeGlobalMesh">A boolean indicating whether to include the global mesh data in the serialization. Default is true.</param>
-        /// <param name="rooms">A list of rooms to serialize, if this is null then all rooms will be serialized.</param>
-        /// <returns>A JSON string representing the serialized scene data.</returns>
-        public static string Serialize(CoordinateSystem coordinateSystem = CoordinateSystem.Unity, bool includeGlobalMesh = true, List<MRUKRoom> rooms = null)
+        internal static string Serialize(CoordinateSystem coordinateSystem =
+                CoordinateSystem.Unity, bool includeGlobalMesh = true, List<MRUKRoom> rooms = null)
+
         {
             Data.SceneData sceneData = new()
             {
@@ -289,7 +288,10 @@ namespace Meta.XR.MRUtilityKit
                         roomData.RoomLayout.WallsUuid.Add(anchorData.Anchor.Uuid);
                     }
 
-                    anchorData.SemanticClassifications = Utilities.SceneLabelsEnumToList(anchor.Label);
+                    {
+                        anchorData.SemanticClassifications = Utilities.SceneLabelsEnumToList(anchor.Label);
+                    }
+
                     anchorData.Transform = new();
                     var localPosition = anchor.transform.position;
                     var localRotation = anchor.transform.eulerAngles;
@@ -364,12 +366,11 @@ namespace Meta.XR.MRUtilityKit
                             };
                         }
                     }
-
-                    Mesh globalMesh = anchor.GlobalMesh;
-                    if (includeGlobalMesh && globalMesh)
+                    var mesh = anchor.GlobalMesh;
+                    if (includeGlobalMesh && mesh)
                     {
-                        Vector3[] vertices = globalMesh.vertices;
-                        int[] triangles = globalMesh.triangles;
+                        Vector3[] vertices = mesh.vertices;
+                        int[] triangles = mesh.triangles;
                         if (coordinateSystem == CoordinateSystem.Unreal)
                         {
                             for (int i = 0; i < vertices.Length; i++)
@@ -382,15 +383,17 @@ namespace Meta.XR.MRUtilityKit
                         }
                         else
                         {
-                            vertices = globalMesh.vertices;
-                            triangles = globalMesh.triangles;
+                            vertices = mesh.vertices;
+                            triangles = mesh.triangles;
                         }
-
-                        anchorData.GlobalMesh = new Data.GlobalMeshData()
+                        var meshData = new Data.MeshData()
                         {
                             Positions = vertices,
                             Indices = triangles
                         };
+                        {
+                            anchorData.GlobalMesh = meshData;
+                        }
                     }
 
                     roomData.Anchors.Add(anchorData);
@@ -409,11 +412,10 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///     Deserializes a JSON string into a list of MRUKRoom objects.
+        /// This method is internal and should not be used directly.
+        /// Please use <see cref="MRUK.LoadSceneFromJsonString"/> for deserializing scene data.
         /// </summary>
-        /// <param name="json">The JSON string representing the serialized scene data.</param>
-        /// <returns>A list of MRUKRoom objects representing the deserialized scene data.</returns>
-        public static Data.SceneData Deserialize(string json)
+        internal static Data.SceneData Deserialize(string json)
         {
             JsonSerializerSettings settings = new JsonSerializerSettings();
             settings.NullValueHandling = NullValueHandling.Ignore;
@@ -467,15 +469,17 @@ namespace Meta.XR.MRUtilityKit
                             anchor.PlaneBoundary2D.Reverse();
                         }
 
-                        if (anchor.GlobalMesh != null)
+                        var mesh = anchor.GlobalMesh
+                            ;
+                        if (mesh != null)
                         {
-                            for (int k = 0; k < anchor.GlobalMesh.Value.Positions.Length; k++)
+                            for (int k = 0; k < mesh.Value.Positions.Length; k++)
                             {
-                                var vert = anchor.GlobalMesh.Value.Positions[k];
-                                anchor.GlobalMesh.Value.Positions[k] = new Vector3(-vert.y, vert.z, -vert.x);
+                                var vert = mesh.Value.Positions[k];
+                                mesh.Value.Positions[k] = new Vector3(-vert.y, vert.z, -vert.x);
                             }
 
-                            Array.Reverse(anchor.GlobalMesh.Value.Indices);
+                            Array.Reverse(mesh.Value.Indices);
                         }
                     }
 

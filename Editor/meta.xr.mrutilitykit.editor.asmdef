@@ -7,7 +7,11 @@
         "meta.xr.mrutilitykit",
         "UnityEditor.TestRunner",
         "Meta.XR.BuildingBlocks.Editor",
-        "Meta.XR.EnvironmentDepth.Editor"
+        "Meta.XR.EnvironmentDepth.Editor",
+        "Meta.XR.BuildingBlocks",
+        "Oculus.Interaction",
+        "Oculus.Interaction.OVR.Editor",
+        "Meta.XR.ImmersiveDebugger"
     ],
     "includePlatforms": [
         "Editor"
@@ -19,6 +23,11 @@
     "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [
+        {
+            "name": "com.meta.xr.sdk.interaction.ovr",
+            "expression": "",
+            "define": "META_INTERACTION_SDK_DEFINED"
+        },
         {
             "define": "OVR_UNITY_PACKAGE_MANAGER",
             "name": "com.meta.xr.mrutilitykit",

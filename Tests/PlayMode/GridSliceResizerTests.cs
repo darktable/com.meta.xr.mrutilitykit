@@ -18,15 +18,12 @@
  * limitations under the License.
  */
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using NUnit.Framework;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.TestTools.Utils;
 
@@ -69,7 +66,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private void SerializeResizedMesh(string jsonFileName)
         {
-            _resizer = FindObjectOfType<GridSliceResizer>();
+            _resizer = FindAnyObjectByType<GridSliceResizer>();
             if (_resizer)
             {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;
@@ -95,8 +92,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            yield return LoadScene(@"Packages\\com.meta.xr.mrutilitykit\\Tests\\GridSliceResizerTests.unity", false);
-            _resizer = FindObjectOfType<GridSliceResizer>();
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/GridSliceResizerTests.unity", false);
+            _resizer = FindAnyObjectByType<GridSliceResizer>();
             if (_resizer)
             {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;
@@ -9750,231 +9747,5 @@ namespace Meta.XR.MRUtilityKit.Tests
 
 ";
 
-    }
-
-    internal class IntArrayConverter : JsonConverter<int[]>
-    {
-        public override void WriteJson(JsonWriter writer, int[] value, JsonSerializer serializer)
-        {
-            var array = value;
-            writer.WriteStartArray();
-            foreach (var item in array)
-            {
-                writer.WriteValue(item);
-            }
-
-            writer.WriteEndArray();
-        }
-
-        public override int[] ReadJson(JsonReader reader, Type objectType, int[] existingValue, bool hasExistingValue,
-            JsonSerializer serial)
-        {
-            if (reader.TokenType == JsonToken.StartArray)
-            {
-                var list = new List<int>();
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonToken.EndArray)
-                    {
-                        return list.ToArray();
-                    }
-
-                    list.Add((int)(long)reader.Value);
-                }
-            }
-
-            throw new JsonReaderException("Expected start of array.");
-        }
-    }
-
-    internal class Vector3ArrayConverter : JsonConverter<Vector3[]>
-    {
-        public override void WriteJson(JsonWriter writer, Vector3[] value, JsonSerializer serializer)
-        {
-            var array = value;
-            writer.WriteStartArray();
-            foreach (var item in array)
-            {
-                var prevFormatting = writer.Formatting;
-                writer.WriteStartArray();
-                writer.Formatting = Formatting.None;
-                writer.WriteValue(item.x);
-                writer.WriteValue(item.y);
-                writer.WriteValue(item.z);
-                writer.WriteEndArray();
-                writer.Formatting = prevFormatting;
-            }
-
-            writer.WriteEndArray();
-        }
-
-        public override Vector3[] ReadJson(JsonReader reader, Type objectType, Vector3[] existingValue,
-            bool hasExistingValue, JsonSerializer serial)
-        {
-            if (reader.TokenType == JsonToken.StartArray)
-            {
-                var list = new List<Vector3>();
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonToken.EndArray)
-                    {
-                        return list.ToArray();
-                    }
-
-                    Vector3 result = new()
-                    {
-                        x = (float)reader.ReadAsDouble(),
-                        y = (float)reader.ReadAsDouble(),
-                        z = (float)reader.ReadAsDouble()
-                    };
-                    reader.Read();
-                    if (reader.TokenType != JsonToken.EndArray)
-                    {
-                        throw new Exception("Expected end of array");
-                    }
-
-                    list.Add(result);
-                }
-            }
-
-            throw new JsonReaderException("Expected start of array.");
-        }
-    }
-
-    internal class GridSliceResizerConverter : JsonConverter<GridSliceResizer>
-    {
-        public override void WriteJson(JsonWriter writer, GridSliceResizer value, JsonSerializer serializer)
-        {
-            var gridSliceResizer = value;
-            writer.WriteStartObject();
-            writer.WritePropertyName("PivotOffset");
-            serializer.Serialize(writer, gridSliceResizer.PivotOffset);
-            writer.WritePropertyName("ScalingX");
-            writer.WriteValue(gridSliceResizer.ScalingX.ToString());
-            writer.WritePropertyName("BorderXNegative");
-            serializer.Serialize(writer, gridSliceResizer.BorderXNegative);
-            writer.WritePropertyName("BorderXPositive");
-            serializer.Serialize(writer, gridSliceResizer.BorderXPositive);
-            writer.WritePropertyName("ScalingY");
-            writer.WriteValue(gridSliceResizer.ScalingY.ToString());
-            writer.WritePropertyName("BorderYNegative");
-            serializer.Serialize(writer, gridSliceResizer.BorderYNegative);
-            writer.WritePropertyName("BorderYPositive");
-            serializer.Serialize(writer, gridSliceResizer.BorderYPositive);
-            writer.WritePropertyName("ScalingZ");
-            writer.WriteValue(gridSliceResizer.ScalingZ.ToString());
-            writer.WritePropertyName("BorderZNegative");
-            serializer.Serialize(writer, gridSliceResizer.BorderZNegative);
-            writer.WritePropertyName("BorderZPositive");
-            serializer.Serialize(writer, gridSliceResizer.BorderZPositive);
-            writer.WritePropertyName("StretchCenter");
-            writer.WriteValue((int)gridSliceResizer.StretchCenter);
-            writer.WriteEndObject();
-        }
-
-        public override GridSliceResizer ReadJson(JsonReader reader, Type objectType, GridSliceResizer existingValue,
-            bool hasExistingValue, JsonSerializer serializer)
-        {
-            var gridSliceResizer = new GridSliceResizer();
-            while (reader.Read())
-            {
-                if (reader.TokenType == JsonToken.PropertyName)
-                {
-                    var propertyName = reader.Value.ToString();
-                    switch (propertyName)
-                    {
-                        case "PivotOffset":
-                            reader.Read();
-                            gridSliceResizer.PivotOffset = serializer.Deserialize<Vector3>(reader);
-                            break;
-                        case "ScalingX":
-                            reader.Read();
-                            var scalingXString = reader.Value.ToString();
-                            gridSliceResizer.ScalingX = Enum.Parse<GridSliceResizer.Method>(scalingXString);
-                            break;
-                        case "BorderXNegative":
-                            reader.Read();
-                            gridSliceResizer.BorderXNegative = serializer.Deserialize<float>(reader);
-                            break;
-                        case "BorderXPositive":
-                            reader.Read();
-                            gridSliceResizer.BorderXPositive = serializer.Deserialize<float>(reader);
-                            break;
-                        case "ScalingY":
-                            reader.Read();
-                            var scalingYString = reader.Value.ToString();
-                            gridSliceResizer.ScalingY = Enum.Parse<GridSliceResizer.Method>(scalingYString);
-                            break;
-                        case "BorderYNegative":
-                            reader.Read();
-                            gridSliceResizer.BorderYNegative = serializer.Deserialize<float>(reader);
-                            break;
-                        case "BorderYPositive":
-                            reader.Read();
-                            gridSliceResizer.BorderYPositive = serializer.Deserialize<float>(reader);
-                            break;
-                        case "ScalingZ":
-                            reader.Read();
-                            var scalingZString = reader.Value.ToString();
-                            gridSliceResizer.ScalingZ = Enum.Parse<GridSliceResizer.Method>(scalingZString);
-                            break;
-                        case "BorderZNegative":
-                            reader.Read();
-                            gridSliceResizer.BorderZNegative = serializer.Deserialize<float>(reader);
-                            break;
-                        case "BorderZPositive":
-                            reader.Read();
-                            gridSliceResizer.BorderZPositive = serializer.Deserialize<float>(reader);
-                            break;
-                        case "StretchCenter":
-                            reader.Read();
-                            var stretchCenter = reader.Value.ToString();
-                            gridSliceResizer.StretchCenter =
-                                Enum.Parse<GridSliceResizer.StretchCenterAxis>(stretchCenter);
-                            break;
-                    }
-                }
-                else if (reader.TokenType == JsonToken.EndObject)
-                {
-                    break;
-                }
-            }
-
-            return gridSliceResizer;
-        }
-    }
-
-    public class Vector3Converter : JsonConverter<Vector3>
-    {
-        public override void WriteJson(JsonWriter writer, Vector3 value, JsonSerializer serializer)
-        {
-            writer.WriteStartArray();
-            // Disable indentation to make it more compact
-            var prevFormatting = writer.Formatting;
-            writer.Formatting = Formatting.None;
-            writer.WriteValue(value.x);
-            writer.WriteValue(value.y);
-            writer.WriteValue(value.z);
-            writer.WriteEndArray();
-            writer.Formatting = prevFormatting;
-        }
-
-        public override Vector3 ReadJson(JsonReader reader, Type objectType, Vector3 existingValue,
-            bool hasExistingValue, JsonSerializer serializer)
-        {
-            Vector3 result = new()
-            {
-                x = (float)reader.ReadAsDouble(),
-                y = (float)reader.ReadAsDouble(),
-                z = (float)reader.ReadAsDouble()
-            };
-            reader.Read();
-            if (reader.TokenType != JsonToken.EndArray)
-            {
-                throw new Exception("Expected end of array");
-            }
-
-            return result;
-        }
     }
 }

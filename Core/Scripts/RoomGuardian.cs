@@ -41,9 +41,7 @@ namespace Meta.XR.MRUtilityKit
         {
             // required for passthrough blending to work properly
             OVRPlugin.eyeFovPremultipliedAlphaModeEnabled = false;
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadRoomGuardian).Send();
-#endif
         }
 
         void Update()

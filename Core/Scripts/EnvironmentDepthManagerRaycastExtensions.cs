@@ -34,7 +34,7 @@ namespace Meta.XR
     internal static class EnvironmentDepthManagerRaycastExtensions
     {
         private const Eye DefaultEye = Eye.Both;
-        private const float MinXYSize = 0.05f;
+        internal const float MinXYSize = 0.05f;
         private static EnvironmentDepthRaycaster _depthRaycast;
 
         public static bool Raycast(this EnvironmentDepthManager depthManager, Ray ray, out DepthRaycastHit hitInfo, float maxDistance = 100f, Eye eye = DefaultEye, bool reconstructNormal = true, bool allowOccludedRayOrigin = true)
@@ -80,25 +80,26 @@ namespace Meta.XR
             {
                 Assert.IsNull(depthManager.GetComponent<EnvironmentDepthRaycaster>());
                 _depthRaycast = depthManager.gameObject.AddComponent<EnvironmentDepthRaycaster>();
+                depthManager.onDepthTextureUpdate += _depthRaycast.OnDepthTextureUpdate;
                 _depthRaycast.depthManager = depthManager;
             }
         }
 
-        public static bool PlaceBox(this EnvironmentDepthManager depthManager, Ray ray, Vector3 boxSize, Vector3 upwards, out DepthRaycastHit hit, float maxDistance = 100f)
+        public static bool PlaceBox(this IEnvironmentRaycastProvider provider, Ray ray, Vector3 boxSize, Vector3 upwards, out EnvironmentRaycastHit hit, float maxDistance = 100f)
         {
             if (boxSize.x < MinXYSize || boxSize.y < MinXYSize)
             {
                 Debug.LogWarning($"'x' and 'y' components of the '{nameof(boxSize)}' should be greater than {MinXYSize} to determine the surface normal.");
-                hit = new DepthRaycastHit { result = DepthRaycastResult.NoHit };
+                hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NoHit };
                 return false;
             }
             if (boxSize.z < 0f)
             {
                 Debug.LogWarning($"'z' component of the '{nameof(boxSize)}' should be >= 0f.");
-                hit = new DepthRaycastHit { result = DepthRaycastResult.NoHit };
+                hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NoHit };
                 return false;
             }
-            if (!depthManager.Raycast(ray, out hit, maxDistance) || hit.normalConfidence < 0.5f)
+            if (!provider.Raycast(ray, out hit, maxDistance) || hit.normalConfidence < 0.5f)
             {
                 Log("center raycast failed");
                 return false;
@@ -121,7 +122,7 @@ namespace Meta.XR
             {
                 var cornerPos = hit.point + rotation * cornerOffsets[i];
                 DrawLine(ray.origin, cornerPos, Color.white);
-                if (!depthManager.Raycast(new Ray(ray.origin, cornerPos - ray.origin), out var cornerHit))
+                if (!provider.Raycast(new Ray(ray.origin, cornerPos - ray.origin), out var cornerHit))
                 {
                     Log($"corner {i} raycast failed");
                     return false;
@@ -156,7 +157,7 @@ namespace Meta.XR
             const float collisionCheckOffset = 0.05f;
             if (boxSize.z >= collisionCheckOffset)
             {
-                return !depthManager.CheckBox(hit.point + hit.normal * (boxSize.z * 0.5f + collisionCheckOffset), boxSize * 0.5f, rotation);
+                return !provider.CheckBox(hit.point + hit.normal * (boxSize.z * 0.5f + collisionCheckOffset), boxSize * 0.5f, rotation);
             }
 
             Span<int> indices = stackalloc int[]
@@ -169,7 +170,7 @@ namespace Meta.XR
                 var nextCorner = hit.point + rotation * cornerOffsets[indices[i + 1]] + hit.normal * collisionCheckOffset;
                 var direction = nextCorner - curCorner;
                 var collisionCheckRay = new Ray(curCorner, direction);
-                if (depthManager.Raycast(collisionCheckRay, out var collisionHit, direction.magnitude))
+                if (provider.Raycast(collisionCheckRay, out var collisionHit, direction.magnitude))
                 {
                     DrawLine(curCorner, collisionHit.point, Color.red);
                     return false;
@@ -180,7 +181,7 @@ namespace Meta.XR
             return true;
         }
 
-        public static bool CheckBox(this EnvironmentDepthManager depthManager, Vector3 center, Vector3 halfExtents, Quaternion orientation)
+        public static bool CheckBox(this IEnvironmentRaycastProvider provider, Vector3 center, Vector3 halfExtents, Quaternion orientation)
         {
             Span<Vector3> axes = stackalloc[]
             {
@@ -204,8 +205,8 @@ namespace Meta.XR
                         // Do the collision check only if the box edge length is non-zero.
                         if (distance > 0.01f)
                         {
-                            depthManager.Raycast(new Ray(p0, direction), out var hit, distance, reconstructNormal: false, allowOccludedRayOrigin: false);
-                            if (hit.result != DepthRaycastResult.NoHit)
+                            provider.Raycast(new Ray(p0, direction), out var hit, distance, reconstructNormal: false, allowOccludedRayOrigin: false);
+                            if (hit.status != EnvironmentRaycastHitStatus.NoHit)
                             {
                                 // If any edge of the box is occluded by or intersects with the depth texture, return true.
                                 DrawLine(p0, hit.point, Color.red);
@@ -236,6 +237,7 @@ namespace Meta.XR
     }
 
     [AddComponentMenu("")] // hide component from the 'Add Component' menu to hide it from the user
+    [DefaultExecutionOrder(-48)]
     internal class EnvironmentDepthRaycaster : MonoBehaviour
     {
         private static readonly int EnvironmentDepthTextureId = Shader.PropertyToID("_EnvironmentDepthTexture");
@@ -252,15 +254,14 @@ namespace Meta.XR
         private NativeArray<float> _gpuRequestBuffer;
         private bool _isDepthTextureAvailable;
         private AsyncGPUReadbackRequest? _currentGpuReadbackRequest;
-        private uint? _prevTextureId;
-        private bool _copyDepthTexture;
+        private RenderTexture _updatedDepthTexture;
 
-        private Matrix4x4[] _matrixVP = new Matrix4x4[NumEyes];
-        private Matrix4x4[] _matrixV = new Matrix4x4[NumEyes];
-        private Matrix4x4[] _matrixVP_inv = new Matrix4x4[NumEyes];
+        private readonly Matrix4x4[] _matrixVP = new Matrix4x4[NumEyes];
+        private readonly Matrix4x4[] _matrixV = new Matrix4x4[NumEyes];
+        private readonly Matrix4x4[] _matrixVP_inv = new Matrix4x4[NumEyes];
         private readonly Plane[][] _camFrustumPlanes = { new Plane[6], new Plane[6] };
         private Vector4 _EnvironmentDepthZBufferParams;
-        private DepthFrameDesc[] _depthFrameDesc = new DepthFrameDesc[NumEyes];
+        private readonly DepthFrameDesc[] _depthFrameDesc = new DepthFrameDesc[NumEyes];
         private Matrix4x4 _worldToTrackingSpaceMatrix = Matrix4x4.identity;
         internal bool _warmUpRaycast;
         private int _currentEyeIndex;
@@ -279,22 +280,27 @@ namespace Meta.XR
             _gpuRequestBuffer = new NativeArray<float>(numPixels, Allocator.Persistent);
 
             var displays = new List<XRDisplaySubsystem>(1);
-            SubsystemManager.GetInstances(displays);
+            SubsystemManager.GetSubsystems(displays);
             _xrDisplay = displays.Single();
             Assert.IsNotNull(_xrDisplay, nameof(_xrDisplay));
         }
 
         private void OnDisable() => InvalidateDepthTexture();
 
+        internal void OnDepthTextureUpdate(RenderTexture updatedDepthTexture)
+        {
+            _updatedDepthTexture = updatedDepthTexture;
+            CreateTextureCopyRequestIfNeeded();
+        }
+
         private void InvalidateDepthTexture()
         {
-            _copyDepthTexture = false;
             _isDepthTextureAvailable = false;
-            _prevTextureId = null;
         }
 
         private void OnDestroy()
         {
+            depthManager.onDepthTextureUpdate -= OnDepthTextureUpdate;
             if (_currentGpuReadbackRequest.HasValue && !_currentGpuReadbackRequest.Value.done)
             {
                 _currentGpuReadbackRequest.Value.WaitForCompletion();
@@ -316,33 +322,25 @@ namespace Meta.XR
                 return;
             }
 
-            uint textureId = 0;
-            if (!_xrDisplay.running || !EnvironmentDepthManager._provider.GetDepthTextureId(ref textureId) || _prevTextureId == textureId)
-            {
-                return;
-            }
-            _prevTextureId = textureId;
-
-            if (!_warmUpRaycast && !_copyDepthTexture)
+            if (!_warmUpRaycast)
             {
                 InvalidateDepthTexture();
                 return;
             }
-            _copyDepthTexture = false;
 
-            _depthFrameDesc[0] = EnvironmentDepthManager._provider.GetFrameDesc(0);
-            _depthFrameDesc[1] = EnvironmentDepthManager._provider.GetFrameDesc(1);
-            _worldToTrackingSpaceMatrix = depthManager.GetTrackingSpaceWorldToLocalMatrix();
-
-#if UNITY_2022_3_OR_NEWER
-            var depthTexture = _xrDisplay.GetRenderTexture(textureId);
-#else
-            RenderTexture depthTexture = null;
-#endif
+            var depthTexture = _updatedDepthTexture;
             if (depthTexture == null)
             {
                 return;
             }
+            _updatedDepthTexture = null;
+
+            for (int i = 0; i < NumEyes; i++)
+            {
+                _depthFrameDesc[i] = depthManager.frameDescriptors[i];
+            }
+            _worldToTrackingSpaceMatrix = depthManager.GetTrackingSpaceWorldToLocalMatrix();
+
             _shader.SetTexture(0, EnvironmentDepthTextureId, depthTexture);
             _shader.SetFloat(EnvironmentDepthTextureSizeId, depthTexture.width);
             Assert.AreEqual(depthTexture.width, depthTexture.height);
@@ -392,7 +390,7 @@ namespace Meta.XR
             _currentGpuReadbackRequest = null;
         }
 
-        /// This method is called before other MonoBehaviour.Update(), see 'Project Settings/Script Execution Order'.
+        /// This method is called before other MonoBehaviour.Update() because of the <see cref="DefaultExecutionOrder"/> attribute.
         private void Update()
         {
             if (depthManager == null)
@@ -473,18 +471,33 @@ namespace Meta.XR
             normalConfidence = 0f;
             var result = Raycast(ray, maxDistance, eye, allowOccludedRayOrigin);
             position = result.position;
-            _currentEyeIndex = result.eyeIndex; // modify current eye index to calculate the normal based on selected eye index
             if (result.status != DepthRaycastResult.Success)
             {
                 return result.status;
             }
 
+            // Modify current eye index to calculate the normal based on selected eye index
+            _currentEyeIndex = result.eyeIndex;
+            if (ReconstructNormalAtWorldPos(position, out normal, out normalConfidence))
+            {
+                return DepthRaycastResult.Success;
+            }
+
+            // If the normal reconstruction fails because the hit position is too close to the depth texture edge, change the eye and retry
+            _currentEyeIndex = _currentEyeIndex == 0 ? 1 : 0;
+            return ReconstructNormalAtWorldPos(position, out normal, out normalConfidence) ? DepthRaycastResult.Success : DepthRaycastResult.RayOutsideOfDepthCameraFrustum;
+        }
+
+        private bool ReconstructNormalAtWorldPos(Vector3 position, out Vector3 normal, out float normalConfidence)
+        {
+            normal = default;
+            normalConfidence = 0f;
             const int filterOffset = 2;
             const int filterSize = filterOffset + 2; // We calculate normal based on two-pixel offset in each direction
             var texCoord = WorldPosToNonNormalizedTextureCoords(position);
             if (texCoord.x < filterSize || texCoord.x >= TextureSize - filterSize || texCoord.y < filterSize || texCoord.y >= TextureSize - filterSize)
             {
-                return DepthRaycastResult.RayOutsideOfDepthCameraFrustum;
+                return false;
             }
 
             Span<Vector2Int> normalFilterOffsets = stackalloc Vector2Int[]
@@ -517,15 +530,12 @@ namespace Meta.XR
                 }
             }
             normalConfidence = filteredCount / numOffsets;
-
-            return result.status;
+            return true;
         }
 
         internal (DepthRaycastResult status, Vector3 position, int eyeIndex) Raycast(Ray ray, float maxDistance, Eye eye, bool allowOccludedRayOrigin)
         {
             Assert.IsTrue(maxDistance >= 0f);
-            _copyDepthTexture = true;
-            CreateTextureCopyRequestIfNeeded();
             if (!_isDepthTextureAvailable)
             {
                 return (DepthRaycastResult.NotReady, default, default);

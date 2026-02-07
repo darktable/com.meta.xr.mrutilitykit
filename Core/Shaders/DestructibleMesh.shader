@@ -16,7 +16,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-Shader "Meta/MRUK/Unlit/DestructibleGlogalMesh" {
+Shader "Meta/MRUK/Unlit/DestructibleGlobalMesh" {
    Properties {
     _WireframeColor("WireframeColor", Color) = (1, 0, 0, 1)
     _Color("Color", Color) = (1, 1, 1, 1)

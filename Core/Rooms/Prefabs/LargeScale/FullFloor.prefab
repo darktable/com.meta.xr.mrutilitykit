@@ -1377,7 +1377,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4799118287133967656}
-  - component: {fileID: 4632636885009043536}
   m_Layer: 0
   m_Name: Other
   m_TagString: Untagged
@@ -1420,27 +1419,6 @@ Transform:
   m_Father: {fileID: 4628948384487219535}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4632636885009043536
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1621659329638546261}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62ac22b6042894067bd833d557a48aec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  <AnchorCreatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorUpdatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorRemovedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1626178994135248703
 GameObject:
   m_ObjectHideFlags: 0
@@ -1840,7 +1818,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3163007923450419810}
-  - component: {fileID: 4193443567167853289}
   m_Layer: 0
   m_Name: LivingRoom
   m_TagString: Untagged
@@ -1892,27 +1869,6 @@ Transform:
   m_Father: {fileID: 4628948384487219535}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4193443567167853289
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1887435871826579448}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62ac22b6042894067bd833d557a48aec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  <AnchorCreatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorUpdatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorRemovedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1890696900988568443
 GameObject:
   m_ObjectHideFlags: 0
@@ -4202,7 +4158,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3910309034483582799}
-  - component: {fileID: 1628690283309542246}
   m_Layer: 0
   m_Name: Other
   m_TagString: Untagged
@@ -4248,27 +4203,6 @@ Transform:
   m_Father: {fileID: 4628948384487219535}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1628690283309542246
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5193888548384230300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62ac22b6042894067bd833d557a48aec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  <AnchorCreatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorUpdatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorRemovedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &5229259034739815450
 GameObject:
   m_ObjectHideFlags: 0
@@ -4864,7 +4798,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3728001604472533401}
-  - component: {fileID: 7374365124904260861}
   m_Layer: 0
   m_Name: Other
   m_TagString: Untagged
@@ -4895,27 +4828,6 @@ Transform:
   m_Father: {fileID: 4628948384487219535}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7374365124904260861
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5730080165922632104}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 62ac22b6042894067bd833d557a48aec, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  <AnchorCreatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorUpdatedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
-  <AnchorRemovedEvent>k__BackingField:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &5751171969455223876
 GameObject:
   m_ObjectHideFlags: 0

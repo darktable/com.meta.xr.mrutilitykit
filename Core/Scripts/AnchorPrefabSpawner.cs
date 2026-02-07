@@ -30,100 +30,190 @@ namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
     /// Manages the spawning of prefabs based on anchor data within a scene, providing various customization options
-    /// for scaling, alignment, and selection modes.
+    /// for scaling, alignment, and selection modes. This class extends the <see cref="ICustomAnchorPrefabSpawner"/> interface,
+    /// which can be used together with <see cref="AnchorPrefabSpawnerUtilities"/> to provide custom implementations of the prefab spawning logic.
     /// </summary>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_anchor_prefab_spawner")]
     [Feature(Feature.Scene)]
     public class AnchorPrefabSpawner : MonoBehaviour, ICustomAnchorPrefabSpawner
     {
         /// <summary>
         /// Defines the scaling modes available for adjusting prefab sizes to fit the anchor's dimensions.
+        /// The scaling mode determines how the prefab will be resized to match the anchor's size.
+        /// It is defined for each <see cref="AnchorPrefabGroup"/> and can be set to one of the following options:
         /// </summary>
+        /// <remarks> When using he <see cref="ScalingMode.Custom"/> the <see cref="CustomPrefabScaling"/> method
+        /// must be implemented in a custom class that extends this class or the <see cref="ICustomPrefabScaling"/> interface. </remarks>
         public enum ScalingMode
         {
+            /// <summary>
             /// Stretch each axis to exactly match the size of the Plane/Volume.
+            /// This mode ensures that the prefab fills the entire anchor area.
+            /// </summary>
             Stretch,
 
+            /// <summary>
             /// Scale each axis by the same amount to maintain the correct aspect ratio.
+            /// This mode preserves the original aspect ratio of the prefab.
+            /// </summary>
             UniformScaling,
 
+            /// <summary>
             /// Scale the X and Z axes uniformly but the Y scale can be different.
+            /// This mode allows for flexible scaling while maintaining some aspect ratio consistency.
+            /// </summary>
             UniformXZScale,
 
+            /// <summary>
             /// Don't perform any scaling.
+            /// This mode leaves the prefab at its original size, without any adjustments.
+            /// </summary>
             NoScaling,
 
-            /// Custom logic, extend this class and override CustomPrefabScaling with your own implementation
+            /// <summary>
+            /// Custom logic, extend this class and override <see cref="CustomPrefabScaling"/> with your own implementation.
+            /// This mode enables developers to create custom scaling logic tailored to their specific needs.
+            /// </summary>
             Custom
         }
 
         /// <summary>
         /// Defines the alignment modes available for positioning prefabs relative to the anchor's dimensions.
+        /// The alignment mode determines how the prefab will be positioned within the anchor area.
+        /// It is defined for each <see cref="AnchorPrefabGroup"/> and can be set to one of the following options:
         /// </summary>
+        /// <remarks> When using he <see cref="AlignMode.Custom"/> the <see cref="CustomPrefabAlignment"/> method
+        /// must be implemented in a custom class that extends this class or the <see cref="ICustomPrefabScaling"/> interface. </remarks>
         public enum AlignMode
         {
+            /// <summary>
             /// For volumes align to the base, for planes align to the center.
+            /// This mode provides a default alignment that works well for most use cases.
+            /// </summary>
             Automatic,
 
-            /// Align the bottom of the prefab with the bottom of the volume or plane
+            /// <summary>
+            /// Align the bottom of the prefab with the bottom of the volume or plane.
+            /// This mode is useful when you want the prefab to sit at the base of the anchor.
+            /// </summary>
             Bottom,
 
-            /// Align the center of the prefab with the center of the volume or plane
+            /// <summary>
+            /// Align the center of the prefab with the center of the volume or plane.
+            /// This mode is useful when you want the prefab to be centered within the anchor.
+            /// </summary>
             Center,
 
+            /// <summary>
             /// Don't add any local offset to the prefab.
+            /// This mode leaves the prefab at its original position, without any adjustments.
+            /// </summary>
             NoAlignment,
 
-            /// Custom logic, extend this class and override CustomPrefabAlignment with your own implementation
+            /// <summary>
+            /// Custom logic, extend this class and override <see cref="CustomPrefabAlignment"/> with your own implementation.
+            /// This mode enables developers to create custom alignment logic tailored to their specific needs.
+            /// </summary>
             Custom
         }
 
         /// <summary>
         /// Defines the selection modes available for choosing prefabs from a list.
+        /// The selection mode determines which prefab will be spawned when multiple options are available.
+        /// It is defined for each <see cref="AnchorPrefabGroup"/> and can be set to one of the following options:
         /// </summary>
+        /// <remarks> When using he <see cref="SelectionMode.Custom"/> the <see cref="CustomPrefabSelection"/> method
+        /// must be implemented in a custom class that extends this class or the <see cref="ICustomPrefabScaling"/> interface. </remarks>
         public enum SelectionMode
         {
-            // Randomly choose a prefab from the list every time
+            /// <summary>
+            /// Randomly choose a prefab from the list every time.
+            /// This mode adds randomness to the spawning process, making it more dynamic.
+            /// </summary>
             Random,
 
-            // Chose the prefab the has the smallest difference between its size with the one of the anchor
+            /// <summary>
+            /// Choose the prefab that has the smallest difference between its size and the one of the anchor.
+            /// This mode selects the prefab that best fits the anchor's size, minimizing gaps or overlaps.
+            /// </summary>
             ClosestSize,
 
-            /// Custom logic, extend this class and override CustomPrefabSelection with your own implementation
+            /// <summary>
+            /// Custom logic, extend this class and override <see cref="CustomPrefabSelection"/> with your own implementation.
+            /// This mode enables developers to create custom selection logic tailored to their specific needs.
+            /// </summary>
             Custom
         }
 
         /// <summary>
         /// Represents a group of prefabs associated with specific scene labels, along with settings for how they should be spawned.
+        /// This struct encapsulates the necessary information for spawning prefabs based on anchor data.
         /// </summary>
+        /// <remarks> When using <see cref="ScalingMode.Custom"/>, <see cref="AlignMode.Custom"/>, or <see cref="SelectionMode.Custom"/>
+        /// the <see cref="CustomPrefabScaling"/>, <see cref="CustomPrefabAlignment"/> or <see cref="CustomPrefabAlignment"/>
+        /// methods must be implemented in a custom class that extends either the <see cref="AnchorPrfabSpawner"/>
+        /// or the <see cref="ICustomPrefabAlignment"/> interface directly. </remarks>
         [Serializable]
         public struct AnchorPrefabGroup : IEquatable<AnchorPrefabGroup>
         {
+            /// <summary>
+            /// Anchors to include. Each anchor labeled with one of these labels will have a prefab spawned for it.
+            /// </summary>
             [FormerlySerializedAs("_include")]
             [SerializeField, Tooltip("Anchors to include.")]
             public MRUKAnchor.SceneLabels Labels;
 
+            /// <summary>
+            /// This list contains the prefabs that can be spawned for the specified labels.
+            /// The prefab will be chosen depending on the <see cref="SelectionMode"/> set for this group.
+            /// </summary>
             [SerializeField, Tooltip("Prefab(s) to spawn (randomly chosen from list.)")]
             public List<GameObject> Prefabs;
 
+            /// <summary>
+            /// The logic that determines what prefab to choose when spawning the relative labels' game objects.
+            /// </summary>
             [SerializeField]
             [Tooltip("The logic that determines what prefab to chose when spawning the relative labels' game objects")]
             public SelectionMode PrefabSelection;
 
+            /// <summary>
+            /// When enabled, the prefab will be rotated to try and match the aspect ratio of the volume as closely as possible.
+            /// This is most useful for long and thin volumes; keep this disabled for objects with an aspect ratio close to 1:1.
+            /// Only applies to volumes.
+            /// </summary>
             [SerializeField, Tooltip(
                  "When enabled, the prefab will be rotated to try and match the aspect ratio of the volume as closely as possible. This is most useful for long and thin volumes, keep this disabled for objects with an aspect ratio close to 1:1. Only applies to volumes.")]
             public bool MatchAspectRatio;
 
+            /// <summary>
+            /// When calculate facing direction is enabled, the prefab will be rotated to face away from the closest wall.
+            /// If match aspect ratio is also enabled, that will take precedence and it will be constrained to a choice between 2 directions only.
+            /// Only applies to volumes.
+            /// </summary>
             [SerializeField, Tooltip(
                  "When calculate facing direction is enabled the prefab will be rotated to face away from the closest wall. If match aspect ratio is also enabled then that will take precedence and it will be constrained to a choice between 2 directions only.Only applies to volumes.")]
             public bool CalculateFacingDirection;
 
+            /// <summary>
+            /// Set what scaling mode to apply to the prefab. By default, the prefab will be stretched to fit the size of the plane/volume.
+            /// But in some cases, this may not be desirable and can be customized here.
+            /// </summary>
             [SerializeField, Tooltip(
                  "Set what scaling mode to apply to the prefab. By default the prefab will be stretched to fit the size of the plane/volume. But in some cases this may not be desirable and can be customized here.")]
             public ScalingMode Scaling;
 
+            /// <summary>
+            /// Spawn new object at the center, top, or bottom of the anchor.
+            /// This setting determines the vertical alignment of the spawned prefab.
+            /// </summary>
             [SerializeField, Tooltip("Spawn new object at the center, top or bottom of the anchor.")]
             public AlignMode Alignment;
 
+            /// <summary>
+            /// Don't analyze prefab, just assume a default scale of 1.
+            /// This setting simplifies the scaling process by using a default scale.
+            /// </summary>
             [SerializeField, Tooltip("Don't analyze prefab, just assume a default scale of 1.")]
             public bool IgnorePrefabSize;
 
@@ -159,12 +249,21 @@ namespace Meta.XR.MRUtilityKit
             /// @endcond
         }
 
+        /// <summary>
+        /// "When the scene data is loaded, this controls what room(s) the prefabs will spawn in.
+        /// </summary>
         [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
         public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
+        /// <summary>
+        /// If enabled, updates on scene elements such as rooms and anchors will be handled by this class.
+        /// </summary>
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
         internal bool TrackUpdates = true;
 
+        /// <summary>
+        /// Specify a seed value for consistent prefab selection (0 = Random).
+        /// </summary>
         [Tooltip("Specify a seed value for consistent prefab selection (0 = Random).")]
         public int SeedValue;
 
@@ -174,6 +273,9 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public Dictionary<MRUKAnchor, GameObject> AnchorPrefabSpawnerObjects { get; } = new();
 
+        /// <summary>
+        /// Event triggered when a prefab is spawned. This event will be deprecated in a future version.
+        /// </summary>
         [Obsolete("Event onPrefabSpawned will be deprecated in a future version"), NonSerialized]
         public UnityEvent onPrefabSpawned = new();
 
@@ -185,7 +287,7 @@ namespace Meta.XR.MRUtilityKit
         public List<GameObject> SpawnedPrefabs => new(AnchorPrefabSpawnerObjects.Values);
 
         /// <summary>
-        /// The list of AnchorPrefabGroup configurations that determine how prefabs are spawned based on anchor data.
+        /// The list of <see cref="AnchorPrefabGroup"/> configurations that determine how prefabs are spawned based on anchor data.
         /// </summary>
         public List<AnchorPrefabGroup> PrefabsToSpawn;
 
@@ -200,9 +302,7 @@ namespace Meta.XR.MRUtilityKit
 
         protected virtual void Start()
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadAnchorPrefabSpawner).Send();
-#endif
             if (MRUK.Instance is null)
             {
                 return;
@@ -361,7 +461,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        ///  Clears all the spawned gameobjects from this AnchorPrefabSpawner in the given room
+        ///  Clears all the previously spawned gameobjects from this AnchorPrefabSpawner instance in the given room.
         /// </summary>
         /// <param name="room">The room from where to remove all the spawned objects.</param>
         protected virtual void ClearPrefabs(MRUKRoom room)
@@ -387,7 +487,8 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Destroys the specified GameObject, effectively removing the prefab from the scene.
+        /// Destroys the specified GameObject, effectively removing the prefab from the scene
+        /// and removing it from the <see cref="AnchorPrefabSpawnerObjects"/> dictionary.
         /// </summary>
         /// <param name="go">The GameObject to be destroyed.</param>
         protected virtual void ClearPrefab(GameObject go)
@@ -413,7 +514,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Clears all the gameobjects created with the PrefabSpawner
+        /// Clears all the gameobjects created by this AnchorPrefabSpawner instance for all rooms.
         /// </summary>
         protected virtual void ClearPrefabs()
         {
@@ -427,7 +528,9 @@ namespace Meta.XR.MRUtilityKit
 
 
         /// <summary>
-        /// Spawns prefabs according to the settings
+        /// Spawns prefabs for all the rooms in the scene.
+        /// This method will iterate through all the rooms in the scene and spawn prefabs for each anchor in the room
+        /// according to the <see cref="AnchorPrefabGroup"/> configuration of each label.
         /// </summary>
         /// <param name="clearPrefabs">Clear already existing prefabs before.</param>
         protected virtual void SpawnPrefabs(bool clearPrefabs = true)
@@ -448,7 +551,9 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Creates gameobjects for the given room.
+        /// Spawns prefabs for all the rooms in the scene.
+        /// This method will spawn prefabs for each anchor in the room according to the <see cref="AnchorPrefabGroup"/> configurations
+        /// of each label.
         /// </summary>
         /// <param name="room">The room reference</param>
         /// <param name="clearPrefabs">clear all before adding them again</param>
@@ -600,6 +705,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         /// Initializes a new instance of the Random class using the specified seed.
+        /// either the seed value or the current system tick count is used.
         /// </summary>
         /// <param name="seed">The seed value to initialize the random number generator.
         /// If zero, the seed will be set to the current system tick count.
@@ -614,6 +720,13 @@ namespace Meta.XR.MRUtilityKit
             _random = new Random(seed);
         }
 
+        /// <summary>
+        /// Custom logic for selecting a prefab. Extend this class and override this method with your custom logic.
+        /// All <see cref="AnchorPrefabGroup"/> with <see cref="SelectionMode"/> set to Custom will use this method.
+        /// </summary>
+        /// <param name="anchor">The anchor information.</param>
+        /// <param name="prefabs">The list of prefabs to choose from.</param>
+        /// <returns>The selected prefab GameObject.</returns>
         public virtual GameObject CustomPrefabSelection(MRUKAnchor anchor, List<GameObject> prefabs)
         {
             throw new(
@@ -621,6 +734,12 @@ namespace Meta.XR.MRUtilityKit
                 "Extend this class and override the `CustomPrefabSelection` method with your custom logic.");
         }
 
+        /// <summary>
+        /// Custom logic for scaling a prefab's volume. Extend this class and override this method with your custom logic.
+        /// All <see cref="AnchorPrefabGroup"/> with <see cref="ScalingMode"/> set to Custom will use this method.
+        /// </summary>
+        /// <param name="localScale">The local scale vector.</param>
+        /// <returns>The adjusted scale vector.</returns>
         public virtual Vector3 CustomPrefabScaling(Vector3 localScale)
         {
             throw new NotImplementedException(
@@ -628,6 +747,11 @@ namespace Meta.XR.MRUtilityKit
                 "was provided. Extend this class and override the `CustomPrefabVolumeScaling` method with your custom logic.");
         }
 
+        /// <summary>
+        /// Custom logic for scaling a prefab's plane rectangle. Extend this class and override this method with your custom logic.
+        /// </summary>
+        /// <param name="localScale">The local scale vector.</param>
+        /// <returns>The adjusted scale vector.</returns>
         public virtual Vector2 CustomPrefabScaling(Vector2 localScale)
         {
             throw new NotImplementedException(
@@ -635,6 +759,13 @@ namespace Meta.XR.MRUtilityKit
                 "Extend this class and override the `CustomPrefabPlaneRectScaling` method with your custom logic.");
         }
 
+        /// <summary>
+        /// Custom logic for aligning a prefab within a volume. Extend this class and override this method with your custom logic.
+        /// All <see cref="AnchorPrefabGroup"/> with <see cref="AlignMode"/> set to Custom will use this method.
+        /// </summary>
+        /// <param name="anchorVolumeBounds">The bounds of the anchor volume.</param>
+        /// <param name="prefabBounds">The optional bounds of the prefab.</param>
+        /// <returns>The adjusted position vector.</returns>
         public virtual Vector3 CustomPrefabAlignment(Bounds anchorVolumeBounds, Bounds? prefabBounds)
         {
             throw new NotImplementedException(
@@ -642,6 +773,13 @@ namespace Meta.XR.MRUtilityKit
                 "Extend this class and override the `CustomPrefabAlignment` method with your custom logic.");
         }
 
+        /// <summary>
+        /// Custom logic for aligning a prefab within a plane rectangle. Extend this class and override this method with your custom logic.
+        /// All <see cref="AnchorPrefabGroup"/> with <see cref="AlignMode"/> set to Custom will use this method.
+        /// </summary>
+        /// <param name="anchorPlaneRect">The rectangle of the anchor plane.</param>
+        /// <param name="prefabBounds">The optional bounds of the prefab.</param>
+        /// <returns>The adjusted position vector.</returns>
         public virtual Vector3 CustomPrefabAlignment(Rect anchorPlaneRect, Bounds? prefabBounds)
         {
             throw new NotImplementedException(

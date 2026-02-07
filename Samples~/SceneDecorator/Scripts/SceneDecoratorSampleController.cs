@@ -31,6 +31,7 @@ public class SceneDecoratorSampleController : MonoBehaviour
     [SerializeField] private EffectMesh EffectMesh;
     [SerializeField] private EffectMesh EffectMesh_GlobalMesh;
     [SerializeField] public List<InspectorDecoration> Decorations;
+    [SerializeField] public SpaceMapGPU SpaceMapGPU;
 
     private bool _meshVisibility;
     private readonly Dictionary<KeyCode, Action> keysPressed = new();
@@ -54,6 +55,8 @@ public class SceneDecoratorSampleController : MonoBehaviour
         Everything
     }
 
+    private DecorationStyle currentDecoration;
+
     private void Update()
     {
         for (var i = 0; i < keysPressed.Count; i++)
@@ -75,14 +78,76 @@ public class SceneDecoratorSampleController : MonoBehaviour
 
     private async Task Start()
     {
+        currentDecoration = DecorationStyle.None;
+
         await MRUK.Instance.LoadSceneFromDevice();
-        keysPressed.Add(KeyCode.S, () => ToggleMesh());
-        keysPressed.Add(KeyCode.D, () => ClearDecorations());
-        keysPressed.Add(KeyCode.F, () => Decoration1());
-        keysPressed.Add(KeyCode.G, () => Decoration2());
-        keysPressed.Add(KeyCode.H, () => Decoration3());
-        keysPressed.Add(KeyCode.J, () => Decoration4());
-        keysPressed.Add(KeyCode.K, () => AllDecorations());
+        keysPressed.Add(KeyCode.S, ToggleMesh);
+        keysPressed.Add(KeyCode.D, ClearDecorations);
+        keysPressed.Add(KeyCode.F, DecorationFloor1);
+        keysPressed.Add(KeyCode.G, DecorationFloor2);
+        keysPressed.Add(KeyCode.H, DecorationWalls);
+        keysPressed.Add(KeyCode.J, DecorationDesk);
+        keysPressed.Add(KeyCode.K, AllDecorations);
+
+        MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveCreatedRoom);
+        MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
+        MRUK.Instance.RoomUpdatedEvent.AddListener(ReceiveUpdatedRoom);
+        MRUK.Instance.SceneLoadedEvent.AddListener(UpdateAfterEvent);
+
+    }
+
+    private void OnDestroy()
+    {
+        MRUK.Instance.RoomCreatedEvent.RemoveListener(ReceiveCreatedRoom);
+        MRUK.Instance.RoomRemovedEvent.RemoveListener(ReceiveRemovedRoom);
+        MRUK.Instance.RoomUpdatedEvent.RemoveListener(ReceiveUpdatedRoom);
+        MRUK.Instance.SceneLoadedEvent.RemoveListener(UpdateAfterEvent);
+    }
+
+    private void ReceiveCreatedRoom(MRUKRoom room)
+    {
+        RegisterAnchorUpdates(room);
+        UpdateAfterEvent();
+    }
+
+    private void ReceiveUpdatedRoom(MRUKRoom room)
+    {
+        UpdateAfterEvent();
+    }
+
+    private void ReceiveRemovedRoom(MRUKRoom room)
+    {
+        UnregisterAnchorUpdates(room);
+        UpdateAfterEvent();
+    }
+
+    private void UnregisterAnchorUpdates(MRUKRoom room)
+    {
+        room.AnchorCreatedEvent.RemoveListener(ReceiveAnchorCreatedEvent);
+        room.AnchorRemovedEvent.RemoveListener(ReceiveAnchorRemovedCallback);
+        room.AnchorUpdatedEvent.RemoveListener(ReceiveAnchorUpdatedCallback);
+    }
+
+    private void RegisterAnchorUpdates(MRUKRoom room)
+    {
+        room.AnchorCreatedEvent.AddListener(ReceiveAnchorCreatedEvent);
+        room.AnchorRemovedEvent.AddListener(ReceiveAnchorRemovedCallback);
+        room.AnchorUpdatedEvent.AddListener(ReceiveAnchorUpdatedCallback);
+    }
+
+    private void ReceiveAnchorUpdatedCallback(MRUKAnchor anchor)
+    {
+        UpdateAfterEvent();
+    }
+
+    private void ReceiveAnchorRemovedCallback(MRUKAnchor anchor)
+    {
+        UpdateAfterEvent();
+    }
+
+    private void ReceiveAnchorCreatedEvent(MRUKAnchor anchor)
+    {
+        UpdateAfterEvent();
     }
 
     public void ToggleMesh()
@@ -92,60 +157,90 @@ public class SceneDecoratorSampleController : MonoBehaviour
         EffectMesh_GlobalMesh.ToggleEffectMeshVisibility(_meshVisibility);
     }
 
+    private void UpdateAfterEvent()
+    {
+        switch (currentDecoration)
+        {
+            case DecorationStyle.None:
+                ClearDecorations();
+                break;
+            case DecorationStyle.Floor1:
+                DecorationFloor1();
+                break;
+            case DecorationStyle.Floor2:
+                DecorationFloor2();
+                break;
+            case DecorationStyle.Walls:
+                DecorationWalls();
+                break;
+            case DecorationStyle.Desk:
+                DecorationDesk();
+                break;
+            case DecorationStyle.Everything:
+                AllDecorations();
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
     public void ClearDecorations()
     {
         Decorator.ClearDecorations();
         Decorator.sceneDecorations.Clear();
     }
 
-    public void Decoration1()
+    public void DecorationFloor1()
     {
-        Decorator.sceneDecorations.Clear();
+        ClearDecorations();
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Floor1));
         Decorator.DecorateScene();
     }
 
-    public void Decoration2()
+    public void DecorationFloor2()
     {
-        Decorator.sceneDecorations.Clear();
+        ClearDecorations();
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Floor2));
         Decorator.DecorateScene();
     }
 
-    public void Decoration3()
+    public void DecorationWalls()
     {
-        Decorator.sceneDecorations.Clear();
+        ClearDecorations();
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Walls));
         Decorator.DecorateScene();
     }
 
-    public void Decoration4()
+    public void DecorationDesk()
     {
-        Decorator.sceneDecorations.Clear();
+        ClearDecorations();
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Desk));
         Decorator.DecorateScene();
     }
 
     public void AllDecorations()
     {
-        Decorator.sceneDecorations.Clear();
+        ClearDecorations();
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Desk));
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Walls));
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Floor2));
         Decorator.sceneDecorations.Add(GetDecorationByStyle(DecorationStyle.Floor1));
+        currentDecoration = DecorationStyle.Everything;
         Decorator.DecorateScene();
     }
 
 
     private SceneDecoration GetDecorationByStyle(DecorationStyle style)
     {
+        currentDecoration = style;
         return (from e in Decorations where style == e.Style select e.Decoration).FirstOrDefault();
     }
 
 
-    public void RequestSpaceSetupManual()
+    public async void RequestSpaceSetupManual()
     {
-        _ = OVRScene.RequestSpaceSetup();
-        _ = MRUK.Instance.LoadSceneFromDevice(false);
+        await OVRScene.RequestSpaceSetup();
+        await MRUK.Instance.LoadSceneFromDevice(false);
+        await SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.CurrentRoomOnly);
     }
 }

@@ -30,6 +30,7 @@ namespace Meta.XR.MRUtilityKit
     /// It listens to room events and dynamically creates or removes destructible meshes as rooms are created or removed.
     /// For more details on room management, see <see cref="MRUKRoom"/>.
     /// </summary>
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_destructible_global_mesh_spawner")]
     public class DestructibleGlobalMeshSpawner : MonoBehaviour
     {
         [SerializeField] public MRUK.RoomFilter CreateOnRoomLoaded = MRUK.RoomFilter.CurrentRoomOnly;
@@ -127,9 +128,7 @@ namespace Meta.XR.MRUtilityKit
 
         void Start()
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadDestructibleGlobalMeshSpawner).Send();
-#endif
             MRUK.Instance.RegisterSceneLoadedCallback(() =>
             {
                 if (CreateOnRoomLoaded == MRUK.RoomFilter.None)
@@ -183,6 +182,8 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         /// Adds a destructible global mesh to a specific room. This method checks for existing meshes in the room and creates a new one if none exists.
+        ///  The destructible mesh is created using the specified parameters, including the material, points per unit, and maximum points count.
+        ///  A <see cref="DestructibleMeshComponent"/> is added to the destructible global mesh game object, and the segmentation process is started.
         /// </summary>
         /// <param name="room">The room to which the mesh will be added.</param>
         /// <returns>The destructible mesh created for the room.</returns>
@@ -234,14 +235,13 @@ namespace Meta.XR.MRUtilityKit
             {
                 throw new Exception("Could not find a room for the destructible mesh");
             }
-
-            if (!room.GlobalMeshAnchor || !room.GlobalMeshAnchor.GlobalMesh)
+            if (!room.GlobalMeshAnchor || !room.GlobalMeshAnchor.Mesh)
             {
                 throw new Exception("Could not load the mesh associated with the global mesh anchor of the room");
             }
 
-            var meshPositions = room.GlobalMeshAnchor.GlobalMesh.vertices;
-            var meshIndices = room.GlobalMeshAnchor.GlobalMesh.triangles;
+            var meshPositions = room.GlobalMeshAnchor.Mesh.vertices;
+            var meshIndices = room.GlobalMeshAnchor.Mesh.triangles;
             var segmentationPointsWS = ComputeRoomBoxGrid(room, destructibleGlobalMesh.MaxPointsCount,
                 destructibleGlobalMesh.PointsPerUnitX, destructibleGlobalMesh.PointsPerUnitY);
 
@@ -320,9 +320,8 @@ namespace Meta.XR.MRUtilityKit
             _points.Clear();
             foreach (MRUKAnchor wall in room.WallAnchors)
             {
-                var points = GeneratePoints(wall.transform.position, wall.transform.rotation,
+                GeneratePoints(_points, wall.transform.position, wall.transform.rotation,
                     wall.PlaneRect, pointsPerUnitX, pointPerUnitY);
-                _points.AddRange(points);
             }
 
             var ceilingHeight = room.CeilingAnchor.transform.position.y - room.FloorAnchor.transform.position.y;
@@ -333,18 +332,15 @@ namespace Meta.XR.MRUtilityKit
                 var planePosition = new Vector3(room.CeilingAnchor.transform.position.x,
                     room.CeilingAnchor.transform.position.y - (spaceBetweenPlanes * i),
                     room.CeilingAnchor.transform.position.z);
-                var insidePoints = GeneratePoints(planePosition, room.CeilingAnchor.transform.rotation,
+                GeneratePoints(_points, planePosition, room.CeilingAnchor.transform.rotation,
                     room.CeilingAnchor.PlaneRect, pointsPerUnitX, pointPerUnitY);
-                _points.AddRange(insidePoints);
             }
 
-            var ceilingPoints = GeneratePoints(room.CeilingAnchor.transform.position,
+            GeneratePoints(_points, room.CeilingAnchor.transform.position,
                 room.CeilingAnchor.transform.rotation, room.CeilingAnchor.PlaneRect, pointsPerUnitX, pointPerUnitY);
-            _points.AddRange(ceilingPoints);
 
-            var floorPoints = GeneratePoints(room.FloorAnchor.transform.position, room.FloorAnchor.transform.rotation,
+            GeneratePoints(_points, room.FloorAnchor.transform.position, room.FloorAnchor.transform.rotation,
                 room.FloorAnchor.PlaneRect, pointsPerUnitX, pointPerUnitY);
-            _points.AddRange(floorPoints);
 
             if (_points.Count > maxPointsCount)
             {
@@ -355,7 +351,7 @@ namespace Meta.XR.MRUtilityKit
             return _points.ToArray();
         }
 
-        private static List<Vector3> GeneratePoints(Vector3 position, Quaternion rotation, Rect? planeBounds,
+        private static void GeneratePoints(List<Vector3> points, Vector3 position, Quaternion rotation, Rect? planeBounds,
             float pointsPerUnitX, float pointsPerUnitY)
         {
             if (!planeBounds.HasValue)
@@ -371,7 +367,6 @@ namespace Meta.XR.MRUtilityKit
 
             var stride = new Vector2(planeSize.x / (pointsX + 1), planeSize.y / (pointsY + 1));
 
-            var points = OVRObjectPool.List<Vector3>();
             for (var y = 0; y < pointsY; y++)
             {
                 for (var x = 0; x < pointsX; x++)
@@ -382,8 +377,6 @@ namespace Meta.XR.MRUtilityKit
                     points.Add(point);
                 }
             }
-
-            return points;
         }
 
         private static void Shuffle<T>(List<T> list)
@@ -401,6 +394,7 @@ namespace Meta.XR.MRUtilityKit
     /// <summary>
     /// The <c>DestructibleGlobalMesh</c> struct represents a destructible global mesh within a specific room.
     /// It includes functionality to create and manage the mesh based on room-specific parameters and global settings.
+    /// Every DestructibleGlobalMesh is associated with a <see cref="DestructibleMeshComponent"/> that handles the actual mesh manipulation, including segmentation and rendering.
     /// </summary>
     public struct DestructibleGlobalMesh
     {
@@ -410,17 +404,20 @@ namespace Meta.XR.MRUtilityKit
         public DestructibleMeshComponent DestructibleMeshComponent;
 
         /// <summary>
-        ///The maximum number of points that the destructible mesh can contain. The higher number of points the higher the impact on performance.
+        /// The maximum number of points that the destructible mesh can contain. The higher number of points the higher the impact on performance.
+        /// Use <see cref="MRUtilityKit.DestructibleGlobalMeshSpawner"/>  to configure this value.
         /// </summary>
         public int MaxPointsCount;
 
         /// <summary>
-        /// Specifies the number of points per unit along the X-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance..
+        /// Specifies the number of points per unit along the X-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance.
+        /// Use <see cref="MRUtilityKit.DestructibleGlobalMeshSpawner"/>  to configure this value.
         /// </summary>
         public float PointsPerUnitX;
 
         /// <summary>
         /// Specifies the number of points per unit along the Y-axis for the destructible mesh. This setting affects the density and detail of the mesh, influencing both visual quality and performance.
+        /// Use <see cref="MRUtilityKit.DestructibleGlobalMeshSpawner"/>  to configure this value.
         /// </summary>
         public float PointsPerUnitY;
 

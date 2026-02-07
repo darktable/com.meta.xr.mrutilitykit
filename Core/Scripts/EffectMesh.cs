@@ -20,25 +20,45 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Meta.XR.Util;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
     /// <summary>
-    /// This class handles dynamic mesh and collider generation based on scene elements.
+    /// Manages dynamic mesh and collider generation based on scene elements.
     /// </summary>
+    /// <remarks>
+    /// This class is responsible for creating and managing the anchor's rendering and their associated colliders within a scene.
+    /// It allows for dynamic updates based on scene changes, such as room and anchor updates, and provides options for
+    /// shadow casting, visibility, and material customization.
+    /// <see cref="EffectMeshObject "/> is used to represent the generated objects.
+    /// </remarks>
     [Feature(Feature.Scene)]
+    [HelpURL("https://developers.meta.com/horizon/reference/mruk/latest/class_meta_x_r_m_r_utility_kit_effect_mesh")]
     public class EffectMesh : MonoBehaviour
     {
+        /// <summary>
+        /// When the scene data is loaded, this controls what room(s) the effect mesh is applied to.
+        /// See <see cref="MRUK.RoomFilter"/> for more details.
+        /// </summary>
         [Tooltip("When the scene data is loaded, this controls what room(s) the effect mesh is applied to.")]
         public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
+        /// <summary>
+        /// If enabled, updates on scene elements such as rooms and anchors will be handled by this class
+        /// </summary>
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
         internal bool TrackUpdates = true;
 
+        /// <summary>
+        /// The material applied to the generated mesh. If you'd like a multi-material room, you can use another EffectMesh object with
+        /// a different Mesh Material.
+        /// </summary>
         [Tooltip("The material applied to the generated mesh. If you'd like a multi-material room, you can use another EffectMesh object with a different Mesh Material.")]
         [FormerlySerializedAs("_MeshMaterial")]
         public Material MeshMaterial;
@@ -48,11 +68,17 @@ namespace Meta.XR.MRUtilityKit
         [FormerlySerializedAs("_borderSize")]
         public float BorderSize = 0.0f;
 
+        /// <summary>
+        /// If enabled, a BoxCollider will be generated for each mesh component or a MeshCollider if the anchor has a triangle mesh.
+        /// </summary>
         [Tooltip("Generate a BoxCollider for each mesh component.")]
         [FormerlySerializedAs("addColliders")]
         public bool Colliders = false;
 
         [Tooltip("Cut holes in the mesh for door frames and/or window frames. NOTE: This does not apply if border size is non-zero.")]
+        /// <summary>
+        /// Cut holes in the mesh for door frames and/or window frames. NOTE: This does not apply if border size is non-zero
+        /// </summary>
         public MRUKAnchor.SceneLabels CutHoles;
 
         [Tooltip("Whether the effect mesh objects will cast a shadow.")]
@@ -124,8 +150,8 @@ namespace Meta.XR.MRUtilityKit
         {
             METRIC, // The texture coordinates start at 0 and increase by 1 unit every meter.
             METRIC_SEAMLESS, // The texture coordinates start at 0 and increase by 1 unit every meter but are adjusted to end on a whole number to avoid seams.
-            MAINTAIN_ASPECT_RATIO, // The texture coordinates are adjusted to the other dimensions to ensure the aspect ratio is maintained.
-            MAINTAIN_ASPECT_RATIO_SEAMLESS, // The texture coordinates are adjusted to the other dimensions to ensure the aspect ratio is maintained but are adjusted to end on a whole number to avoid seams.
+            MAINTAIN_ASPECT_RATIO, // The texture coordinates are adjusted to the V dimensions to ensure the aspect ratio is maintained.
+            MAINTAIN_ASPECT_RATIO_SEAMLESS, // The texture coordinates are adjusted to the V dimensions to ensure the aspect ratio is maintained but are adjusted to end on a whole number to avoid seams.
             STRETCH, // The texture coordinates range from 0 to 1.
             STRETCH_SECTION, // The texture coordinates start at 0 and increase to 1 for each individual wall section.
         };
@@ -136,7 +162,7 @@ namespace Meta.XR.MRUtilityKit
         public enum WallTextureCoordinateModeV
         {
             METRIC, // The texture coordinates start at 0 and increase by 1 unit every meter.
-            MAINTAIN_ASPECT_RATIO, // The texture coordinates are adjusted to the other dimensions to ensure the aspect ratio is maintained.
+            MAINTAIN_ASPECT_RATIO, // The texture coordinates are adjusted to the U dimensions to ensure the aspect ratio is maintained.
             STRETCH, // The texture coordinates range from 0 to 1.
         };
 
@@ -152,17 +178,67 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// Represents the texture coordinate modes for walls and anchors and defines how texture coordinates
         /// are calculated for different surfaces based on specified modes.
+        /// See <see cref="WallTextureCoordinateModeU"/>, <see cref="WallTextureCoordinateModeV"/>, and <see cref="AnchorTextureCoordinateMode"/> for more details.
         /// </summary>
         [Serializable]
         public class TextureCoordinateModes
         {
-            // Specifies the texture coordinate mode for the U-axis of wall textures.
+            /// <summary>
+            /// Specifies the texture coordinate mode for the U-axis of wall texture.
+            /// To achieve seamless textures that highlight each wall the <see cref="WallTextureCoordinateModeU"/> should be set to <see cref="WallTextureCoordinateModeU.STRETCH_SECTION"/>
+            /// <list type=" bullet">
+            /// <item> <term> METRIC: </term> <description> The texture coordinates start at 0 and increase by
+            /// 1 unit every meter. </description> </item>
+            /// <item> <term> METRIC_SEAMLESS: </term> <description> The texture coordinates start at 0
+            /// and increase by 1 unit every meter but are adjusted to end on a whole number to avoid
+            /// seams. </description> </item>
+            /// <item> <term> MAINTAIN_ASPECT_RATIO: </term> <description> The texture coordinates are
+            /// adjusted to the V dimensions to ensure the aspect ratio is maintained. </description>
+            /// </item>
+            /// <item> <term> MAINTAIN_ASPECT_RATIO_SEAMLESS: </term> <description> The texture coordinates
+            /// are adjusted to the V dimensions to ensure the aspect ratio is maintained but are
+            /// adjusted to end on a whole number to avoid seams. </description> </item>
+            /// <item> <term> STRETCH: </term> <description> The texture coordinates range from 0 to
+            /// 1. </description> </item>
+            /// <item> <term> STRETCH_SECTION: </term> <description> The texture coordinates start at 0
+            /// and increase to 1 for each individual wall section. </description> </item>
+            /// </list>
+            /// </summary>
             [FormerlySerializedAs("U")] public WallTextureCoordinateModeU WallU = WallTextureCoordinateModeU.METRIC;
 
-            // Specifies the texture coordinate mode for the V-axis of wall textures.
+            /// <summary>
+            /// Specifies the texture coordinate mode for the V-axis of wall textures.
+            /// To achieve seamless textures that highlight each wall the <see cref="WallTextureCoordinateModeV"/> should be set to <see cref="WallTextureCoordinateModeV.STRETCH_SECTION"/>
+            /// <list type=" bullet">
+            /// <item> <term> METRIC: </term> <description> The texture coordinates start at 0 and increase by
+            /// 1 unit every meter. </description> </item>
+            /// <item> <term> METRIC_SEAMLESS: </term> <description> The texture coordinates start at 0
+            /// and increase by 1 unit every meter but are adjusted to end on a whole number to avoid
+            /// seams. </description> </item>
+            /// <item> <term> MAINTAIN_ASPECT_RATIO: </term> <description> The texture coordinates are
+            /// adjusted to the U dimensions to ensure the aspect ratio is maintained. </description>
+            /// </item>
+            /// <item> <term> MAINTAIN_ASPECT_RATIO_SEAMLESS: </term> <description> The texture coordinates
+            /// are adjusted to the U dimensions to ensure the aspect ratio is maintained but are
+            /// adjusted to end on a whole number to avoid seams. </description> </item>
+            /// <item> <term> STRETCH: </term> <description> The texture coordinates range from 0 to
+            /// 1. </description> </item>
+            /// <item> <term> STRETCH_SECTION: </term> <description> The texture coordinates start at 0
+            /// and increase to 1 for each individual wall section. </description> </item>
+            /// </list>
+            /// </summary>
             [FormerlySerializedAs("V")] public WallTextureCoordinateModeV WallV = WallTextureCoordinateModeV.METRIC;
 
             // Specifies the texture coordinate mode for anchor surfaces.
+            /// <summary>
+            /// Specifies the texture coordinate mode for anchor surfaces.
+            /// <list type=" bullet">
+            /// <item> <term> METRIC: </term> <description> The texture coordinates start at 0 and increase by
+            /// 1 unit every meter. </description> </item>
+            /// <item> <term> STRETCH: </term> <description> The texture coordinates range from 0 to
+            /// 1 across the anchor surface. </description> </item>
+            /// </list>
+            /// </summary>
             public AnchorTextureCoordinateMode AnchorUV = AnchorTextureCoordinateMode.METRIC;
         };
 
@@ -188,22 +264,28 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// Represents an object that holds the components necessary for an effect mesh.
         /// Encapsulates the GameObject, Mesh, and Collider components used to create and manage effect meshes.
+        /// Is used to store and access the generated <see cref="EffectMesh"/> and collider components.
         /// </summary>
         public class EffectMeshObject
         {
-            public GameObject effectMeshGO; //  The GameObject associated with the effect mesh
+            /// <summary>
+            /// The GameObject associated with the effect mesh object. Makes it easier to access the transform and other components.
+            /// </summary>
+            public GameObject effectMeshGO;
 
-            public Mesh
-                mesh; // The Mesh component of the effect mesh. This mesh is dynamically generated based on scene data
+            /// <summary>
+            /// The Mesh component associated with the effect mesh. This component holds the mesh data generated by the <see cref="EffectMesh"/>.
+            public Mesh mesh;
 
+            /// <summary>
+            /// The Collider component associated with the effect mesh object. Can be a BoxCollider or a MeshCollider. Could be null if
+            /// <see cref="EffectMesh.Colliders"/> was set to false.
             public Collider collider; // The Collider component associated with the effect mesh
         }
 
         private void Start()
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadEffectMesh).Send();
-#endif
             if (MRUK.Instance is null)
             {
                 return;
@@ -552,39 +634,76 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private (Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>, float) GenerateData(MRUKRoom room)
+        private static (Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>, float) GenerateData(MRUKRoom room)
         {
-            var shortestWall = Mathf.Infinity;
             var totalWallLength = 0.0f;
 
-            List<MRUKAnchor> walls = new();
-            List<MRUKAnchor> invisibleWalls = new();
+            List<MRUKAnchor> regularAndInvisibleWalls = new();
+            const MRUKAnchor.SceneLabels regularOrInvisibleWallLabel = MRUKAnchor.SceneLabels.WALL_FACE | MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE;
             foreach (var anchorInfo in room.Anchors)
             {
-                if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
+                if (anchorInfo.HasAnyLabel(regularOrInvisibleWallLabel))
                 {
-                    Vector2 wallScale = anchorInfo.PlaneRect.Value.size;
-                    shortestWall = Mathf.Min(Mathf.Min(wallScale.x, wallScale.y), shortestWall);
-                    walls.Add(anchorInfo);
-                }
-                if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE))
-                {
-                    invisibleWalls.Add(anchorInfo);
-                    walls.Add(anchorInfo);
+                    regularAndInvisibleWalls.Add(anchorInfo);
                 }
             }
 
-            var sortedWalls = GetOrderedWalls(walls, room, ref totalWallLength);
-            var tmp = 0.0f;
-            var sortedInvisibleWallFaces = GetOrderedWalls(invisibleWalls, room, ref tmp);
+            OrderWalls(regularAndInvisibleWalls, ref totalWallLength);
 
             var d = new Dictionary<MRUKAnchor.SceneLabels, List<MRUKAnchor>>
             {
-                { MRUKAnchor.SceneLabels.WALL_FACE, sortedWalls },
-                { MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE, sortedInvisibleWallFaces }
+                { regularOrInvisibleWallLabel, regularAndInvisibleWalls },
             };
 
             return (d, totalWallLength);
+        }
+
+        private static void OrderWalls(List<MRUKAnchor> walls, ref float wallLength)
+        {
+            foreach (var wall in walls)
+            {
+                wallLength += wall.PlaneRect.Value.size.x;
+            }
+
+            int count = walls.Count;
+            if (count <= 1)
+            {
+                return;
+            }
+
+            MRUKAssert.AreEqual(count, walls.Distinct().Count(), "count, walls.Distinct().Count()");
+            using (new OVRObjectPool.ListScope<MRUKAnchor>(out var result))
+            {
+                int iniIndex = count - 1;
+                MRUKAnchor current = walls[iniIndex];
+                result.Add(current);
+                walls.RemoveAt(iniIndex);
+
+                while (walls.Count > 0)
+                {
+                    float minDistance = float.MaxValue;
+                    int closestWallIndex = -1;
+                    Vector3 rightPos = current.transform.position - current.transform.right * current.PlaneRect.Value.size.x * 0.5f;
+                    for (int i = 0; i < walls.Count; i++)
+                    {
+                        MRUKAnchor wall = walls[i];
+                        Vector3 leftPos = wall.transform.position + wall.transform.right * wall.PlaneRect.Value.size.x * 0.5f;
+                        float distance = Vector3.Distance(rightPos, leftPos);
+                        if (distance < minDistance)
+                        {
+                            minDistance = distance;
+                            closestWallIndex = i;
+                        }
+                    }
+                    Assert.AreNotEqual(-1, closestWallIndex);
+                    current = walls[closestWallIndex];
+                    result.Add(current);
+                    walls.RemoveAt(closestWallIndex);
+                }
+
+                MRUKAssert.AreEqual(count, result.Distinct().Count(), "count, result.Distinct().Count()");
+                walls.AddRange(result);
+            }
         }
 
         /// <summary>
@@ -644,31 +763,15 @@ namespace Meta.XR.MRUtilityKit
             var uSpacing = 0.0f;
             foreach (var (lbl, items) in sortedObjects)
             {
-                var includeMesh = IncludesLabel(lbl);
-
-                if (includeMesh)
+                if (IncludesLabel(lbl))
                 {
-                    for (var i = 0; i < items.Count; i++)
+                    foreach (var wall in items)
                     {
-                        // sortedWalls contains ALL walls in the room, both WALL_FACE and INVISIBLE_WALL_FACE
-                        // however, we only want to create the mesh for walls in this EffectMesh's label list
-                        // this requires custom behavior because every INVISIBLE wall is also tagged as a WALL
-                        if (IncludesLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE))
+                        if (IncludesLabel(GetOriginalLabel(wall.Label)))
                         {
-                            includeMesh = items[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
-                            if (!includeMesh)
-                            {
-                                includeMesh |= IncludesLabel(MRUKAnchor.SceneLabels.WALL_FACE) &&
-                                               !items[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
-                            }
-                        }
-
-                        if (includeMesh)
-                        {
-                            CreateEffectMeshWall(items[i], totalWallLength, ref uSpacing, connectedRooms);
+                            CreateEffectMeshWall(wall, totalWallLength, ref uSpacing, connectedRooms);
                         }
                     }
-
                 }
             }
 
@@ -690,79 +793,26 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
         }
-
         private bool IncludesLabel(MRUKAnchor.SceneLabels label)
         {
             return (Labels & label) != 0;
         }
 
-        List<MRUKAnchor> GetOrderedWalls(List<MRUKAnchor> randomWalls, ref float wallLength)
+        /// <summary>
+        /// The <see cref="OVRSemanticLabels.GetClassifications"/> method upgrades the InvisibleWallFace to also have the WallFace for backward compatibility.<br/>
+        /// This method does the opposite: given the upgraded label, it returns the original one.
+        /// </summary>
+        private static MRUKAnchor.SceneLabels GetOriginalLabel(MRUKAnchor.SceneLabels upgradedLabel)
         {
-            var orderedWalls = new List<MRUKAnchor>(randomWalls.Count);
-
-            var seedId = 0;
-            for (int i = 0; i < randomWalls.Count; i++)
+            if ((upgradedLabel & MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE) != 0)
             {
-                Vector2 wallScale = randomWalls[i].PlaneRect.Value.size;
-                float thisLength = wallScale.x;
-                wallLength += thisLength;
-
-                orderedWalls.Add(GetRightWall(ref seedId, randomWalls));
+                return MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE;
             }
-            return orderedWalls;
-        }
-
-        List<MRUKAnchor> GetOrderedWalls(List<MRUKAnchor> randomWalls, MRUKRoom room, ref float wallLength)
-        {
-            var orderedWalls = new List<MRUKAnchor>(room.WallAnchors.Count);
-            var seedId = 0;
-            for (var i = 0; i < randomWalls.Count; i++)
+            if ((upgradedLabel & MRUKAnchor.SceneLabels.WALL_FACE) != 0)
             {
-                var wallScale = randomWalls[i].PlaneRect.Value.size;
-                var thisLength = wallScale.x;
-                wallLength += thisLength;
-
-                MRUKAnchor nextWall;
-                nextWall = GetRightWall(ref seedId, randomWalls);
-                if (nextWall == null)
-                {
-                    throw new Exception("Wall ordering failed, please check your space setup and label filter on effect mesh");
-                }
-                orderedWalls.Add(nextWall);
+                return MRUKAnchor.SceneLabels.WALL_FACE;
             }
-            return orderedWalls;
-        }
-
-
-        MRUKAnchor GetRightWall(ref int thisID, List<MRUKAnchor> randomWalls)
-        {
-            Vector2 thisWallScale = randomWalls[thisID].PlaneRect.Value.size;
-
-            Vector3 halfScale = thisWallScale * 0.5f;
-            Vector3 bottomRight = randomWalls[thisID].transform.position - randomWalls[thisID].transform.up * halfScale.y - randomWalls[thisID].transform.right * halfScale.x;
-            float closestCornerDistance = Mathf.Infinity;
-            // When searching for a matching corner, the correct one should match positions. If they don't, assume there's a crack in the room.
-            // This should be an impossible scenario and likely means broken data from Room Setup.
-            int rightWallID = 0;
-            for (int i = 0; i < randomWalls.Count; i++)
-            {
-                // compare to bottom left point of other walls
-                if (i != thisID)
-                {
-                    Vector2 testWallHalfScale = randomWalls[i].PlaneRect.Value.size;
-                    testWallHalfScale *= 0.5f;
-                    Vector3 bottomLeft = randomWalls[i].transform.position - randomWalls[i].transform.up * testWallHalfScale.y + randomWalls[i].transform.right * testWallHalfScale.x;
-                    float thisCornerDistance = Vector3.Distance(bottomLeft, bottomRight);
-                    if (thisCornerDistance < closestCornerDistance)
-                    {
-                        closestCornerDistance = thisCornerDistance;
-                        rightWallID = i;
-                    }
-                }
-            }
-
-            thisID = rightWallID;
-            return randomWalls[thisID];
+            return upgradedLabel;
         }
 
         /// <summary>
@@ -1075,8 +1125,8 @@ namespace Meta.XR.MRUtilityKit
             globalMeshGO.transform.SetParent(globalMeshAnchor.transform, false);
             effectMeshObject.effectMeshGO = globalMeshGO;
 
-            globalMeshAnchor.GlobalMesh.RecalculateNormals();
-            var trimesh = globalMeshAnchor.GlobalMesh;
+            globalMeshAnchor.Mesh.RecalculateNormals();
+            var trimesh = globalMeshAnchor.Mesh;
 
             globalMeshGO.GetComponent<MeshFilter>().sharedMesh = trimesh;
 

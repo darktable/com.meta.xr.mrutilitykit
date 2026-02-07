@@ -73,12 +73,19 @@ namespace Meta.XR.MRUtilityKit
             _panel.SetParent(_spatialAnchor.transform);
         }
 
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus)
+            {
+                _isGrabbing = false;
+                _targetPose = null;
+            }
+        }
+
         private void Update()
         {
             if (!Application.isFocused)
             {
-                _isGrabbing = false;
-                _targetPose = null;
                 return;
             }
 

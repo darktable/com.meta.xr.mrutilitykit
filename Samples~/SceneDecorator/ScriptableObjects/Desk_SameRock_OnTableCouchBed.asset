@@ -63,7 +63,7 @@ MonoBehaviour:
   staggeredConcentricDistribution:
     stepSize: 0
   randomDistribution:
-    numPerUnit: 3
+    numPerUnit: 10
   masks:
   - {fileID: -6487925920616373033}
   constraints: []

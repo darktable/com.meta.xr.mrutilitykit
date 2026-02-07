@@ -189,7 +189,6 @@ MonoBehaviour:
   customTargetTags: []
   recursionLimit: 1
   DecorateOnStart: 2
-  TrackUpdates: 1
 --- !u!4 &279164073
 Transform:
   m_ObjectHideFlags: 0
@@ -765,7 +764,7 @@ PrefabInstance:
     - target: {fileID: 2296141232796561049, guid: cee191920b8eb41b0960b1082a393a3e, type: 3}
       propertyPath: MeshMaterial
       value: 
-      objectReference: {fileID: 2100000, guid: 92f2a37e0f30c434e9c65b408c007b74, type: 2}
+      objectReference: {fileID: 2100000, guid: 6fb60ad978ac4184da102fbaf103225d, type: 2}
     - target: {fileID: 2296141232796561049, guid: cee191920b8eb41b0960b1082a393a3e, type: 3}
       propertyPath: SpawnOnStart
       value: 0

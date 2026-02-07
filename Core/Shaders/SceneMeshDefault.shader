@@ -41,6 +41,7 @@ Shader "MixedReality/SceneMeshDefault" {
             #pragma vertex vert
             #pragma fragment frag
             #pragma target 3.0
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             struct Attributes
@@ -50,7 +51,6 @@ Shader "MixedReality/SceneMeshDefault" {
                 half3 normal : NORMAL;
                 float4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
-                UNITY_VERTEX_OUTPUT_STEREO
             };
             struct Varyings
             {
@@ -68,7 +68,6 @@ Shader "MixedReality/SceneMeshDefault" {
             {
                 Varyings o;
                 UNITY_SETUP_INSTANCE_ID(input);
-                UNITY_TRANSFER_INSTANCE_ID(input, o);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.vertex = TransformObjectToHClip(input.vertex.xyz);
                 o.worldPos = mul(unity_ObjectToWorld, input.vertex);
@@ -85,7 +84,6 @@ Shader "MixedReality/SceneMeshDefault" {
             }
             half4 frag ( Varyings i, float facing : VFACE) : SV_Target
             {
-                UNITY_SETUP_INSTANCE_ID(i);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float backFace =  facing > 0 ? 1 : 0.1;
                 // edging effect (vertical surfaces, horizontal surfaces except floor/ceiling)

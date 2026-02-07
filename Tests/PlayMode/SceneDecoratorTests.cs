@@ -43,8 +43,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            //todo - change path when removing oculusinternal
-            yield return LoadScene(@"Packages\com.meta.xr.mrutilitykit\Tests\SceneDecoratorTests.unity");
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SceneDecoratorTests.unity");
         }
 
         [UnityTearDown]
@@ -95,7 +94,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var counter = 0;
             var prefab = GetSceneDecoration(decorationsIndex).decorationPrefabs[0];
-            foreach (var go in FindObjectsOfType<PoolManagerComponent.PoolableData>())
+            foreach (var go in FindObjectsByType<PoolManagerComponent.PoolableData>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (go.name.Length < prefab.name.Length)
                 {
@@ -113,7 +112,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private string GetJsonString()
         {
-            var decorationrefs = FindObjectOfType<SceneDecoratorTestReferences>();
+            var decorationrefs = FindAnyObjectByType<SceneDecoratorTestReferences>();
             if (decorationrefs == null)
             {
                 Assert.Fail();
@@ -123,7 +122,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private SceneDecoration GetSceneDecoration(int index)
         {
-            var decorationrefs = FindObjectOfType<SceneDecoratorTestReferences>();
+            var decorationrefs = FindAnyObjectByType<SceneDecoratorTestReferences>();
             if (decorationrefs == null)
             {
                 Assert.Fail();
@@ -132,7 +131,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
         private SceneDecorator.SceneDecorator SetupSceneDecorator()
         {
-            var sceneDecorator = FindObjectOfType<SceneDecorator.SceneDecorator>();
+            var sceneDecorator = FindAnyObjectByType<SceneDecorator.SceneDecorator>();
             sceneDecorator.recursionLimit = 1;
             sceneDecorator.DecorateOnStart = MRUK.RoomFilter.None;
             sceneDecorator.TrackUpdates = true;

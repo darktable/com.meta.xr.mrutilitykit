@@ -22,6 +22,7 @@ using System;
 using Meta.XR.EnvironmentDepth;
 using Meta.XR.MRUtilityKit;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace Meta.XR
 {
@@ -34,71 +35,120 @@ namespace Meta.XR
     /// </summary>
     public class EnvironmentRaycastManager : MonoBehaviour
     {
-        private EnvironmentDepthManager _depthManager;
+        private static EnvironmentRaycastManager _instance;
+        private static readonly IEnvironmentRaycastProvider _provider = CreateProvider();
+        private static bool? _isSupported;
 
-#if UNITY_EDITOR
+        private static IEnvironmentRaycastProvider CreateProvider()
+        {
+            return new EnvironmentRaycastProviderDepthManager();
+        }
+
+        private void Awake()
+        {
+            Assert.IsNull(_instance, $"More than one {nameof(EnvironmentRaycastManager)} component. Only one instance is allowed at a time. New instance: {name}");
+            if (!IsSupported)
+            {
+                Debug.LogError($"{nameof(EnvironmentRaycastManager)} is not supported. Please check the '{nameof(IsSupported)}' property before enabling this component.");
+            }
+            _instance = this;
+        }
+
+        private void OnDestroy() => _instance = null;
+
         private void Start() => OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadEnvironmentRaycastManager).Send();
-#endif
 
-        private bool ValidateComponents()
-        {
-            EnsureDepthManagerIsPresent();
-            if (!_depthManager.enabled || !_depthManager.gameObject.activeInHierarchy)
-            {
-                Debug.LogError("Please enable the '" + nameof(EnvironmentDepthManager) + "' component and its GameObject.", _depthManager);
-                return false;
-            }
-            if (!enabled || !gameObject.activeInHierarchy)
-            {
-                Debug.LogError("Please enable the '" + nameof(EnvironmentRaycastManager) + "' component and its GameObject.", this);
-                return false;
-            }
-            return true;
-        }
+        private void OnEnable() => SetProviderEnabled(true);
+        private void OnDisable() => SetProviderEnabled(false);
 
-        private void EnsureDepthManagerIsPresent()
-        {
-            if (_depthManager == null)
-            {
-                _depthManager = FindAnyObjectByType<EnvironmentDepthManager>(FindObjectsInactive.Include);
-                if (_depthManager == null)
-                {
-                    _depthManager = new GameObject(nameof(EnvironmentDepthManager)).AddComponent<EnvironmentDepthManager>();
-                    Debug.LogWarning("EnvironmentDepthManager was added to the scene by " + nameof(EnvironmentRaycastManager) + ". Please add EnvironmentDepthManager to prevent this warning.");
-                }
-            }
-        }
-
-        private void OnEnable()
+        private static void SetProviderEnabled(bool isEnabled)
         {
             if (IsSupported)
             {
-                EnsureDepthManagerIsPresent();
-                _depthManager.SetRaycastWarmUpEnabled(true);
-            }
-            else
-            {
-                string message = $"{nameof(EnvironmentRaycastManager)} is not supported. Requirements: Quest 3, Unity >= 2022.3, 'com.unity.xr.oculus' >= 4.2.0.\n";
-                if (Application.isEditor)
-                {
-                    message += $"To run the {nameof(EnvironmentRaycastManager)} in Editor, please use Meta Quest Link.\n";
-                }
-                Debug.LogError(message);
+                _provider.SetEnabled(isEnabled);
             }
         }
 
-        private void OnDisable()
+        private class EnvironmentRaycastProviderDepthManager : IEnvironmentRaycastProvider
         {
-            if (IsSupported && _depthManager != null)
+            private EnvironmentDepthManager _depthManager;
+
+            bool IEnvironmentRaycastProvider.IsReady
             {
-                _depthManager.SetRaycastWarmUpEnabled(false);
+                get
+                {
+                    EnsureDepthManagerIsPresent();
+                    if (!_depthManager.enabled || !_depthManager.gameObject.activeInHierarchy)
+                    {
+                        Debug.LogError("Please enable the '" + nameof(EnvironmentDepthManager) + "' component and its GameObject.", _depthManager);
+                        return false;
+                    }
+                    return true;
+                }
+            }
+
+            private void EnsureDepthManagerIsPresent()
+            {
+                if (_depthManager == null)
+                {
+                    _depthManager = FindAnyObjectByType<EnvironmentDepthManager>(FindObjectsInactive.Include);
+                    if (_depthManager == null)
+                    {
+                        _depthManager = new GameObject(nameof(EnvironmentDepthManager)).AddComponent<EnvironmentDepthManager>();
+                        Debug.LogWarning("EnvironmentDepthManager was added to the scene by " + nameof(EnvironmentRaycastManager) + ". Please add EnvironmentDepthManager to prevent this warning.");
+                    }
+                }
+            }
+
+            void IEnvironmentRaycastProvider.SetEnabled(bool isEnabled)
+            {
+                if (isEnabled)
+                {
+                    if (IsSupported)
+                    {
+                        EnsureDepthManagerIsPresent();
+                        _depthManager.SetRaycastWarmUpEnabled(true);
+                    }
+                    else
+                    {
+                        string message = $"{nameof(EnvironmentRaycastManager)} is not supported. Requirements: Quest 3, Unity >= 2022.3, 'com.unity.xr.oculus' >= 4.2.0.\n";
+                        if (Application.isEditor)
+                        {
+                            message += $"To run the {nameof(EnvironmentRaycastManager)} in Editor, please use Meta Quest Link.\n";
+                        }
+                        Debug.LogError(message);
+                    }
+                }
+                else
+                {
+                    if (IsSupported && _depthManager != null)
+                    {
+                        _depthManager.SetRaycastWarmUpEnabled(false);
+                    }
+                }
+            }
+
+            bool IEnvironmentRaycastProvider.IsSupported => EnvironmentDepthManager.IsSupported;
+
+            bool IEnvironmentRaycastProvider.Raycast(Ray ray, out EnvironmentRaycastHit hit, float maxDistance, bool reconstructNormal, bool allowOccludedRayOrigin)
+            {
+                bool result = _depthManager.Raycast(ray, out var depthManagerHit, maxDistance, reconstructNormal: reconstructNormal, allowOccludedRayOrigin: allowOccludedRayOrigin);
+                hit = ToEnvRaycastHit(depthManagerHit);
+                return result;
             }
         }
 
         /// <summary>
         /// Checks if the environment raycast is supported.
         /// </summary>
-        public static bool IsSupported => EnvironmentDepthManager.IsSupported;
+        public static bool IsSupported
+        {
+            get
+            {
+                _isSupported ??= _provider.IsSupported;
+                return _isSupported.Value;
+            }
+        }
 
         /// <summary>
         /// Casts a ray against the environment. Returns 'true' if the cast is successful.
@@ -109,7 +159,7 @@ namespace Meta.XR
         /// <returns>'true' if <see cref="EnvironmentRaycastHit.status"/> is <see cref="EnvironmentRaycastHitStatus.Hit"/>.</returns>
         public bool Raycast(Ray ray, out EnvironmentRaycastHit hit, float maxDistance = 100f)
         {
-            if (!ValidateComponents())
+            if (!IsReady)
             {
                 hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NotReady };
                 return false;
@@ -119,9 +169,7 @@ namespace Meta.XR
                 hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NotSupported };
                 return false;
             }
-            _depthManager.Raycast(ray, out var depthHit, maxDistance);
-            hit = ToEnvRaycastHit(depthHit);
-            return hit.status == EnvironmentRaycastHitStatus.Hit;
+            return _provider.Raycast(ray, out hit, maxDistance);
         }
 
         private static EnvironmentRaycastHit ToEnvRaycastHit(DepthRaycastHit depthHit)
@@ -171,7 +219,7 @@ namespace Meta.XR
         /// <returns>'true' only if the surface is flat, free of clutter and big enough to fit the dimensions of the box.</returns>
         public bool PlaceBox(Ray ray, Vector3 boxSize, Vector3 upwards, out EnvironmentRaycastHit hit)
         {
-            if (!ValidateComponents())
+            if (!IsReady)
             {
                 hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NotReady };
                 return false;
@@ -181,12 +229,8 @@ namespace Meta.XR
                 hit = new EnvironmentRaycastHit { status = EnvironmentRaycastHitStatus.NotSupported };
                 return false;
             }
-            bool result = _depthManager.PlaceBox(ray, boxSize, upwards, out var depthHit);
-            hit = ToEnvRaycastHit(depthHit);
-            return result;
+            return _provider.PlaceBox(ray, boxSize, upwards, out hit);
         }
-
-
 
         /// <summary>
         /// Checks whether the given box overlaps with the environment.
@@ -197,12 +241,26 @@ namespace Meta.XR
         /// <returns>Returns 'true' if the box overlaps with the environment.</returns>
         public bool CheckBox(Vector3 center, Vector3 halfExtents, Quaternion orientation)
         {
-            if (!ValidateComponents())
+            if (!IsReady)
             {
                 return false;
             }
-            return IsSupported && _depthManager.CheckBox(center, halfExtents, orientation);
+            return IsSupported && _provider.CheckBox(center, halfExtents, orientation);
         }
+
+        private bool IsReady
+        {
+            get
+            {
+                if (!enabled || !gameObject.activeInHierarchy)
+                {
+                    Debug.LogError("Please enable the '" + nameof(EnvironmentRaycastManager) + "' component and its GameObject.", this);
+                    return false;
+                }
+                return _provider.IsReady;
+            }
+        }
+
     }
 
     /// <summary>
@@ -240,6 +298,14 @@ namespace Meta.XR
         NoHit,
         /// The environment raycast is not supported. Check the <see cref="EnvironmentRaycastManager.IsSupported"/> before calling raycasting methods.
         NotSupported
+    }
+
+    internal interface IEnvironmentRaycastProvider
+    {
+        bool IsSupported { get; }
+        void SetEnabled(bool isEnabled);
+        bool IsReady { get; }
+        bool Raycast(Ray ray, out EnvironmentRaycastHit hit, float maxDistance = 100f, bool reconstructNormal = true, bool allowOccludedRayOrigin = true);
     }
 
 #if UNITY_EDITOR

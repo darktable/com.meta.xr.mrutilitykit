@@ -45,9 +45,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         [UnitySetUp]
         public IEnumerator SetUp()
         {
-            yield return LoadScene(@"Packages\com.meta.xr.mrutilitykit\Tests\EffectMeshTests.unity");
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/EffectMeshTests.unity");
 
-            _jsonTestHelper = FindObjectOfType<JSONTestHelper>();
+            _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
@@ -380,7 +380,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private int CountVertex()
         {
-            var allObjects = (GameObject[])FindObjectsOfType(typeof(GameObject));
+            var allObjects = FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             int vertCount = 0;
             foreach (GameObject obj in allObjects)
             {
@@ -421,7 +421,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private EffectMesh SetupEffectMesh()
         {
-            var effectMesh = FindObjectOfType<EffectMesh>();
+            var effectMesh = FindAnyObjectByType<EffectMesh>();
             if (effectMesh == null)
             {
                 Assert.Fail();
@@ -442,7 +442,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
         private void DestroyAll<T>() where T : Component
         {
-            var allObjects = (T[])GameObject.FindObjectsOfType(typeof(T));
+            var allObjects = FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var obj in allObjects)
             {
                 DestroyImmediate(obj.gameObject);

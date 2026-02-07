@@ -18,10 +18,12 @@
  * limitations under the License.
  */
 
+using Meta.XR.Samples;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKitSamples
 {
+    [MetaCodeSample("MRUK-KeyboardTracker")]
     public class CameraFollower : MonoBehaviour
     {
         [SerializeField] Camera _camera;

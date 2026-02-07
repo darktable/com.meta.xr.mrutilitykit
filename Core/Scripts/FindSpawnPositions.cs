@@ -27,19 +27,33 @@ namespace Meta.XR.MRUtilityKit
     /// <summary>
     /// Allows for fast generation of valid (inside the room, outside furniture bounds) random positions for content spawning.
     /// Optional method to pin directly to surfaces.
+    /// This class leverages the <see cref="MRUKRoom.GenerateRandomPositionInRoom"/> and <see cref="MRUKRoom.GenerateRandomPositionOnSurface"/> methods
+    /// to provide a simple interface for spawning content in the room.
     /// </summary>
     [Feature(Feature.Scene)]
     public class FindSpawnPositions : MonoBehaviour
     {
+        /// <summary>
+        /// When the scene data is loaded, this controls what room(s) the prefabs will spawn in.
+        /// </summary>
         [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
         public MRUK.RoomFilter SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
+        /// <summary>
+        /// Prefab to be placed into the scene, or object in the scene to be moved around.
+        /// </summary>
         [SerializeField, Tooltip("Prefab to be placed into the scene, or object in the scene to be moved around.")]
         public GameObject SpawnObject;
 
+        /// <summary>
+        /// Number of SpawnObject(s) to place into the scene per room, only applies to Prefabs.
+        /// </summary>
         [SerializeField, Tooltip("Number of SpawnObject(s) to place into the scene per room, only applies to Prefabs.")]
         public int SpawnAmount = 8;
 
+        /// <summary>
+        /// Maximum number of times to attempt spawning/moving an object before giving up.
+        /// </summary>
         [SerializeField, Tooltip("Maximum number of times to attempt spawning/moving an object before giving up.")]
         public int MaxIterations = 1000;
 
@@ -55,31 +69,48 @@ namespace Meta.XR.MRUtilityKit
             HangingDown // Spawn on surfaces facing downwards such as the ceiling
         }
 
+        /// <summary>
+        /// Attach content to scene surfaces.
+        /// </summary>
         [FormerlySerializedAs("selectedSnapOption")]
         [SerializeField, Tooltip("Attach content to scene surfaces.")]
         public SpawnLocation SpawnLocations = SpawnLocation.Floating;
 
+        /// <summary>
+        /// When using surface spawning, use this to filter which anchor labels should be included. Eg, spawn only on TABLE or OTHER.
+        /// </summary>
         [SerializeField, Tooltip("When using surface spawning, use this to filter which anchor labels should be included. Eg, spawn only on TABLE or OTHER.")]
         public MRUKAnchor.SceneLabels Labels = ~(MRUKAnchor.SceneLabels)0;
 
+        /// <summary>
+        /// If enabled then the spawn position will be checked to make sure there is no overlap with physics colliders including themselves.
+        /// </summary>
         [SerializeField, Tooltip("If enabled then the spawn position will be checked to make sure there is no overlap with physics colliders including themselves.")]
         public bool CheckOverlaps = true;
 
+        /// <summary>
+        /// Required free space for the object (Set negative to auto-detect using GetPrefabBounds)
+        /// default to auto-detect. This value represents the extents of the bounding box
+        /// </summary>
         [SerializeField, Tooltip("Required free space for the object (Set negative to auto-detect using GetPrefabBounds)")]
-        public float OverrideBounds = -1; // default to auto-detect. This value represents the extents of the bounding box
+        public float OverrideBounds = -1;
 
+        /// <summary>
+        /// Set the layer(s) for the physics bounding box checks, collisions will be avoided with these layers.
+        /// </summary>
         [FormerlySerializedAs("layerMask")]
         [SerializeField, Tooltip("Set the layer(s) for the physics bounding box checks, collisions will be avoided with these layers.")]
         public LayerMask LayerMask = -1;
 
+        /// <summary>
+        /// The clearance distance required in front of the surface in order for it to be considered a valid spawn position
+        /// </summary>
         [SerializeField, Tooltip("The clearance distance required in front of the surface in order for it to be considered a valid spawn position")]
         public float SurfaceClearanceDistance = 0.1f;
 
         private void Start()
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadFindSpawnPositions).Send();
-#endif
             if (MRUK.Instance && SpawnOnStart != MRUK.RoomFilter.None)
             {
                 MRUK.Instance.RegisterSceneLoadedCallback(() =>
@@ -109,7 +140,8 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Starts the spawning process for a specific room.
+        /// Starts the spawning process for a specific room. A maximum of <see cref="MaxIterations"/> attempts will be made to find a valid spawn position.
+        /// <see cref="MRUKRoom.GenerateRandomPositionInRoom"/> and <see cref="MRUKRoom.GenerateRandomPositionOnSurface"/> are used to generate the positions.
         /// </summary>
         /// <param name="room">The room to spawn objects in.</param>
         public void StartSpawn(MRUKRoom room)

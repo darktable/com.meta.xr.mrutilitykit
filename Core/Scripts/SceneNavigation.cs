@@ -164,9 +164,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneNavigation).Send();
-#endif
             if (MRUK.Instance is null)
             {
                 return;
@@ -738,10 +736,8 @@ namespace Meta.XR.MRUtilityKit
             else
             {
                 // global mesh
-                var trimesh = anchor.GlobalMesh;
-
                 var meshCollider = surfaceGO.AddComponent<MeshCollider>();
-                meshCollider.sharedMesh = trimesh;
+                meshCollider.sharedMesh = anchor.Mesh;
                 meshCollider.transform.position = anchor.transform.position;
                 meshCollider.transform.rotation = anchor.transform.rotation;
 #pragma warning disable CS0618 // Type or member is obsolete

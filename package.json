@@ -1,7 +1,7 @@
 {
   "name": "com.meta.xr.mrutilitykit",
   "displayName": "Meta MR Utility Kit",
-  "version": "72.0.0",
+  "version": "74.0.0",
   "description": "Helper tools & functions to simplify development with Scene API. Works on Mac & PC, without a device attached.",
   "samples": [
     {
@@ -65,8 +65,8 @@
       "path": "Samples~/AnchorTracker"
     }
   ],
-  "unity": "2021.3",
-  "unityRelease": "26f1",
+  "unity": "2022.3",
+  "unityRelease": "15f1",
   "author": {
     "name": "Meta Platforms, Inc.",
     "url": "https://developer.oculus.com/"
@@ -79,7 +79,7 @@
   "dependencies": {
     "com.unity.ai.navigation": "1.1.4",
     "com.unity.nuget.newtonsoft-json": "3.0.2",
-    "com.meta.xr.sdk.core": "72.0.0",
+    "com.meta.xr.sdk.core": "74.0.0",
     "com.unity.textmeshpro": "3.0.6"
   },
   "documentationUrl": "https://developer.oculus.com/documentation/unity/unity-mr-utility-kit-overview",

@@ -26,7 +26,6 @@ using Meta.XR.Util;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.Assertions;
 using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
@@ -36,6 +35,9 @@ namespace Meta.XR.MRUtilityKit
     /// <summary>
     /// Provides debugging tools for visualizing and interacting with the scene data.
     /// </summary>
+    [Obsolete("This component is deprecated." +
+              "Please use the Immersive Debugger from" +
+              "Meta > Tools > Immersive Debugger")]
     [Feature(Feature.Scene)]
     public class SceneDebugger : MonoBehaviour
     {
@@ -91,7 +93,26 @@ namespace Meta.XR.MRUtilityKit
         private readonly int _cull = Shader.PropertyToID("_Cull");
         private readonly int _color = Shader.PropertyToID("_Color");
         private readonly List<GameObject> _debugAnchors = new();
+        private GameObject _globalMeshGO;
+        private Material _debugMaterial;
         private OVRCameraRig _cameraRig;
+        private MRUKRoom _currentRoom;
+
+        private bool _roomHasChanged
+        {
+            get
+            {
+                if (_currentRoom == MRUK.Instance.GetCurrentRoom())
+                {
+                    return false;
+                }
+
+                _currentRoom = MRUK.Instance.GetCurrentRoom();
+                _globalMeshAnchor = _currentRoom.GlobalMeshAnchor;
+                return true;
+            }
+        }
+
 
         // For visual debugging of the room
         private GameObject _debugCube;
@@ -101,7 +122,6 @@ namespace Meta.XR.MRUtilityKit
         private GameObject _debugAnchor;
         private bool _previousShowDebugAnchors;
         private Mesh _debugCheckerMesh;
-        private EffectMesh _globalMeshEffectMesh;
         private MRUKAnchor _previousShownDebugAnchor;
         private MRUKAnchor _globalMeshAnchor;
         private NavMeshTriangulation _navMeshTriangulation;
@@ -109,11 +129,14 @@ namespace Meta.XR.MRUtilityKit
         private Canvas _canvas;
         private const float _spawnDistanceFromCamera = 0.75f;
         private SpaceMapGPU _spaceMapGPU;
+        private MeshCollider _globalMeshCollider;
+        private Material _navMeshMaterial;
+        private Material _checkerMeshMaterial;
 
 
         private void Awake()
         {
-            _cameraRig = FindObjectOfType<OVRCameraRig>();
+            _cameraRig = FindAnyObjectByType<OVRCameraRig>();
             _canvas = GetComponentInChildren<Canvas>();
             if (SetupInteractions)
             {
@@ -124,10 +147,8 @@ namespace Meta.XR.MRUtilityKit
         private void Start()
         {
             MRUK.Instance?.RegisterSceneLoadedCallback(OnSceneLoaded);
-#if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDebugger).Send();
-#endif
-            _globalMeshEffectMesh = GetGlobalMeshEffectMesh();
+            _currentRoom = MRUK.Instance?.GetCurrentRoom();
             _spaceMapGPU = GetSpaceMapGPU();
             if (MoveCanvasInFrontOfCamera)
             {
@@ -139,7 +160,19 @@ namespace Meta.XR.MRUtilityKit
                 var toolSpaceMapGPU = Menus[0].transform.FindChildRecursive("SpaceMapGPU");
                 toolSpaceMapGPU.gameObject.SetActive(false);
             }
+            var _debugShader = Shader.Find("Meta/Lit");
+            _debugMaterial = new Material(_debugShader)
+            {
+                color = Color.green
+            };
+            _navMeshMaterial = new Material(_debugShader)
+            {
+                color = Color.cyan
+            };
+            SetupCheckerMeshMaterial(_debugShader);
+            CreateDebugPrimitives();
         }
+
 
         private void Update()
         {
@@ -154,7 +187,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         foreach (var anchor in room.Anchors)
                         {
-                            GameObject anchorVisual = GenerateDebugAnchor(anchor);
+                            var anchorVisual = GenerateDebugAnchor(anchor);
                             _debugAnchors.Add(anchorVisual);
                         }
                     }
@@ -185,7 +218,10 @@ namespace Meta.XR.MRUtilityKit
 
         private void OnSceneLoaded()
         {
-            CreateDebugPrimitives();
+            if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
+            {
+                _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
+            }
         }
 
         private void SetupInteractionDependencies()
@@ -302,16 +338,11 @@ namespace Meta.XR.MRUtilityKit
                 {
                     var wallScale = Vector2.zero;
                     var keyWall = MRUK.Instance?.GetCurrentRoom()?.GetKeyWall(out wallScale);
-                    if (keyWall != null)
+                    if (keyWall != null && _debugCube != null)
                     {
-                        var anchorCenter = keyWall.GetAnchorCenter();
-                        if (_debugCube != null)
-                        {
-                            _debugCube.transform.localScale = new Vector3(wallScale.x, wallScale.y, 0.05f);
-                            _debugCube.transform.localPosition = anchorCenter;
-
-                            _debugCube.transform.localRotation = keyWall.transform.localRotation;
-                        }
+                        _debugCube.transform.localScale = new Vector3(wallScale.x, wallScale.y, 0.05f);
+                        _debugCube.transform.position = keyWall.transform.position;
+                        _debugCube.transform.rotation = keyWall.transform.rotation;
                     }
 
                     SetLogsText("\n[{0}]\nSize: {1}",
@@ -355,25 +386,14 @@ namespace Meta.XR.MRUtilityKit
                     {
                         if (_debugCube != null)
                         {
-                            Vector3 anchorSize = largestSurface.VolumeBounds.HasValue
-                                ? largestSurface.VolumeBounds.Value.size
-                                : new Vector3(0, 0, 0.01f);
-                            if (largestSurface.PlaneRect.HasValue)
-                            {
-                                anchorSize = new Vector3(largestSurface.PlaneRect.Value.x,
-                                    largestSurface.PlaneRect.Value.y, 0.01f);
-                            }
+                            var anchorSize = largestSurface.PlaneRect.HasValue ? new Vector3(largestSurface.PlaneRect.Value.width,
+                                largestSurface.PlaneRect.Value.height, 0.01f) : largestSurface.VolumeBounds.Value.size;
+                            _debugCube.transform.localScale = anchorSize + new Vector3(0.01f, 0.01f, 0.01f);
+                            _debugCube.transform.position = largestSurface.PlaneRect.HasValue ?
+                                largestSurface.transform.position : largestSurface.transform.TransformPoint(largestSurface.VolumeBounds.Value.center);
+                            _debugCube.transform.rotation = largestSurface.transform.rotation;
 
-                            _debugCube.transform.localScale = anchorSize;
-                            _debugCube.transform.localPosition = largestSurface.transform.position;
-                            _debugCube.transform.localRotation = largestSurface.transform.rotation;
                         }
-
-                        SetLogsText("\n[{0}]\nAnchor: {1}\nType: {2}",
-                            nameof(GetLargestSurfaceDebugger),
-                            largestSurface.name,
-                            largestSurface.Label
-                        );
                     }
                     else
                     {
@@ -381,6 +401,8 @@ namespace Meta.XR.MRUtilityKit
                             nameof(GetLargestSurfaceDebugger),
                             surfaceType
                         );
+                        _debugCube.SetActive(false);
+                        return;
                     }
                 }
                 else
@@ -558,6 +580,7 @@ namespace Meta.XR.MRUtilityKit
                     _debugCube.SetActive(isOn);
                 }
             }
+
             catch (Exception e)
             {
                 SetLogsText("\n[{0}]\n {1}\n{2}",
@@ -719,12 +742,6 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-                var filter = new LabelFilter(MRUKAnchor.SceneLabels.GLOBAL_MESH);
-                if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
-                {
-                    _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
-                }
-
                 if (!_globalMeshAnchor)
                 {
                     SetLogsText("\n[{0}]\nNo global mesh anchor found in the scene.\n",
@@ -735,31 +752,32 @@ namespace Meta.XR.MRUtilityKit
 
                 if (isOn)
                 {
-                    if (!_globalMeshEffectMesh)
+                    if (_roomHasChanged || !_globalMeshGO)
                     {
-                        _globalMeshEffectMesh =
-                            new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
-                        _globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
-                        if (visualHelperMaterial)
+                        if (_globalMeshGO)
                         {
-                            _globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
+                            DestroyImmediate(_globalMeshGO);
                         }
 
-                        _globalMeshEffectMesh.CreateMesh();
+                        InstantiateGlobalMesh((globalMeshSegmentGO, _) =>
+                        {
+                            var meshRenderer = globalMeshSegmentGO.AddComponent<MeshRenderer>();
+                            meshRenderer.material = visualHelperMaterial;
+                        });
                     }
                     else
                     {
-                        _globalMeshEffectMesh.ToggleEffectMeshVisibility(true, filter, visualHelperMaterial);
+
+                        _globalMeshGO.GetComponent<MeshRenderer>().enabled = true;
+
                     }
                 }
                 else
                 {
-                    if (!_globalMeshEffectMesh)
+                    if (_globalMeshGO)
                     {
-                        return;
+                        _globalMeshGO.GetComponent<MeshRenderer>().enabled = false;
                     }
-
-                    _globalMeshEffectMesh.ToggleEffectMeshVisibility(false, filter, _globalMeshEffectMesh.MeshMaterial);
                 }
             }
             catch (Exception e)
@@ -780,12 +798,6 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-                var filter = new LabelFilter(MRUKAnchor.SceneLabels.GLOBAL_MESH);
-                if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
-                {
-                    _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
-                }
-
                 if (!_globalMeshAnchor)
                 {
                     SetLogsText("\n[{0}]\nNo global mesh anchor found in the scene.\n",
@@ -796,30 +808,24 @@ namespace Meta.XR.MRUtilityKit
 
                 if (isOn)
                 {
-                    if (!_globalMeshEffectMesh)
+                    if (_roomHasChanged || !_globalMeshCollider)
                     {
-                        _globalMeshEffectMesh =
-                            new GameObject("_globalMeshViz", typeof(EffectMesh)).GetComponent<EffectMesh>();
-                        _globalMeshEffectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
-                        if (visualHelperMaterial)
-                        {
-                            _globalMeshEffectMesh.MeshMaterial = visualHelperMaterial;
-                        }
+                        var globalMeshSegmentColliderGO =
+                            new GameObject($"_globalMeshCollider");
+                        globalMeshSegmentColliderGO.transform.SetParent(_globalMeshAnchor.transform, false);
+                        _globalMeshCollider = globalMeshSegmentColliderGO.AddComponent<MeshCollider>();
+                        _globalMeshCollider.sharedMesh = _globalMeshAnchor.Mesh;
 
-                        _globalMeshEffectMesh.HideMesh = true;
-                        _globalMeshEffectMesh.CreateMesh();
                     }
-
-                    _globalMeshEffectMesh.AddColliders();
+                    else
+                    {
+                        _globalMeshCollider.enabled = true;
+                    }
                 }
                 else
                 {
-                    if (!_globalMeshEffectMesh)
-                    {
-                        return;
-                    }
+                    _globalMeshCollider.enabled = false;
 
-                    _globalMeshEffectMesh.DestroyColliders(filter);
                 }
             }
             catch (Exception e)
@@ -830,6 +836,18 @@ namespace Meta.XR.MRUtilityKit
                     e.StackTrace
                 );
             }
+        }
+
+        private void InstantiateGlobalMesh(Action<GameObject, Mesh> onMeshSegmentInstantiated)
+        {
+            var processedMesh = Utilities.AddBarycentricCoordinatesToMesh(_globalMeshAnchor.Mesh);
+
+            _globalMeshGO = new GameObject($"_globalMeshViz");
+            _globalMeshGO.transform.SetParent(MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor.transform,
+                false);
+            var meshFilter = _globalMeshGO.AddComponent<MeshFilter>();
+            meshFilter.mesh = processedMesh;
+            onMeshSegmentInstantiated?.Invoke(_globalMeshGO, processedMesh);
         }
 
         /// <summary>
@@ -847,8 +865,9 @@ namespace Meta.XR.MRUtilityKit
                     {
                         exportGlobalMesh = exportGlobalMeshJSONDropdown.options[exportGlobalMeshJSONDropdown.value].text.ToLower() == "true";
                     }
-
-                    var scene = SerializationHelpers.Serialize(SerializationHelpers.CoordinateSystem.Unity, exportGlobalMesh);
+                    var scene = SerializationHelpers.Serialize(SerializationHelpers.CoordinateSystem.Unity,
+                    exportGlobalMesh
+                    );
                     var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
                     var path = Path.Combine(Application.persistentDataPath, filename);
                     File.WriteAllText(path, scene);
@@ -875,21 +894,7 @@ namespace Meta.XR.MRUtilityKit
                 throw new Exception("Can not debug a null DestructibleMeshComponent.");
             }
 
-            var segments = new List<GameObject>();
-
-            destructibleMeshComponent.GetDestructibleMeshSegments(segments);
-            foreach (var segment in segments)
-            {
-                // Create a new material with a random color for each segment
-                var newMaterial = new Material(Shader.Find("Meta/Lit"))
-                {
-                    color = UnityEngine.Random.ColorHSV()
-                };
-                if (segment.TryGetComponent<MeshRenderer>(out var renderer))
-                {
-                    renderer.material = newMaterial;
-                }
-            }
+            destructibleMeshComponent.DebugDestructibleMeshComponent();
         }
 
         /// <summary>
@@ -942,8 +947,7 @@ namespace Meta.XR.MRUtilityKit
 
                         navMesh.SetVertices(triangulation.vertices);
                         navMesh.SetIndices(triangulation.indices, MeshTopology.Triangles, 0);
-                        navMeshRenderer.material = visualHelperMaterial;
-                        navMeshRenderer.material.color = Color.cyan;
+                        navMeshRenderer.material = _navMeshMaterial;
                         navMeshFilter.mesh = navMesh;
                         _navMeshTriangulation = triangulation;
                     };
@@ -962,21 +966,6 @@ namespace Meta.XR.MRUtilityKit
                     e.StackTrace
                 );
             }
-        }
-
-
-        private EffectMesh GetGlobalMeshEffectMesh()
-        {
-            var effectMeshes = FindObjectsByType<EffectMesh>(FindObjectsSortMode.None);
-            foreach (var effectMesh in effectMeshes)
-            {
-                if ((effectMesh.Labels & MRUKAnchor.SceneLabels.GLOBAL_MESH) != 0)
-                {
-                    return effectMesh;
-                }
-            }
-
-            return null;
         }
 
         private SpaceMapGPU GetSpaceMapGPU()
@@ -999,46 +988,35 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         private GameObject GenerateDebugAnchor(MRUKAnchor anchor)
         {
-            var debugPlanePrefab = CreateDebugPrefabSource(true);
-            var debugVolumePrefab = CreateDebugPrefabSource(false);
-
             Vector3 anchorScale;
+            var anchorPosition = anchor.transform.position;
+            var anchorRotation = anchor.transform.rotation;
             if (anchor.VolumeBounds.HasValue)
             {
-                // Volumes
-                _debugAnchor = CloneObject(debugVolumePrefab, anchor.transform);
-                anchorScale = anchor.VolumeBounds.Value.size;
+                // Handle volume anchors
+                CreateDebugPrefabSource(anchor);
+                var volumeBounds = anchor.VolumeBounds.Value;
+                anchorScale = volumeBounds.size;
+                anchorPosition += anchorRotation * volumeBounds.center;
             }
             else
             {
-                // Quads
-                _debugAnchor = CloneObject(debugPlanePrefab, anchor.transform);
+                // Handle plane anchors
+                CreateDebugPrefabSource(anchor);
                 anchorScale = Vector3.zero;
                 if (anchor.PlaneRect != null)
                 {
-                    var quadScale = anchor.PlaneRect.Value.size;
-                    anchorScale = new Vector3(quadScale.x, quadScale.y, 1.0f);
+                    var quadSize = anchor.PlaneRect.Value.size;
+                    anchorScale = new Vector3(quadSize.x, quadSize.y, 1.0f);
                 }
             }
 
+            _debugAnchor.transform.position = anchorPosition;
+            _debugAnchor.transform.rotation = anchorRotation;
             ScaleChildren(_debugAnchor.transform, anchorScale);
             _debugAnchor.transform.parent = null;
             _debugAnchor.SetActive(true);
-
-            Destroy(debugPlanePrefab);
-            Destroy(debugVolumePrefab);
-
             return _debugAnchor;
-        }
-
-        private GameObject CloneObject(GameObject prefabObj, Transform refObject)
-        {
-            var newObj = Instantiate(prefabObj);
-            newObj.name = "Debug_" + refObject.name;
-            newObj.transform.position = refObject.position;
-            newObj.transform.rotation = refObject.rotation;
-
-            return newObj;
         }
 
         private void ScaleChildren(Transform parent, Vector3 localScale)
@@ -1052,62 +1030,29 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///     By creating our reference PLANE and VOLUME prefabs in code, we can avoid linking them via Inspector.
         /// </summary>
-        private GameObject CreateDebugPrefabSource(bool isPlane)
+        private void CreateDebugPrefabSource(MRUKAnchor anchor)
         {
+            var isPlane = !anchor.VolumeBounds.HasValue;
             var prefabName = isPlane ? "PlanePrefab" : "VolumePrefab";
-            var prefabObject = new GameObject(prefabName);
-
+            _debugAnchor = new GameObject(prefabName);
             var meshParent = new GameObject("MeshParent");
-            meshParent.transform.SetParent(prefabObject.transform);
+            meshParent.transform.SetParent(_debugAnchor.transform);
             meshParent.SetActive(false);
-
-            var prefabMesh = isPlane
-                ? GameObject.CreatePrimitive(PrimitiveType.Quad)
-                : GameObject.CreatePrimitive(PrimitiveType.Cube);
-            prefabMesh.name = "Mesh";
-            prefabMesh.transform.SetParent(meshParent.transform);
-            if (isPlane)
-            // Unity quad's normal doesn't align with transform's Z-forward
+            var prefabPivot = new GameObject("Pivot");
+            prefabPivot.transform.SetParent(_debugAnchor.transform);
+            if (anchor.VolumeBounds.HasValue)
             {
-                prefabMesh.transform.localRotation = Quaternion.Euler(0, 180, 0);
+                CreateGridPattern(prefabPivot.transform, new Vector3(0, 0, 0.5f), Quaternion.identity);
+                CreateGridPattern(prefabPivot.transform, new Vector3(0, 0, -0.5f), Quaternion.Euler(180, 0, 0));
+                CreateGridPattern(prefabPivot.transform, new Vector3(0, 0.5f, 0), Quaternion.Euler(-90, 0, 0));
+                CreateGridPattern(prefabPivot.transform, new Vector3(0, -0.5f, 0), Quaternion.Euler(90, 0, 0));
+                CreateGridPattern(prefabPivot.transform, new Vector3(-0.5f, 0, 0), Quaternion.Euler(0, -90, 90));
+                CreateGridPattern(prefabPivot.transform, new Vector3(0.5f, 0, 0), Quaternion.Euler(0, 90, 90));
             }
             else
-            // Anchor cubes don't have a center pivot
             {
-                prefabMesh.transform.localPosition = new Vector3(0, 0, -0.5f);
+                CreateGridPattern(prefabPivot.transform, Vector3.zero, Quaternion.identity);
             }
-
-            SetMaterialProperties(prefabMesh.GetComponent<MeshRenderer>());
-            DestroyImmediate(prefabMesh.GetComponent<Collider>());
-
-            var prefabPivot = new GameObject("Pivot");
-            prefabPivot.transform.SetParent(prefabObject.transform);
-
-            CreateGridPattern(prefabPivot.transform, Vector3.zero, Quaternion.identity);
-            if (!isPlane)
-            {
-                CreateGridPattern(prefabPivot.transform, new Vector3(0, 0, -1), Quaternion.Euler(180, 0, 0));
-                CreateGridPattern(prefabPivot.transform, new Vector3(0, -0.5f, -0.5f), Quaternion.Euler(90, 0, 0));
-                CreateGridPattern(prefabPivot.transform, new Vector3(0, 0.5f, -0.5f), Quaternion.Euler(-90, 0, 0));
-                CreateGridPattern(prefabPivot.transform, new Vector3(-0.5f, 0, -0.5f), Quaternion.Euler(0, -90, 90));
-                CreateGridPattern(prefabPivot.transform, new Vector3(0.5f, 0, -0.5f), Quaternion.Euler(180, -90, 90));
-            }
-
-            return prefabObject;
-        }
-
-        private void SetMaterialProperties(MeshRenderer refMesh)
-        {
-            refMesh.material.SetColor(_color, new Color(0.5f, 0.9f, 1.0f, 0.75f));
-            refMesh.material.SetOverrideTag("RenderType", "Transparent");
-            refMesh.material.SetInt(_srcBlend, (int)BlendMode.SrcAlpha);
-            refMesh.material.SetInt(_dstBlend, (int)BlendMode.One);
-            refMesh.material.SetInt(_zWrite, 0);
-            refMesh.material.SetInt(_cull, 2); // "Back"
-            refMesh.material.DisableKeyword("_ALPHATEST_ON");
-            refMesh.material.EnableKeyword("_ALPHABLEND_ON");
-            refMesh.material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            refMesh.material.renderQueue = (int)RenderQueue.Transparent;
         }
 
         // The grid pattern on each anchor is actually a mesh, to avoid a texture
@@ -1118,13 +1063,9 @@ namespace Meta.XR.MRUtilityKit
             newGameObject.transform.SetParent(parentTransform, false);
             newGameObject.transform.localPosition = localOffset;
             newGameObject.transform.localRotation = localRotation;
+            newGameObject.transform.localScale = Vector3.one;
             DestroyImmediate(newGameObject.GetComponent<Collider>());
-
-            // offset the debug grid the smallest amount to avoid z-fighting
             const float NORMAL_OFFSET = 0.001f;
-
-            // the mesh is used on every prefab, but only needs to be created once
-            var vertCounter = 0;
             if (_debugCheckerMesh == null)
             {
                 _debugCheckerMesh = new Mesh();
@@ -1132,21 +1073,18 @@ namespace Meta.XR.MRUtilityKit
                 var cellWidth = 1.0f / gridWidth;
                 var xPos = -0.5f;
                 var yPos = -0.5f;
-
                 var totalTiles = gridWidth * gridWidth / 2;
                 var totalVertices = totalTiles * 4;
                 var totalIndices = totalTiles * 6;
-
                 var MeshVertices = new Vector3[totalVertices];
                 var MeshUVs = new Vector2[totalVertices];
                 var MeshColors = new Color32[totalVertices];
                 var MeshNormals = new Vector3[totalVertices];
                 var MeshTangents = new Vector4[totalVertices];
                 var MeshTriangles = new int[totalIndices];
-
+                var vertCounter = 0;
                 var indexCounter = 0;
                 var quadCounter = 0;
-
                 for (var x = 0; x < gridWidth; x++)
                 {
                     var createQuad = x % 2 == 0;
@@ -1156,7 +1094,8 @@ namespace Meta.XR.MRUtilityKit
                         {
                             for (var V = 0; V < 4; V++)
                             {
-                                var localVertPos = new Vector3(xPos, yPos + y * cellWidth, NORMAL_OFFSET);
+                                var localVertPos = new Vector3(xPos + x * cellWidth, yPos + y * cellWidth,
+                                    NORMAL_OFFSET);
                                 switch (V)
                                 {
                                     case 1:
@@ -1175,7 +1114,6 @@ namespace Meta.XR.MRUtilityKit
                                 MeshColors[vertCounter] = Color.black;
                                 MeshNormals[vertCounter] = Vector3.forward;
                                 MeshTangents[vertCounter] = Vector3.right;
-
                                 vertCounter++;
                             }
 
@@ -1186,14 +1124,11 @@ namespace Meta.XR.MRUtilityKit
                             MeshTriangles[indexCounter++] = baseCount;
                             MeshTriangles[indexCounter++] = baseCount + 3;
                             MeshTriangles[indexCounter++] = baseCount + 2;
-
                             quadCounter++;
                         }
 
                         createQuad = !createQuad;
                     }
-
-                    xPos += cellWidth;
                 }
 
                 _debugCheckerMesh.Clear();
@@ -1209,17 +1144,7 @@ namespace Meta.XR.MRUtilityKit
             }
 
             newGameObject.GetComponent<MeshFilter>().mesh = _debugCheckerMesh;
-
-            var material = newGameObject.GetComponent<MeshRenderer>().material;
-            material.SetOverrideTag("RenderType", "Transparent");
-            material.SetInt(_srcBlend, (int)BlendMode.SrcAlpha);
-            material.SetInt(_dstBlend, (int)BlendMode.One);
-            material.SetInt(_zWrite, 0);
-            material.SetInt(_cull, 2); // "Back"
-            material.DisableKeyword("_ALPHATEST_ON");
-            material.EnableKeyword("_ALPHABLEND_ON");
-            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            material.renderQueue = (int)RenderQueue.Transparent;
+            newGameObject.GetComponent<MeshRenderer>().material = _checkerMeshMaterial;
         }
 
         /// <summary>
@@ -1229,24 +1154,38 @@ namespace Meta.XR.MRUtilityKit
         {
             _debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _debugCube.name = "SceneDebugger_Cube";
-            _debugCube.GetComponent<Renderer>().material.color = Color.green;
+            _debugCube.GetComponent<Renderer>().material = _debugMaterial;
             _debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
             _debugCube.GetComponent<Collider>().enabled = false;
             _debugCube.SetActive(false);
 
             _debugSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             _debugSphere.name = "SceneDebugger_Sphere";
-            _debugSphere.GetComponent<Renderer>().material.color = Color.green;
+            _debugSphere.GetComponent<Renderer>().material = _debugMaterial;
             _debugSphere.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
             _debugSphere.GetComponent<Collider>().enabled = false;
             _debugSphere.SetActive(false);
 
             _debugNormal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             _debugNormal.name = "SceneDebugger_Normal";
-            _debugNormal.GetComponent<Renderer>().material.color = Color.green;
+            _debugNormal.GetComponent<Renderer>().material = _debugMaterial;
             _debugNormal.transform.localScale = new Vector3(0.02f, 0.1f, 0.02f);
             _debugNormal.GetComponent<Collider>().enabled = false;
             _debugNormal.SetActive(false);
+        }
+
+        private void SetupCheckerMeshMaterial(Shader debugShader)
+        {
+            _checkerMeshMaterial = new Material(debugShader);
+            _checkerMeshMaterial.SetOverrideTag("RenderType", "Transparent");
+            _checkerMeshMaterial.SetInt(_srcBlend, (int)BlendMode.SrcAlpha);
+            _checkerMeshMaterial.SetInt(_dstBlend, (int)BlendMode.One);
+            _checkerMeshMaterial.SetInt(_zWrite, 0);
+            _checkerMeshMaterial.SetInt(_cull, (int)CullMode.Back);
+            _checkerMeshMaterial.DisableKeyword("_ALPHATEST_ON");
+            _checkerMeshMaterial.EnableKeyword("_ALPHABLEND_ON");
+            _checkerMeshMaterial.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            _checkerMeshMaterial.renderQueue = (int)RenderQueue.Transparent;
         }
 
         /// <summary>
@@ -1321,8 +1260,11 @@ namespace Meta.XR.MRUtilityKit
             }
 
             var direction = _canvas.transform.position - _cameraRig.centerEyeAnchor.transform.position;
-            var rotation = Quaternion.LookRotation(direction);
-            _canvas.transform.rotation = rotation;
+            if (direction.sqrMagnitude > 0.01f)
+            {
+                var rotation = Quaternion.LookRotation(direction);
+                _canvas.transform.rotation = rotation;
+            }
         }
 
         private void ToggleMenu(bool active)

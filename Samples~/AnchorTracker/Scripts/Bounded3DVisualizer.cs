@@ -21,10 +21,12 @@
 using System;
 using System.Collections.Generic;
 using Meta.XR.MRUtilityKit;
+using Meta.XR.Samples;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKitSamples
 {
+    [MetaCodeSample("MRUK-KeyboardTracker")]
     public class Bounded3DVisualizer : MonoBehaviour
     {
         [SerializeField]

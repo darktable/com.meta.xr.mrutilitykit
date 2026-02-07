@@ -21,7 +21,9 @@
 using System;
 using UnityEngine;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Meta.XR.MRUtilityKit.Extensions;
+using Unity.Collections;
 using UnityEngine.Rendering;
 
 namespace Meta.XR.MRUtilityKit
@@ -35,6 +37,9 @@ namespace Meta.XR.MRUtilityKit
 
         public static readonly float Sqrt2 = Mathf.Sqrt(2f);  // Square root of 2, commonly used in mathematical calculations.
         public static readonly float InvSqrt2 = 1f / Mathf.Sqrt(2f); // Inverse of the square root of 2.
+
+        private const int
+            MAX_VERTICES_PER_MESH = 65535; // limit of vertices per mesh when using the default index format (16 bit)
 
         /// <summary>
         /// Retrieves the bounds of a prefab, calculating them if not already cached.
@@ -58,7 +63,8 @@ namespace Meta.XR.MRUtilityKit
             Bounds? bounds = null;
             Renderer renderer = transform.GetComponent<Renderer>();
 
-            if (renderer != null && renderer.bounds.size != Vector3.zero)
+            // Skipping the bounds from particle renderer which might create unexpectedly large prefab bounds.
+            if (renderer != null && renderer.bounds.size != Vector3.zero && renderer is not ParticleSystemRenderer)
             {
                 // If the current GameObject has a renderer component, include its bounds
                 bounds = renderer.bounds;
@@ -91,10 +97,11 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         /// <param name="anchorData">The Data.AnchorData object representing the anchor.</param>
         /// <returns>The name of the anchor, or "UNDEFINED_ANCHOR" if no semantic classification is available.</returns>
-        public static string GetAnchorName(Data.AnchorData anchorData)
+        internal static string GetAnchorName(Data.AnchorData anchorData)
         {
-            return anchorData.SemanticClassifications.Count != 0
-                ? anchorData.SemanticClassifications[0]
+            MRUKAnchor.SceneLabels labels = anchorData.Labels;
+            return labels != 0
+                ? labels.ToString()
                 : "UNDEFINED_ANCHOR";
         }
 
@@ -121,18 +128,21 @@ namespace Meta.XR.MRUtilityKit
             return new Bounds(volumeBoundsCenterOffset, volumeBoundsMax - volumeBoundsMin);
         }
 
-        internal static Mesh GetGlobalMeshFromAnchorData(Data.AnchorData data)
+        internal static Mesh GetMeshFromAnchorData(Data.AnchorData data)
         {
-            if (data.GlobalMesh == null)
+
+            var meshData = data.MeshData;
+            if (!meshData.HasValue)
             {
                 return null;
             }
 
-            var newMesh = new Mesh();
-            newMesh.indexFormat = data.GlobalMesh.Value.Indices.Length > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16;
-            newMesh.vertices = data.GlobalMesh.Value.Positions;
-            newMesh.triangles = data.GlobalMesh.Value.Indices;
-
+            var newMesh = new Mesh
+            {
+                indexFormat = meshData.Value.Indices.Length > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16,
+                vertices = meshData.Value.Positions,
+                triangles = meshData.Value.Indices
+            };
             return newMesh;
         }
 
@@ -153,11 +163,10 @@ namespace Meta.XR.MRUtilityKit
             }
             else
             {
-                if (anchorInfo.GlobalMesh != null)
+                if (anchorInfo.Mesh != null)
                 {
-                    return anchorInfo.GlobalMesh;
+                    return anchorInfo.Mesh;
                 }
-
                 throw new InvalidOperationException("No valid geometry data available.");
             }
 
@@ -409,6 +418,43 @@ namespace Meta.XR.MRUtilityKit
                 indexArray[indexCounter++] = baseCount + id1;
                 indexArray[indexCounter++] = baseCount + id2;
             }
+        }
+
+        /// <summary>
+        /// Adds barycentric coordinates to a mesh tu support more advanced shading.
+        /// </summary>
+        /// <param name="originalMesh">The mesh that needs barycentric coordinates.</param>
+        /// <returns>A list of meshes composing the original meshes with the barycentric coordinates stored
+        /// in the tangent space of the mesh. </returns>
+        internal static Mesh AddBarycentricCoordinatesToMesh(Mesh originalMesh)
+        {
+            var originalVertices = originalMesh.vertices;
+            var originalTriangles = originalMesh.triangles;
+            var triangleCount = originalTriangles.Length;
+            var vertices = new NativeArray<Vector3>(triangleCount, Allocator.TempJob);
+            var barCoord = new NativeArray<Color>(triangleCount, Allocator.TempJob);
+            var idx = new NativeArray<int>(triangleCount, Allocator.TempJob);
+            for (var i = 0; i < triangleCount; i++)
+            {
+                // Assign barycentric coordinates
+                barCoord[i] = new Color(
+                    i % 3 == 0 ? 1.0f : 0.0f,
+                    i % 3 == 1 ? 1.0f : 0.0f,
+                    i % 3 == 2 ? 1.0f : 0.0f);
+                // Copy vertices and indices
+                vertices[i] = originalVertices[originalTriangles[i]];
+                idx[i] = i;
+            }
+            var newMesh = new Mesh
+            {
+                indexFormat = vertices.Length > ushort.MaxValue
+                    ? IndexFormat.UInt32
+                    : IndexFormat.UInt16
+            };
+            newMesh.SetVertices(vertices);
+            newMesh.SetColors(barCoord);
+            newMesh.SetIndices(idx, MeshTopology.Triangles, 0, true, 0);
+            return newMesh;
         }
 
         internal static void DestroyGameObjectAndChildren(GameObject gameObject)

@@ -39,7 +39,7 @@ Shader "Meta/MRUK/Unlit/Wireframe" {
       struct appdata
       {
         float4 vertex : POSITION;
-        float4 color : COLOR; // barycentric coords
+        half4 color : COLOR; // barycentric coords
         UNITY_VERTEX_INPUT_INSTANCE_ID
       };
 
@@ -47,7 +47,7 @@ Shader "Meta/MRUK/Unlit/Wireframe" {
       {
         float4 vertex : SV_POSITION;
         float3 vertexView : TEXCOORD0;
-        float3 color: COLOR;
+        half4 color: COLOR;
         UNITY_VERTEX_OUTPUT_STEREO
       };
 

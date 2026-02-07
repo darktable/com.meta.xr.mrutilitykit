@@ -206,8 +206,8 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        // 1 second because that is the approximate update time for most of our trackers
-        private static readonly TimeSpan TimeBetweenFetchTrackables = TimeSpan.FromSeconds(1);
+        // 0.5 seconds because most of our trackers update at about 1 Hz
+        private static readonly TimeSpan TimeBetweenFetchTrackables = TimeSpan.FromSeconds(0.5);
 
         private IEnumerator TrackerCoroutine()
         {
