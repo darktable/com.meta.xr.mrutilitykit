@@ -22,6 +22,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
@@ -30,6 +31,7 @@ namespace Meta.XR.MRUtilityKit
     /// <summary>
     /// This contains helpers to serialize/deserialze Scene data to/from JSON
     /// </summary>
+    [Feature(Feature.Scene)]
     public static class SerializationHelpers
     {
         [Serializable, JsonConverter(typeof(StringEnumConverter))]
@@ -268,7 +270,7 @@ namespace Meta.XR.MRUtilityKit
                     {
                         roomData.RoomLayout.WallsUuid.Add(anchorData.Anchor.Uuid);
                     }
-                    anchorData.SemanticClassifications = anchor.AnchorLabels;
+                    anchorData.SemanticClassifications = Utilities.SceneLabelsEnumToList(anchor.Label);
                     anchorData.Transform = new();
                     var localPosition = anchor.transform.localPosition;
                     var localRotation = anchor.transform.localEulerAngles;

@@ -35,8 +35,7 @@
         {
           "UUID": "C486E2D9AE8B7E53CD3D4B455775AB02",
           "SemanticClassifications": [
-            "TABLE",
-            "DESK"
+            "TABLE"
           ],
           "Transform": {
             "Translation": [-1.03750277,0.779900253,-5.739785],
@@ -350,8 +349,7 @@
         {
           "UUID": "0C3BE6000698086C393E2E2860008430",
           "SemanticClassifications": [
-            "TABLE",
-            "DESK"
+            "TABLE"
           ],
           "Transform": {
             "Translation": [-0.26116547,0.5572717,-4.509517],
@@ -433,8 +431,7 @@
         {
           "UUID": "E5099A0694C356F07725670935850A46",
           "SemanticClassifications": [
-            "TABLE",
-            "DESK"
+            "TABLE"
           ],
           "Transform": {
             "Translation": [-2.00786924,0.9135017,-2.613783],
@@ -600,8 +597,7 @@
         {
           "UUID": "AC93158510C0237A99AE68D235BAC6D1",
           "SemanticClassifications": [
-            "TABLE",
-            "DESK"
+            "TABLE"
           ],
           "Transform": {
             "Translation": [-1.12552428,0.9013388,-0.700197339],

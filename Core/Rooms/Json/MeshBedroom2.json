@@ -318,8 +318,7 @@
         {
           "UUID": "779AC70F920D9E7430CEB0B6314BF637",
           "SemanticClassifications": [
-            "TABLE",
-            "DESK"
+            "TABLE"
           ],
           "Transform": {
             "Translation": [1.384202,0.6043693,-1.92632735],
@@ -401,8 +400,7 @@
         {
           "UUID": "D40A0191E98F9BBD74F9D8D52C2A7231",
           "SemanticClassifications": [
-            "TABLE",
-            "DESK"
+            "TABLE"
           ],
           "Transform": {
             "Translation": [-0.3991198,0.58798945,-3.11576915],

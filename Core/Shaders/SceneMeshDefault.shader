@@ -23,17 +23,64 @@ Shader "MixedReality/SceneMeshDefault" {
     {
         _Color ("Tint", Color) = (1,1,1,1)
         _Angle ("Effect Angle", Range (0, 90)) = 60
+        [Enum(Off,0,On,1)] _SceneMeshZWrite("Self Occlude", Float) = 0 //"Off"
     }
     SubShader
     {
-        Tags { "Queue"="Transparent" }
-        LOD 100
-        Cull Off
-        ZWrite Off
-        Blend One One
+        Pass
+        {
+            Tags { "Queue"="Transparent" }
+            LOD 100
+            Cull Off
+            ZWrite [_SceneMeshZWrite]
+            Blend One One
+            ColorMask 0
+
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 3.0
+
+            #include "UnityCG.cginc"
+
+            struct appdata
+            {
+                float4 vertex : POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            struct v2f
+            {
+                float4 vertex : SV_POSITION;
+                UNITY_VERTEX_OUTPUT_STEREO
+            };
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                o.vertex = UnityObjectToClipPos(v.vertex);
+                return o;
+            }
+
+            fixed4 frag (v2f i, fixed facing : VFACE) : SV_Target
+            {
+                fixed4 finalEffect = fixed4(0,0,0,0);
+                return finalEffect;
+            }
+            ENDCG
+        }
 
         Pass
         {
+            Tags { "Queue"="Transparent" }
+            LOD 100
+            Cull Off
+            ZWrite Off
+            Blend One One
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -93,7 +140,7 @@ Shader "MixedReality/SceneMeshDefault" {
                 float edgeGradient = max(GetCoordFromPosition(i.uv.x, 0), GetCoordFromPosition(i.uv.y, 0));
                 float stroke = step(0.99,edgeGradient);
                 float glow = saturate((edgeGradient - 0.75)*4);
-                fixed4 edgeEffect = _Color * stroke + _Color * pow(glow,4);
+                fixed4 edgeEffect = _Color * (stroke + pow(glow,4) + 0.1);
 
                 // ground effect (horizontal surfaces)
                 float uGrid = GetCoordFromPosition(i.worldPos.x, 0);

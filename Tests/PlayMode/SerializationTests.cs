@@ -174,15 +174,12 @@ namespace Meta.XR.MRUtilityKit.Tests
                 {
                     var loadedPlaneBoundary2D = loadedAnchor.PlaneBoundary2D;
                     var expectedPlaneBoundary2D = expectedAnchor.PlaneBoundary2D;
-                    for (int j = 0; j < loadedAnchor.AnchorLabels.Count; j++)
+                    for (int j = 0; j < Utilities.SceneLabelsEnumToList(loadedAnchor.Label).Count; j++)
                     {
                         Assert.That(loadedPlaneBoundary2D[j], Is.EqualTo(expectedPlaneBoundary2D[j]).Using(Vector2EqualityComparer.Instance));
                     }
                 }
-                for (int j = 0; j < loadedAnchor.AnchorLabels.Count; j++)
-                {
-                    Assert.AreEqual(expectedAnchor.AnchorLabels[j], loadedAnchor.AnchorLabels[j]);
-                }
+                Assert.AreEqual(expectedAnchor.Label, loadedAnchor.Label);
                 var loadedBoundsFaceCenters = loadedAnchor.GetBoundsFaceCenters();
                 var expectedBoundsFaceCenters = expectedAnchor.GetBoundsFaceCenters();
                 for (int j = 0; j < loadedAnchor.GetBoundsFaceCenters().Length; j++)

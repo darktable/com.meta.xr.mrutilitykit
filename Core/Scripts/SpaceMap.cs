@@ -20,10 +20,12 @@
 
 using System.Collections;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public class SpaceMap : MonoBehaviour
     {
         [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
@@ -135,18 +137,14 @@ namespace Meta.XR.MRUtilityKit
             float sign = 1f;
             if (room != null)
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
-#pragma warning restore CS0618 // Type or member is obsolete
+                closestDist = room.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
                 sign = room.IsPositionInRoom(worldPosition, false) ? 1 : -1;
             }
             else
             {
                 foreach (var currentRoom in MRUK.Instance.Rooms)
                 {
-#pragma warning disable CS0618 // Type or member is obsolete
-                    var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(new List<string> { OVRSceneManager.Classification.Floor, OVRSceneManager.Classification.Ceiling }));
-#pragma warning restore CS0618 // Type or member is obsolete
+                    var dist = currentRoom.TryGetClosestSurfacePosition(worldPosition, out Vector3 closestPos, out MRUKAnchor closestAnchor, LabelFilter.Excluded(MRUKAnchor.SceneLabels.FLOOR | MRUKAnchor.SceneLabels.CEILING));
                     if (dist < closestDist)
                     {
                         closestDist = dist;

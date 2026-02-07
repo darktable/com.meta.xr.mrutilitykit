@@ -21,15 +21,18 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Assertions;
 using UnityEngine.EventSystems;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public class SceneDebugger : MonoBehaviour
     {
         public Material visualHelperMaterial;
@@ -200,8 +203,18 @@ namespace Meta.XR.MRUtilityKit
             }
             else // hands
             {
-                rayOrigin = _cameraRig.rightHandAnchor.GetComponentInChildren<OVRHand>().PointerPose.position;
-                rayDirection = _cameraRig.rightHandAnchor.GetComponentInChildren<OVRHand>().PointerPose.forward;
+                var rightHand = _cameraRig.rightHandAnchor.GetComponentInChildren<OVRHand>();
+                // can be null if running in Editor with Meta Linq app and the headset is put off
+                if (rightHand != null)
+                {
+                    rayOrigin = rightHand.PointerPose.position;
+                    rayDirection = rightHand.PointerPose.forward;
+                }
+                else
+                {
+                    rayOrigin = _cameraRig.centerEyeAnchor.position;
+                    rayDirection = _cameraRig.centerEyeAnchor.forward;
+                }
             }
 
             return new Ray(rayOrigin, rayDirection);
@@ -279,11 +292,9 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (isOn)
                 {
-#pragma warning disable CS0618 // Type or member is obsolete
-                    var surfaceType = OVRSceneManager.Classification.Table; // using table as the default value
-#pragma warning restore CS0618 // Type or member is obsolete
+                    var surfaceType = MRUKAnchor.SceneLabels.TABLE; // using table as the default value
                     if (surfaceTypeDropdown)
-                        surfaceType = surfaceTypeDropdown.options[surfaceTypeDropdown.value].text.ToUpper();
+                        surfaceType = Utilities.StringLabelToEnum(surfaceTypeDropdown.options[surfaceTypeDropdown.value].text.ToUpper());
                     var largestSurface = MRUK.Instance?.GetCurrentRoom()?.FindLargestSurface(surfaceType);
                     if (largestSurface != null)
                     {
@@ -306,7 +317,7 @@ namespace Meta.XR.MRUtilityKit
                         SetLogsText("\n[{0}]\nAnchor: {1}\nType: {2}",
                             nameof(GetLargestSurfaceDebugger),
                             largestSurface.name,
-                            largestSurface.AnchorLabels[0]
+                            largestSurface.Label
                         );
                     }
                     else
@@ -620,9 +631,7 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                var filter = LabelFilter.Included(new List<string> { OVRSceneManager.Classification.GlobalMesh });
-#pragma warning restore CS0618 // Type or member is obsolete
+                var filter = LabelFilter.Included(MRUKAnchor.SceneLabels.GLOBAL_MESH);
                 if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
                 {
                     _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
@@ -679,9 +688,7 @@ namespace Meta.XR.MRUtilityKit
         {
             try
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                var filter = LabelFilter.Included(new List<string> { OVRSceneManager.Classification.GlobalMesh });
-#pragma warning restore CS0618 // Type or member is obsolete
+                var filter = LabelFilter.Included(MRUKAnchor.SceneLabels.GLOBAL_MESH);
                 if (MRUK.Instance && MRUK.Instance.GetCurrentRoom() && !_globalMeshAnchor)
                 {
                     _globalMeshAnchor = MRUK.Instance.GetCurrentRoom().GlobalMeshAnchor;
@@ -1040,18 +1047,21 @@ namespace Meta.XR.MRUtilityKit
         private void CreateDebugPrimitives()
         {
             _debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _debugCube.name = "SceneDebugger_Cube";
             _debugCube.GetComponent<Renderer>().material.color = Color.green;
             _debugCube.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
             _debugCube.GetComponent<Collider>().enabled = false;
             _debugCube.SetActive(false);
 
             _debugSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            _debugSphere.name = "SceneDebugger_Sphere";
             _debugSphere.GetComponent<Renderer>().material.color = Color.green;
             _debugSphere.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
             _debugSphere.GetComponent<Collider>().enabled = false;
             _debugSphere.SetActive(false);
 
             _debugNormal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            _debugNormal.name = "SceneDebugger_Normal";
             _debugNormal.GetComponent<Renderer>().material.color = Color.green;
             _debugNormal.transform.localScale = new Vector3(0.02f, 0.1f, 0.02f);
             _debugNormal.GetComponent<Collider>().enabled = false;

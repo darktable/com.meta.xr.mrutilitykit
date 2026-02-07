@@ -21,9 +21,11 @@
 using System;
 using UnityEngine;
 using System.Collections.Generic;
+using Meta.XR.Util;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public static class Triangulator
     {
         static bool IsConvex(Vector2 prevPoint, Vector2 currPoint, Vector2 nextPoint)
@@ -341,9 +343,7 @@ namespace Meta.XR.MRUtilityKit
                     int i2 = outline.indices[(i + 1) % outline.indices.Count];
                     Vector2 p1 = outline.vertices[i1];
                     Vector2 p2 = outline.vertices[i2];
-                    if ((p1.y != p2.y) &&
-                        ((p1.y >= holePos.y && p2.y <= holePos.y) ||
-                         (p2.y >= holePos.y && p1.y <= holePos.y)))
+                    if ((p1.y != p2.y) && (p2.y >= holePos.y && p1.y <= holePos.y))
                     {
                         float frac = (holePos.y - p1.y) / (p2.y - p1.y);
                         float xIntersection = p1.x + frac * (p2.x - p1.x);

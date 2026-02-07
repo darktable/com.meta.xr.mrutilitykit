@@ -21,11 +21,13 @@
 using Meta.XR.MRUtilityKit;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Meta.XR.Util;
 using UnityEngine;
 using UnityEngine.Serialization;
 
 // Allows for fast generation of valid (inside the room, outside furniture bounds) random positions for content spawning.
 // Optional method to pin directly to surfaces
+[Feature(Feature.Scene)]
 public class FindSpawnPositions : MonoBehaviour
 {
     [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
@@ -164,7 +166,7 @@ public class FindSpawnPositions : MonoBehaviour
                             surfaceType |= MRUK.SurfaceType.FACING_DOWN;
                             break;
                     }
-                    if (room.GenerateRandomPositionOnSurface(surfaceType, minRadius, LabelFilter.FromEnum(Labels), out var pos, out var normal))
+                    if (room.GenerateRandomPositionOnSurface(surfaceType, minRadius, LabelFilter.Included(Labels), out var pos, out var normal))
                     {
                         spawnPosition = pos + normal * baseOffset;
                         spawnNormal = normal;

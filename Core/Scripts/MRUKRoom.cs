@@ -22,13 +22,16 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.CompilerServices;
+using Meta.XR.Util;
 using UnityEngine.Assertions;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
 
 [assembly: InternalsVisibleTo("meta.xr.mrutilitykit.tests")]
+
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public class MRUKRoom : MonoBehaviour
     {
         public OVRAnchor Anchor = OVRAnchor.Null;
@@ -54,9 +57,11 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public MRUKAnchor GlobalMeshAnchor { get; internal set; }
 
-        // a list of seat poses in the room:
-        // suggested placements for remote avatars, that exist only on COUCH objects
-        // see GetClosestSeatPose for details
+        /// <summary>
+        /// A list of seat poses in the room:
+        /// suggested placements for remote avatars, that exist only on COUCH objects
+        /// couchPoses are in couchAnchor space
+        /// </summary>
         public struct CouchSeat
         {
             public MRUKAnchor couchAnchor;
@@ -73,9 +78,13 @@ namespace Meta.XR.MRUtilityKit
             public Matrix4x4 Transform;
         }
 
-        Bounds _roomBounds;
-        // a CCW list of bottom-left corner points of each wall
+        Bounds _roomBounds = new();
+
+        // a CW list of bottom-left corner points of each wall, in Unity space
         private List<Vector3> _corners = new();
+
+        // track the pose to compute cached data only if the room has been moved since the last request
+        private Pose? _prevRoomPose = default;
 
         /// <summary>
         /// Gets fired when a new anchor of this room has been created
@@ -94,7 +103,6 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(AnchorRemovedEvent))]
         public UnityEvent<MRUKAnchor> AnchorRemovedEvent { get; private set; } = new();
-
 
 
         /// <summary>
@@ -227,15 +235,12 @@ namespace Meta.XR.MRUtilityKit
             // Find the global mesh anchor
             foreach (var anchor in Anchors)
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                if (anchor.HasLabel(OVRSceneManager.Classification.GlobalMesh))
-#pragma warning restore CS0618 // Type or member is obsolete
+                if (anchor.HasAnyLabel(MRUKAnchor.SceneLabels.GLOBAL_MESH))
                 {
                     GlobalMeshAnchor = anchor;
                 }
             }
-            CalculateRoomOutline();
-            CalculateRoomBounds();
+
             CalculateSeatPoses();
             CalculateHierarchyReferences();
         }
@@ -299,30 +304,6 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// (this shouldn't be used by non-MRUK code) <br/>
-        /// Calculates a world-space outline of the room.
-        /// </summary>
-        void CalculateRoomOutline()
-        {
-            if (!FloorAnchor)
-            {
-                Debug.Log("Floor anchor not found");
-                return;
-            }
-
-            _corners.Clear();
-            _corners.Capacity = FloorAnchor.PlaneBoundary2D.Count;
-            foreach (var point in FloorAnchor.PlaneBoundary2D)
-            {
-                Vector3 pos = FloorAnchor.transform.TransformPoint(new Vector3(point.x, point.y, 0f));
-                // We want the corner outline at exactly 0 elevation
-                pos.y = 0f;
-                _corners.Add(pos);
-            }
-        }
-
-        /// <summary>
-        /// (this shouldn't be used by non-MRUK code) <br/>
         /// Calculates seat poses (free space on a COUCH object) for humans/avatars. <br/>
         /// Y-up is vertical, Z-forward will point away from the closest WALL_FACE
         /// </summary>
@@ -333,9 +314,7 @@ namespace Meta.XR.MRUtilityKit
 
             for (int i = 0; i < Anchors.Count; i++)
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                if (Anchors[i].HasLabel(OVRSceneManager.Classification.Couch))
-#pragma warning restore CS0618 // Type or member is obsolete
+                if (Anchors[i].HasAnyLabel(MRUKAnchor.SceneLabels.COUCH))
                 {
                     CouchSeat newSeat = new CouchSeat
                     {
@@ -348,10 +327,11 @@ namespace Meta.XR.MRUtilityKit
                     Vector3 seatFwd = GetFacingDirection(Anchors[i]);
                     Vector3 seatUp = Vector3.up;
                     Vector3.OrthoNormalize(ref seatFwd, ref seatUp);
+                    Quaternion anchorSpace = Quaternion.Inverse(Anchors[i].transform.rotation);
                     if (surfaceRatio < 2.0f && surfaceRatio > 0.5f)
                     {
                         // if the surface dimensions are mostly square (likely a chair), just have one centered seat
-                        Pose seatPose = new Pose(Anchors[i].transform.position, Quaternion.LookRotation(seatFwd, seatUp));
+                        Pose seatPose = new Pose(Vector3.zero, anchorSpace * Quaternion.LookRotation(seatFwd, seatUp));
                         newSeat.couchPoses.Add(seatPose);
 
                         SeatPoses.Add(newSeat);
@@ -366,7 +346,7 @@ namespace Meta.XR.MRUtilityKit
                         for (int k = 0; k < numSeats; k++)
                         {
                             Vector3 seatRight = xLong ? Anchors[i].transform.right : Anchors[i].transform.up;
-                            Vector3 seatPos = Anchors[i].transform.position;
+                            Vector3 seatPos = Vector3.zero;
                             // start at the edge
                             seatPos -= seatRight * longestDim * 0.5f;
                             seatPos += seatRight * seatBuffer * 0.5f;
@@ -376,7 +356,7 @@ namespace Meta.XR.MRUtilityKit
                             seatPos += seatRight * seatWidth * k;
                             seatPos += seatRight * seatBuffer * k;
 
-                            Pose seatPose = new Pose(seatPos, Quaternion.LookRotation(seatFwd, seatUp));
+                            Pose seatPose = new Pose(anchorSpace * seatPos, anchorSpace * Quaternion.LookRotation(seatFwd, seatUp));
                             newSeat.couchPoses.Add(seatPose);
                             SeatPoses.Add(newSeat);
                         }
@@ -390,6 +370,8 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public List<Vector3> GetRoomOutline()
         {
+            CalculateRoomOutlineAndBounds();
+
             return _corners;
         }
 
@@ -408,6 +390,8 @@ namespace Meta.XR.MRUtilityKit
             MRUKAnchor keyWall = null;
             sortedWalls = SortWallsByWidth(sortedWalls);
 
+            List<Vector3> corners = GetRoomOutline();
+
             // second, find the first one with no other walls behind it
             // count down because the default sorting is from shortest to longest
             for (int i = sortedWalls.Count - 1; i >= 0; i--)
@@ -415,9 +399,9 @@ namespace Meta.XR.MRUtilityKit
                 bool noPointsBehind = true;
 
                 // loop through the other corners, making sure none is behind the wall in question
-                for (int k = 0; k < _corners.Count; k++)
+                for (int k = 0; k < corners.Count; k++)
                 {
-                    Vector3 vecToCorner = _corners[k] - sortedWalls[i].transform.position;
+                    Vector3 vecToCorner = corners[k] - sortedWalls[i].transform.position;
 
                     // due to anchor precision, we use a tolerance value
                     // for example, an adjacent wall edge may be just behind the wall, leading to a false result
@@ -472,7 +456,7 @@ namespace Meta.XR.MRUtilityKit
             anchorList.Clear();
             for (int i = 0; i < Anchors.Count; i++)
             {
-                if (labelFilter.PassesFilter(Anchors[i].AnchorLabels) && Anchors[i].Raycast(ray, maxDist, out outHit))
+                if (labelFilter.PassesFilter(Anchors[i].Label) && Anchors[i].Raycast(ray, maxDist, out outHit))
                 {
                     raycastHits.Add(outHit);
                     anchorList.Add(Anchors[i]);
@@ -495,7 +479,7 @@ namespace Meta.XR.MRUtilityKit
 
             for (int i = 0; i < Anchors.Count; i++)
             {
-                if (labelFilter.PassesFilter(Anchors[i].AnchorLabels) && Anchors[i].Raycast(ray, closestDist, out RaycastHit rayHit))
+                if (labelFilter.PassesFilter(Anchors[i].Label) && Anchors[i].Raycast(ray, closestDist, out RaycastHit rayHit))
                 {
                     closestDist = rayHit.distance;
                     hit = rayHit;
@@ -631,31 +615,47 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public Bounds GetRoomBounds()
         {
+            CalculateRoomOutlineAndBounds();
+
             return _roomBounds;
         }
 
-        private void CalculateRoomBounds()
+        private void CalculateRoomOutlineAndBounds()
         {
-            float roomHeight = CeilingAnchor.transform.position.y - FloorAnchor.transform.position.y;
+            if (!FloorAnchor || !CeilingAnchor)
+            {
+                Debug.LogWarning("Floor or Ceiling anchor not found");
+                return;
+            }
 
+            if (_prevRoomPose is Pose pose && (transform.position == pose.position && transform.rotation == pose.rotation))
+            {
+                // Room hasn't moved, no need to calculate outline or bounds
+                return;
+            }
+            _prevRoomPose = new(transform.position, transform.rotation);
+
+            float roomHeight = CeilingAnchor.transform.position.y - FloorAnchor.transform.position.y;
             float xMin = Mathf.Infinity;
             float xMax = Mathf.NegativeInfinity;
             float zMin = Mathf.Infinity;
             float zMax = Mathf.NegativeInfinity;
-            for (int i = 0; i < _corners.Count; i++)
-            {
-                xMin = Mathf.Min(xMin, _corners[i].x);
-                xMax = Mathf.Max(xMax, _corners[i].x);
-                zMin = Mathf.Min(zMin, _corners[i].z);
-                zMax = Mathf.Max(zMax, _corners[i].z);
-            }
-            Vector3 roomSize;
-            roomSize.x = xMax - xMin;
-            roomSize.y = roomHeight;
-            roomSize.z = zMax - zMin;
 
-            Vector3 roomCenter = new Vector3((xMax + xMin) * 0.5f, roomHeight * 0.5f, (zMax + zMin) * 0.5f);
-            _roomBounds = new Bounds(roomCenter, roomSize);
+            _corners.Clear();
+            foreach (var point in FloorAnchor.PlaneBoundary2D)
+            {
+                Vector3 pos = FloorAnchor.transform.TransformPoint(new Vector3(point.x, point.y, 0f));
+
+                xMin = Mathf.Min(xMin, pos.x);
+                xMax = Mathf.Max(xMax, pos.x);
+                zMin = Mathf.Min(zMin, pos.z);
+                zMax = Mathf.Max(zMax, pos.z);
+
+                _corners.Add(pos);
+            }
+
+            _roomBounds.center = new Vector3((xMax + xMin) * 0.5f, roomHeight * 0.5f, (zMax + zMin) * 0.5f);
+            _roomBounds.size = new Vector3(xMax - xMin, roomHeight, zMax - zMin);
         }
 
         /// <summary>
@@ -759,15 +759,18 @@ namespace Meta.XR.MRUtilityKit
             float closestDot = -1.0f;
             for (int i = 0; i < SeatPoses.Count; i++)
             {
+                Quaternion anchorSpace = SeatPoses[i].couchAnchor.transform.rotation;
+                Vector3 anchorPosition = SeatPoses[i].couchAnchor.transform.position;
                 for (int k = 0; k < SeatPoses[i].couchPoses.Count; k++)
                 {
-                    Vector3 vecToSeat = (SeatPoses[i].couchPoses[k].position - ray.origin).normalized;
+                    Vector3 seatWorldPosition = anchorPosition + anchorSpace * SeatPoses[i].couchPoses[k].position;
+                    Vector3 vecToSeat = (seatWorldPosition - ray.origin).normalized;
                     float thisDot = Vector3.Dot(ray.direction, vecToSeat);
                     if (thisDot > closestDot)
                     {
                         closestDot = thisDot;
-                        bestPose.position = SeatPoses[i].couchPoses[k].position;
-                        bestPose.rotation = SeatPoses[i].couchPoses[k].rotation;
+                        bestPose.position = seatWorldPosition;
+                        bestPose.rotation = anchorSpace * SeatPoses[i].couchPoses[k].rotation;
                         couch = SeatPoses[i].couchAnchor;
                     }
                 }
@@ -786,9 +789,12 @@ namespace Meta.XR.MRUtilityKit
             List<Pose> poses = new List<Pose>();
             for (int i = 0; i < SeatPoses.Count; i++)
             {
+                Quaternion anchorSpace = SeatPoses[i].couchAnchor.transform.rotation;
+                Vector3 anchorPosition = SeatPoses[i].couchAnchor.transform.position;
                 for (int k = 0; k < SeatPoses[i].couchPoses.Count; k++)
                 {
-                    poses.Add(SeatPoses[i].couchPoses[k]);
+                    Pose worldPos = new Pose(anchorPosition + anchorSpace * SeatPoses[i].couchPoses[k].position, anchorSpace * SeatPoses[i].couchPoses[k].rotation);
+                    poses.Add(worldPos);
                 }
             }
 
@@ -828,9 +834,7 @@ namespace Meta.XR.MRUtilityKit
             for (int i = 0; i < Anchors.Count; i++)
             {
                 Anchors[i].ClearChildReferences();
-#pragma warning disable CS0618 // Type or member is obsolete
-                if (Anchors[i].HasLabel(OVRSceneManager.Classification.WallFace))
-#pragma warning restore CS0618 // Type or member is obsolete
+                if (Anchors[i].HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
                 {
                     // find all _anchors that are a "child" of this wall using heuristics
                     for (int k = 0; k < Anchors.Count; k++)
@@ -862,9 +866,7 @@ namespace Meta.XR.MRUtilityKit
                         }
                     }
                 }
-#pragma warning disable CS0618 // Type or member is obsolete
-                else if (Anchors[i].HasLabel(OVRSceneManager.Classification.Floor))
-#pragma warning restore CS0618 // Type or member is obsolete
+                else if (Anchors[i].HasAnyLabel(MRUKAnchor.SceneLabels.FLOOR))
                 {
                     // check volumes that are on the floor (should be all volumes, unless volumes are stacked)
                     for (int k = 0; k < Anchors.Count; k++)
@@ -937,31 +939,22 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        [Obsolete("Use '" + nameof(HasAllLabels) + "()' instead.")]
+        public bool DoesRoomHave(string[] labels) => HasAllLabels(Utilities.StringLabelsToEnum(labels));
+
         /// <summary>
         /// See if a room has all the provided Scene API labels.
         /// </summary>
-        public bool DoesRoomHave(string[] labels)
+        public bool HasAllLabels(MRUKAnchor.SceneLabels labelFlags)
         {
-            List<string> roomLabels = new List<string>();
-            for (int i = 0; i < Anchors.Count; i++)
+            foreach (var anchor in Anchors)
             {
-                foreach (string label in Anchors[i].AnchorLabels)
-                {
-                    roomLabels.Add(label);
-                }
+                labelFlags &= ~anchor.Label;
+                if (labelFlags == 0)
+                    return true;
             }
-
-            // Create a set of labels that are not present in the room
-            HashSet<string> missingLabels = new HashSet<string>(labels);
-            foreach (string roomLabel in roomLabels)
-            {
-                if (missingLabels.Contains(roomLabel))
-                {
-                    missingLabels.Remove(roomLabel);
-                }
-            }
-
-            return missingLabels.Count == 0;
+            return false;
         }
 
         /// <summary>
@@ -975,7 +968,7 @@ namespace Meta.XR.MRUtilityKit
 
             for (int i = 0; i < Anchors.Count; i++)
             {
-                if (!labelFilter.PassesFilter(Anchors[i].AnchorLabels))
+                if (!labelFilter.PassesFilter(Anchors[i].Label))
                 {
                     continue;
                 }
@@ -991,17 +984,20 @@ namespace Meta.XR.MRUtilityKit
             return distance;
         }
 
+        [Obsolete(OVRSemanticLabels.DeprecationMessage)]
+        public MRUKAnchor FindLargestSurface(string anchorLabel) => FindLargestSurface(Utilities.StringLabelToEnum(anchorLabel));
+
         /// <summary>
         /// Returns the anchor with the largest available surface area.
         /// A bit more flexible than HasTableSpace, can be adapted for other usage
         /// </summary>
-        public MRUKAnchor FindLargestSurface(string anchorLabel)
+        public MRUKAnchor FindLargestSurface(MRUKAnchor.SceneLabels labelFlags)
         {
             MRUKAnchor largestAnchor = null;
             float largestSurfaceArea = 0;
             foreach (var anchor in Anchors)
             {
-                if (!anchor.HasLabel(anchorLabel))
+                if (!anchor.HasAnyLabel(labelFlags))
                 {
                     continue;
                 }
@@ -1066,9 +1062,7 @@ namespace Meta.XR.MRUtilityKit
                     // Reject points that are outside the room
                     continue;
                 }
-#pragma warning disable CS0618 // Type or member is obsolete
-                LabelFilter filter = LabelFilter.Included(new List<string> { OVRSceneManager.Classification.WallFace });
-#pragma warning restore CS0618 // Type or member is obsolete
+                LabelFilter filter = LabelFilter.Included(MRUKAnchor.SceneLabels.WALL_FACE);
                 float closestDist = TryGetClosestSurfacePosition(spawnPosition, out Vector3 _, out MRUKAnchor _, filter);
                 if (closestDist <= minDistanceToSurface)
                 {
@@ -1113,7 +1107,7 @@ namespace Meta.XR.MRUtilityKit
 
             foreach (var anchor in Anchors)
             {
-                if (!labelFilter.PassesFilter(anchor.AnchorLabels))
+                if (!labelFilter.PassesFilter(anchor.Label))
                 {
                     continue;
                 }

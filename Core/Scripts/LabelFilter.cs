@@ -29,60 +29,32 @@ namespace Meta.XR.MRUtilityKit
     /// </summary>
     public struct LabelFilter
     {
-        List<string> IncludedLabels;
-        List<string> ExcludedLabels;
+        private MRUKAnchor.SceneLabels? _included;
+        private MRUKAnchor.SceneLabels _excluded;
 
-        public static LabelFilter Included(List<string> included)
-        {
-            return new LabelFilter { IncludedLabels = included };
-        }
+        [Obsolete(OVRSemanticLabels.DeprecationMessage)]
+        public static LabelFilter Included(List<string> included) => Included(Utilities.StringLabelsToEnum(included));
 
-        public static LabelFilter Excluded(List<string> excluded)
-        {
-            return new LabelFilter { ExcludedLabels = excluded };
-        }
+        [Obsolete(OVRSemanticLabels.DeprecationMessage)]
+        public static LabelFilter Excluded(List<string> excluded) => Excluded(Utilities.StringLabelsToEnum(excluded));
 
-        public static LabelFilter FromEnum(MRUKAnchor.SceneLabels labels)
-        {
-            if (labels == ~(MRUKAnchor.SceneLabels)0)
-            {
-                // All labels included
-                return new LabelFilter();
-            }
-            List<string> result = new();
-            foreach (MRUKAnchor.SceneLabels flag in Enum.GetValues(typeof(MRUKAnchor.SceneLabels)))
-            {
-                if ((labels & flag) != 0)
-                {
-                    result.Add(flag.ToString());
-                }
-            }
-            return Included(result);
-        }
+        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        [Obsolete("Use '" + nameof(Included) + "()' instead.")]
+        public static LabelFilter FromEnum(MRUKAnchor.SceneLabels labels) => Included(labels);
 
-        public bool PassesFilter(List<string> labels)
+        [Obsolete(OVRSemanticLabels.DeprecationMessage)]
+        public bool PassesFilter(List<string> labels) => PassesFilter(Utilities.StringLabelsToEnum(labels));
+
+        public static LabelFilter Included(MRUKAnchor.SceneLabels labelFlags) => new LabelFilter { _included = labelFlags };
+
+        public static LabelFilter Excluded(MRUKAnchor.SceneLabels labelFlags) => new LabelFilter { _excluded = labelFlags };
+
+        public bool PassesFilter(MRUKAnchor.SceneLabels labelFlags)
         {
-            if (ExcludedLabels != null)
-            {
-                foreach (var excludedLabel in ExcludedLabels)
-                {
-                    if (labels.Contains(excludedLabel))
-                    {
-                        return false;
-                    }
-                }
-            }
-            if (IncludedLabels != null)
-            {
-                foreach (var includedLabel in IncludedLabels)
-                {
-                    if (labels.Contains(includedLabel))
-                    {
-                        return true;
-                    }
-                }
+            if ((_excluded & labelFlags) != 0)
                 return false;
-            }
+            if (_included.HasValue)
+                return (_included.Value & labelFlags) != 0;
             return true;
         }
     }

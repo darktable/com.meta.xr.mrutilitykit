@@ -87,7 +87,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             foreach (var anchor in room.Anchors)
             {
-                switch (anchor.GetLabelsAsEnum())
+                switch (anchor.Label)
                 {
                     case MRUKAnchor.SceneLabels.FLOOR:
                         if(HasSpawnedChild(anchor)) createdFloor++;

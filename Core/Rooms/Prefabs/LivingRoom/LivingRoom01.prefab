@@ -1057,7 +1057,7 @@ GameObject:
   - component: {fileID: 8369985574790834977}
   - component: {fileID: 1491708324647695687}
   m_Layer: 0
-  m_Name: WALL_FACE
+  m_Name: INVISIBLE_WALL_FACE
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

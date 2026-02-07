@@ -20,6 +20,7 @@
 
 using System;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
@@ -28,6 +29,7 @@ using Random = System.Random;
 namespace Meta.XR.MRUtilityKit
 {
     // tool for swapping scene prefabs with standardized unity objects
+    [Feature(Feature.Scene)]
     public class AnchorPrefabSpawner : MonoBehaviour
     {
         public enum ScalingMode
@@ -340,7 +342,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void SpawnPrefab(MRUKAnchor anchorInfo)
         {
-            var prefabToCreate = LabelToPrefab(anchorInfo.GetLabelsAsEnum(), anchorInfo, out var prefabGroup);
+            var prefabToCreate = LabelToPrefab(anchorInfo.Label, anchorInfo, out var prefabGroup);
             if (prefabToCreate == null)
             {
                 return;

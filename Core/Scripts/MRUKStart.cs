@@ -20,12 +20,14 @@
 
 using System;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using UnityEngine.Events;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
     [Obsolete("This class is now obsolete, please register events directly with the MRUK class", true)]
+    [Feature(Feature.Scene)]
     public class MRUKStart : MonoBehaviour
     {
         public UnityEvent sceneLoadedEvent = new();

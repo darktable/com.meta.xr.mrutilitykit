@@ -23,10 +23,12 @@ using UnityEngine.Events;
 using Unity.AI.Navigation;
 using UnityEngine.AI;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public class SceneNavigation : MonoBehaviour
     {
         [Tooltip("When the scene data is loaded, this controls what room(s) will be used when baking the NavMesh.")]

@@ -20,12 +20,14 @@
 
 using System;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Serialization;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public class EffectMesh : MonoBehaviour
     {
         [Tooltip("When the scene data is loaded, this controls what room(s) the effect mesh is applied to.")]
@@ -72,6 +74,13 @@ namespace Meta.XR.MRUtilityKit
             set { ToggleEffectMeshVisibility(!value); hideMesh = value; }
         }
 
+        public bool ToggleColliders
+        {
+            get => Colliders;
+            set { ToggleEffectMeshColliders(!value); Colliders = value;
+            }
+        }
+
         public enum WallTextureCoordinateModeU
         {
             METRIC,                         // The texture coordinates start at 0 and increase by 1 unit every meter.
@@ -111,6 +120,7 @@ namespace Meta.XR.MRUtilityKit
         private static readonly string Suffix = "_EffectMesh";
 
         Dictionary<MRUKAnchor, EffectMeshObject> effectMeshObjects = new ();
+
 
         public class EffectMeshObject
         {
@@ -310,6 +320,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
+
         /// <summary>
         /// Destroys mesh the objects instantiated based on the provided label filter.
         /// </summary>
@@ -321,7 +332,7 @@ namespace Meta.XR.MRUtilityKit
             List<MRUKAnchor> itemsToRemove = new();
             foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
                 {
                     DestroyImmediate(kv.Value.effectMeshGO);
@@ -377,7 +388,7 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Key && !kv.Value.collider && filterByLabel)
                 {
                     kv.Value.collider = AddCollider(kv.Key, kv.Value);
@@ -395,7 +406,7 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.collider && filterByLabel)
                 {
                     DestroyImmediate(kv.Value.collider);
@@ -407,7 +418,7 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
                 {
                     ShadowCastingMode castingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
@@ -429,7 +440,7 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
                 {
                     kv.Value.effectMeshGO.GetComponent<MeshRenderer>().enabled = shouldShow;
@@ -442,6 +453,28 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
+        /// Toggles the colliders of the effect mesh objects. Creates one if not existing.
+        /// </summary>
+        /// <param name="doEnable">Determines whether the effect mesh objects should have an active collider or not.</param>
+        /// <param name="label">The filter to determine which effect mesh objects have their visibility toggled.
+        /// If an effect mesh object's anchor labels pass this filter, its visibility is toggled according to the 'shouldShow' parameter.
+        /// Default value includes all labels.</param>
+        public void ToggleEffectMeshColliders(bool doEnable, LabelFilter label = new LabelFilter())
+        {
+            foreach (var kv in effectMeshObjects)
+            {
+                var filterByLabel = label.PassesFilter(kv.Key.Label);
+                if (!filterByLabel) continue;
+
+                if (!kv.Value.collider)
+                {
+                    AddCollider(kv.Key, kv.Value);
+                }
+
+                kv.Value.collider.enabled = doEnable;
+            }
+        }
+        /// <summary>
         /// Overrides the material of the effect mesh objects instantiated based on the provided label filter.
         /// </summary>
         /// <param name="newMaterial">The new material to apply to the effect mesh objects.</param>
@@ -452,7 +485,7 @@ namespace Meta.XR.MRUtilityKit
         {
             foreach (var kv in effectMeshObjects)
             {
-                bool filterByLabel = label.PassesFilter(kv.Key.AnchorLabels);
+                bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
                 {
                     kv.Value.effectMeshGO.GetComponent<MeshRenderer>().material = newMaterial;
@@ -468,9 +501,7 @@ namespace Meta.XR.MRUtilityKit
             List<MRUKAnchor> walls = new List<MRUKAnchor>();
             foreach (var anchorInfo in room.Anchors)
             {
-#pragma warning disable CS0618 // Type or member is obsolete
-                if (anchorInfo.HasLabel(OVRSceneManager.Classification.WallFace))
-#pragma warning restore CS0618 // Type or member is obsolete
+                if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
                 {
                     Vector2 wallScale = anchorInfo.PlaneRect.Value.size;
                     shortestWall = Mathf.Min(Mathf.Min(wallScale.x, wallScale.y), shortestWall);
@@ -507,20 +538,19 @@ namespace Meta.XR.MRUtilityKit
                 MRUKAnchor anchorInfo = sceneAnchors[i];
                 if (anchorInfo && anchorInfo.HasAnyLabel(Labels))
                 {
-#pragma warning disable CS0618 // Type or member is obsolete
-                    if (anchorInfo.HasLabel(OVRSceneManager.Classification.WallFace))
+                    if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.WALL_FACE))
                     {
                         continue;
                     }
-                    if (anchorInfo.HasLabel(OVRSceneManager.Classification.Ceiling))
+                    if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.CEILING))
                     {
                         ceiling = anchorInfo;
                     }
-                    else if (anchorInfo.HasLabel(OVRSceneManager.Classification.Floor))
+                    else if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.FLOOR))
                     {
                         floor = anchorInfo;
                     }
-                    else if (anchorInfo.HasLabel(OVRSceneManager.Classification.GlobalMesh))
+                    else if (anchorInfo.HasAnyLabel(MRUKAnchor.SceneLabels.GLOBAL_MESH))
                     {
                         CreateGlobalMeshObject(anchorInfo);
                     }
@@ -528,7 +558,6 @@ namespace Meta.XR.MRUtilityKit
                     {
                         CreateEffectMesh(anchorInfo);
                     }
-#pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
 
@@ -538,12 +567,10 @@ namespace Meta.XR.MRUtilityKit
                 // sortedWalls contains ALL walls in the room, both WALL_FACE and INVISIBLE_WALL_FACE
                 // however, we only want to create the mesh for walls in this EffectMesh's label list
                 // this requires custom behavior because every INVISIBLE wall is also tagged as a WALL
-#pragma warning disable CS0618 // Type or member is obsolete
-                bool includeMesh = IncludesLabel(OVRSceneManager.Classification.InvisibleWallFace) &&
-                    sortedWalls[i].HasLabel(OVRSceneManager.Classification.InvisibleWallFace);
-                includeMesh |= IncludesLabel(OVRSceneManager.Classification.WallFace) &&
-                    !sortedWalls[i].HasLabel(OVRSceneManager.Classification.InvisibleWallFace);
-#pragma warning restore CS0618 // Type or member is obsolete
+                bool includeMesh = IncludesLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE) &&
+                    sortedWalls[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
+                includeMesh |= IncludesLabel(MRUKAnchor.SceneLabels.WALL_FACE) &&
+                    !sortedWalls[i].HasAnyLabel(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE);
 
                 if (includeMesh)
                 {
@@ -562,16 +589,9 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private bool IncludesLabel(string labelToCheck)
+        private bool IncludesLabel(MRUKAnchor.SceneLabels label)
         {
-            if (Enum.TryParse(labelToCheck, out MRUKAnchor.SceneLabels enumLabel))
-            {
-                if (Labels.HasFlag(enumLabel))
-                {
-                    return true;
-                }
-            }
-            return false;
+            return (Labels & label) != 0;
         }
 
         List<MRUKAnchor> GetOrderedWalls(List<MRUKAnchor> randomWalls, ref float wallLength)
@@ -985,7 +1005,8 @@ namespace Meta.XR.MRUtilityKit
                 {
                     if (child.PlaneRect.HasValue)
                     {
-                        if ((child.GetLabelsAsEnum() & CutHoles) == 0)
+                        bool shouldCutHoles = (child.Label & CutHoles) != 0;
+                        if (!shouldCutHoles)
                         {
                             continue;
                         }

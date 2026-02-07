@@ -103,7 +103,7 @@ public class DebugPanel : MonoBehaviour
             {
                 if ((effectMesh.Labels & MRUKAnchor.SceneLabels.GLOBAL_MESH) != 0)
                 {
-                    effectMesh.DestroyMesh(LabelFilter.FromEnum(effectMesh.Labels));
+                    effectMesh.DestroyMesh(LabelFilter.Included(effectMesh.Labels));
                 }
                 else
                 {

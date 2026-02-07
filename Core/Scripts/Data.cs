@@ -20,11 +20,13 @@
 
 using System;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public static class Data
     {
         [Serializable]

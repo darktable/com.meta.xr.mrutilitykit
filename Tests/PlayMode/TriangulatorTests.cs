@@ -84,6 +84,27 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
         /// <summary>
+        /// Tests that the triangulator is able to triangulate a large quad with 2 large holes in it.
+        /// </summary>
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator TriangulateQuadWith2HolesLarge()
+        {
+            var vertices = new List<Vector2> {
+                new(101.985214f, 113.8258f), new(-101.985214f, 113.8258f), new(-101.985214f, -113.8258f), new(101.985214f, -113.8258f)
+            };
+            var holes = new List<List<Vector2>> {
+                new List<Vector2> { new(18.395055731633885f, 9.0596833f), new(-72.518264268366110f, 9.0596833f), new(-72.518264268366110f, 67.2252527f), new(18.395055731633885f, 67.2252527f) },
+                new List<Vector2> { new(18.395055731633885f, -53.4203167f), new(-72.518264268366110f, -53.4203167f), new(-72.518264268366110f, 4.7452569f), new(18.395055731633885f, 4.7452569f) },
+            };
+            var outline = Triangulator.CreateOutline(vertices, holes);
+            var indices = Triangulator.TriangulateMesh(outline);
+            yield return null;
+            Assert.AreEqual(42, indices.Count);
+            Assert.AreEqual(35858.1445f, CalculateTriangulatedArea(outline.vertices, indices));
+        }
+
+        /// <summary>
         /// Tests that the triangulator is able to triangulate a 4x4 quad with four 1x1 quad holes distributed in a grid pattern
         /// </summary>
         [UnityTest]

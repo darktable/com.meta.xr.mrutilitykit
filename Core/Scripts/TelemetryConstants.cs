@@ -34,6 +34,7 @@ namespace Meta.XR.MRUtilityKit
             public const int LoadAnchorPrefabSpawner = 651902681;
             public const int LoadGridSliceResizer = 651896136;
             public const int LoadSceneNavigation = 651889094;
+            public const int LoadSceneDecoration = 651888752;
         }
 
         public static class AnnotationType

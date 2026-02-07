@@ -20,35 +20,41 @@
 
 using System;
 using System.Collections.Generic;
+using Meta.XR.Util;
 using Unity.Collections;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    [Feature(Feature.Scene)]
     public class MRUKAnchor : MonoBehaviour
     {
         [Flags]
         public enum SceneLabels
         {
-            FLOOR = 1 << 0,
-            CEILING = 1 << 1,
-            WALL_FACE = 1 << 2,
-            TABLE = 1 << 3,
-            COUCH = 1 << 4,
-            DOOR_FRAME = 1 << 5,
-            WINDOW_FRAME = 1 << 6,
-            OTHER = 1 << 7,
-            STORAGE = 1 << 8,
-            BED = 1 << 9,
-            SCREEN = 1 << 10,
-            LAMP = 1 << 11,
-            PLANT = 1 << 12,
-            WALL_ART = 1 << 13,
-            GLOBAL_MESH = 1 << 14,
-            INVISIBLE_WALL_FACE = 1 << 15,
+            FLOOR = 1 << OVRSemanticLabels.Classification.Floor,
+            CEILING = 1 << OVRSemanticLabels.Classification.Ceiling,
+            WALL_FACE = 1 << OVRSemanticLabels.Classification.WallFace,
+            TABLE = 1 << OVRSemanticLabels.Classification.Table,
+            COUCH = 1 << OVRSemanticLabels.Classification.Couch,
+            DOOR_FRAME = 1 << OVRSemanticLabels.Classification.DoorFrame,
+            WINDOW_FRAME = 1 << OVRSemanticLabels.Classification.WindowFrame,
+            OTHER = 1 << OVRSemanticLabels.Classification.Other,
+            STORAGE = 1 << OVRSemanticLabels.Classification.Storage,
+            BED = 1 << OVRSemanticLabels.Classification.Bed,
+            SCREEN = 1 << OVRSemanticLabels.Classification.Screen,
+            LAMP = 1 << OVRSemanticLabels.Classification.Lamp,
+            PLANT = 1 << OVRSemanticLabels.Classification.Plant,
+            WALL_ART = 1 << OVRSemanticLabels.Classification.WallArt,
+            GLOBAL_MESH = 1 << OVRSemanticLabels.Classification.SceneMesh,
+            INVISIBLE_WALL_FACE = 1 << OVRSemanticLabels.Classification.InvisibleWallFace,
         };
 
-        public List<string> AnchorLabels = new();
+        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        [Obsolete("Use '" + nameof(Label) + "' instead.")]
+        public List<string> AnchorLabels => Utilities.SceneLabelsEnumToList(Label);
+
+        public SceneLabels Label { get; internal set; }
 
         public Rect? PlaneRect;
         public Bounds? VolumeBounds;
@@ -387,9 +393,7 @@ namespace Meta.XR.MRUtilityKit
 
         public Mesh LoadGlobalMeshTriangles()
         {
-#pragma warning disable CS0618 // Type or member is obsolete
-            if (!AnchorLabels.Contains(OVRSceneManager.Classification.GlobalMesh))
-#pragma warning restore CS0618 // Type or member is obsolete
+            if (!HasAnyLabel(SceneLabels.GLOBAL_MESH))
                 return null; // for now only global mesh is supported
             Anchor.TryGetComponent(out OVRTriangleMesh mesh);
             var trimesh = new Mesh
@@ -408,46 +412,16 @@ namespace Meta.XR.MRUtilityKit
             return trimesh;
         }
 
-        /// <summary>
-        /// See if an anchor has a Scene API label.
-        /// </summary>
-        public bool HasLabel(string label)
-        {
-            return AnchorLabels.Contains(label);
-        }
+        [Obsolete(OVRSemanticLabels.DeprecationMessage)]
+        public bool HasLabel(string label) => HasAnyLabel(Utilities.StringLabelToEnum(label));
 
-        /// <summary>
-        /// See if an anchor contains any of the Scene API labels passed as a parameter.
-        /// </summary>
-        public bool HasAnyLabel(List<string> labels)
-        {
-            foreach (var label in labels)
-            {
-                if (HasLabel(label))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        [Obsolete(OVRSemanticLabels.DeprecationMessage)]
+        public bool HasAnyLabel(List<string> labels) => HasAnyLabel(Utilities.StringLabelsToEnum(labels));
 
         /// <summary>
         /// See if an anchor contains any of the SceneLabels passed as a parameter.
         /// </summary>
-        public bool HasAnyLabel(MRUKAnchor.SceneLabels labels)
-        {
-            foreach (string label in AnchorLabels)
-            {
-                if (!Enum.TryParse(label, out MRUKAnchor.SceneLabels enumLabel)) continue;
-                if (labels.HasFlag(enumLabel))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        public bool HasAnyLabel(SceneLabels labelFlags) => (Label & labelFlags) != 0;
 
         internal void UpdateAnchor(Data.AnchorData newData)
         {
@@ -455,21 +429,12 @@ namespace Meta.XR.MRUtilityKit
             PlaneRect = Utilities.GetPlaneRectFromAnchorData(newData);
             VolumeBounds = Utilities.GetVolumeBoundsFromAnchorData(newData);
             GlobalMesh = Utilities.GetGlobalMeshFromAnchorData(newData);
-            AnchorLabels = newData.SemanticClassifications;
+            Label = Utilities.StringLabelsToEnum(newData.SemanticClassifications);
         }
 
-        public SceneLabels GetLabelsAsEnum()
-        {
-            SceneLabels enumLabels = 0;
-            foreach (var label in AnchorLabels)
-            {
-                if (Enum.TryParse(label, out SceneLabels enumLabel))
-                {
-                    enumLabels |= enumLabel;
-                }
-            }
-            return enumLabels;
-        }
+        /// <see cref="OVRSemanticLabels.DeprecationMessage"/>
+        [Obsolete("Use '" + nameof(Label) + "' instead.")]
+        public SceneLabels GetLabelsAsEnum() => Label;
 
         /// <summary>
         /// Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
@@ -481,7 +446,7 @@ namespace Meta.XR.MRUtilityKit
             return Anchor == anchorData.Anchor &&
                    PlaneRect == Utilities.GetPlaneRectFromAnchorData(anchorData) &&
                    VolumeBounds == Utilities.GetVolumeBoundsFromAnchorData(anchorData) &&
-                   AnchorLabels.SequenceEqual(anchorData.SemanticClassifications) &&
+                   Label == Utilities.StringLabelsToEnum(anchorData.SemanticClassifications) &&
                    PlaneBoundary2D.SequenceEqual(anchorData.PlaneBoundary2D);
         }
     }

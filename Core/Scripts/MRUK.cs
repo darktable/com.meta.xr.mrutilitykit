@@ -21,6 +21,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Meta.XR.Util;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Android;
@@ -37,6 +38,7 @@ namespace Meta.XR.MRUtilityKit
     /// Use together with <seealso cref="MRUKLoader"/> to
     /// load data via link, fake data, or on-device data.
     /// </summary>
+    [Feature(Feature.Scene)]
     public class MRUK : MonoBehaviour
     {
         // when interacting specifically with tops of volumes, this can be used to
@@ -69,7 +71,7 @@ namespace Meta.XR.MRUtilityKit
             /// </summary>
             DeviceWithPrefabFallback,
             /// <summary>
-            /// Load Scene from Json String
+            /// Load Scene from a Json file
             /// </summary>
             Json,
         }
@@ -89,15 +91,70 @@ namespace Meta.XR.MRUtilityKit
             /// <summary>
             /// Scene data loaded successfully.
             /// </summary>
-            Success,
+            Success = OVRAnchor.FetchResult.Success,
+
             /// <summary>
             /// User did not grant scene permissions.
             /// </summary>
-            NoScenePermission,
+            NoScenePermission = 1,
+
             /// <summary>
             /// No rooms were found (e.g. User did not go through space setup)
             /// </summary>
-            NoRoomsFound,
+            NoRoomsFound = 2,
+
+            /// <summary>
+            /// Invalid data.
+            /// </summary>
+            FailureDataIsInvalid = OVRAnchor.FetchResult.FailureDataIsInvalid,
+
+            /// <summary>
+            /// Resource limitation prevented this operation from executing.
+            /// </summary>
+            /// <remarks>
+            ///  Recommend retrying, perhaps after a short delay and/or reducing memory consumption.
+            /// </remarks>
+            FailureInsufficientResources = OVRAnchor.FetchResult.FailureInsufficientResources,
+
+            /// <summary>
+            /// Insufficient view.
+            /// </summary>
+            /// <remarks>
+            /// The user needs to look around the environment more for anchor tracking to function.
+            /// </remarks>
+            FailureInsufficientView = OVRAnchor.FetchResult.FailureInsufficientView,
+
+            /// <summary>
+            /// Insufficient permission.
+            /// </summary>
+            /// <remarks>
+            /// Recommend confirming the status of the required permissions needed for using anchor APIs.
+            /// </remarks>
+            FailurePermissionInsufficient = OVRAnchor.FetchResult.FailurePermissionInsufficient,
+
+            /// <summary>
+            /// Operation canceled due to rate limiting.
+            /// </summary>
+            /// <remarks>
+            /// Recommend retrying after a short delay.
+            /// </remarks>
+            FailureRateLimited = OVRAnchor.FetchResult.FailureRateLimited,
+
+            /// <summary>
+            /// Too dark.
+            /// </summary>
+            /// <remarks>
+            /// The environment is too dark to load the anchor.
+            /// </remarks>
+            FailureTooDark = OVRAnchor.FetchResult.FailureTooDark,
+
+            /// <summary>
+            /// Too bright.
+            /// </summary>
+            /// <remarks>
+            /// The environment is too bright to load the anchor.
+            /// </remarks>
+            FailureTooBright = OVRAnchor.FetchResult.FailureTooBright,
         };
 
         [Serializable]
@@ -147,6 +204,8 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(RoomRemovedEvent))]
         public UnityEvent<MRUKRoom> RoomRemovedEvent { get; private set; } = new();
+
+
         /// <summary>
         /// When world locking is enabled the position of the camera rig will be adjusted each frame to ensure
         /// the room anchors are where they should be relative to the camera position.This is necessary to
@@ -158,6 +217,7 @@ namespace Meta.XR.MRUtilityKit
         private bool _worldLockWasEnabled = false;
         private bool _loadSceneCalled = false;
         private Pose? _prevTrackingSpacePose = default;
+        private readonly List<OVRSemanticLabels.Classification> _classificationsBuffer = new List<OVRSemanticLabels.Classification>(1);
 
 
         /// <summary>
@@ -165,6 +225,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         void InitializeScene()
         {
+
             try
             {
                 SceneLoadedEvent.Invoke();
@@ -238,7 +299,6 @@ namespace Meta.XR.MRUtilityKit
         [Obsolete("Use GetCurrentRoom().Anchors instead")]
         public List<MRUKAnchor> GetAnchors() => GetCurrentRoom().Anchors;
 
-
         /// <summary>
         /// Returns the current room the headset is in. If the headset is not in any given room
         /// then it will return the room the headset was last in when this function was called.
@@ -298,18 +358,29 @@ namespace Meta.XR.MRUtilityKit
         [Serializable]
         public class MRUKSettings
         {
+            [Header("Data Source settings")]
             [SerializeField, Tooltip("Where to load the data from.")]
             public SceneDataSource DataSource = SceneDataSource.Device;
             [SerializeField, Tooltip("Which room to use; -1 is random.")]
-            public int RoomIndex = -1;
+            public int RoomIndex  = -1;
             [SerializeField, Tooltip("The list of prefab rooms to use.")]
             public GameObject[] RoomPrefabs;
+            [SerializeField, Tooltip("The list of JSON text files with scene data to use. Uses RoomIndex")]
+            public TextAsset[] SceneJsons;
+
+            [Space]
+            [Header("Startup settings")]
             [SerializeField, Tooltip("Trigger a scene load on startup.")]
             public bool LoadSceneOnStartup = true;
-            [SerializeField, Tooltip("The width of a seat. Use to calculate seat positions")]
+
+            [Space]
+            [Header("Other settings")]
+            [SerializeField, Tooltip("The width of a seat. Use to calculate seat positions.")]
             public float SeatWidth = 0.6f;
-            [SerializeField, Tooltip("The Scene Json to use")]
-            public string SceneJson;
+
+            // SceneJson has been replaced with `TextAsset[] SceneJsons` defined above
+            [SerializeField, HideInInspector, Obsolete]
+            internal string SceneJson;
         }
 
         [Tooltip("Contains all the information regarding data loading.")]
@@ -324,6 +395,7 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public List<MRUKRoom> Rooms { get; } = new();
 
+
         public static MRUK Instance { get; private set; }
 
         void Awake()
@@ -337,6 +409,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 Instance = this;
             }
+
 
             if (SceneSettings == null) return;
 
@@ -471,26 +544,38 @@ namespace Meta.XR.MRUtilityKit
 
                     // Clone the roomPrefab, but essentially replace all its content
                     // if -1 or out of range, use a random one
-                    var roomIndex = SceneSettings.RoomIndex;
-                    if (roomIndex == -1)
-                        roomIndex = UnityEngine.Random.Range(0, SceneSettings.RoomPrefabs.Length);
+                    var roomIndex = GetRoomIndex(true);
 
                     Debug.Log($"Loading prefab room {roomIndex}");
 
-                    GameObject roomPrefab = SceneSettings.RoomPrefabs[roomIndex];
+                    var roomPrefab = SceneSettings.RoomPrefabs[roomIndex];
                     LoadSceneFromPrefab(roomPrefab);
                 }
 
                 if (dataSource == SceneDataSource.Json)
                 {
-                    if (SceneSettings.SceneJson == "")
+                    if (SceneSettings.SceneJsons.Length != 0)
                     {
-                        Debug.LogWarning($"Empty SceneJson string provided");
+                        var roomIndex = GetRoomIndex(false);
+
+                        Debug.Log($"Loading SceneJson {roomIndex}");
+
+                        var ta = SceneSettings.SceneJsons[roomIndex];
+                        LoadSceneFromJsonString(ta.text);
+                    }
+#pragma warning disable CS0612 // Type or member is obsolete
+                    else if (SceneSettings.SceneJson != "")
+#pragma warning restore CS0612 // Type or member is obsolete
+                    {
+#pragma warning disable CS0612 // Type or member is obsolete
+                        LoadSceneFromJsonString(SceneSettings.SceneJson);
+#pragma warning restore CS0612 // Type or member is obsolete
                     }
                     else
                     {
-                        LoadSceneFromJsonString(SceneSettings.SceneJson);
+                        Debug.LogWarning($"The list of SceneJsons is empty");
                     }
+
                 }
             }
             catch (Exception ex)
@@ -498,6 +583,16 @@ namespace Meta.XR.MRUtilityKit
                 Debug.LogException(ex);
                 throw;
             }
+        }
+
+        private int GetRoomIndex(bool fromPrefabs = true)
+        {
+            var idx = SceneSettings.RoomIndex;
+            if (idx == -1)
+            {
+                idx = UnityEngine.Random.Range(0, fromPrefabs ? SceneSettings.RoomPrefabs.Length : SceneSettings.SceneJsons.Length);
+            }
+            return idx;
         }
 
         /// <summary>
@@ -525,7 +620,9 @@ namespace Meta.XR.MRUtilityKit
             foreach (var room in Rooms)
             {
                 foreach (Transform child in room.transform)
+                {
                     Destroy(child.gameObject);
+                }
                 Destroy(room.gameObject);
             }
             Rooms.Clear();
@@ -557,9 +654,9 @@ namespace Meta.XR.MRUtilityKit
         private async Task<LoadDeviceResult> LoadSceneFromDevice(OVRAnchor.FetchOptions fetchOptions,
             bool requestSceneCaptureIfNoDataFound)
         {
-            var newSceneData = await CreateSceneDataFromDevice(fetchOptions);
+            var results = await CreateSceneDataFromDevice(fetchOptions);
 
-            if (newSceneData.Rooms.Count == 0)
+            if (results.SceneData.Rooms.Count == 0)
             {
 #if !UNITY_EDITOR && UNITY_ANDROID
                 // If no rooms were loaded it could be due to missing scene permissions, check for this and print a warning
@@ -591,10 +688,15 @@ namespace Meta.XR.MRUtilityKit
                         return await LoadSceneFromDevice(false);
                     }
                 }
-                return LoadDeviceResult.NoRoomsFound;
+
+                if (results.FetchResult == OVRAnchor.FetchResult.Success)
+                {
+                    return LoadDeviceResult.NoRoomsFound;
+                }
+                return (LoadDeviceResult)results.FetchResult;
             }
 
-            UpdateScene(newSceneData);
+            UpdateScene(results.SceneData);
 
             InitializeScene();
 
@@ -602,11 +704,22 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
+        ///
+        /// </summary>
+        private struct CreateSceneDataResults
+        {
+            public Data.SceneData SceneData;
+            public OVRAnchor.FetchResult FetchResult;
+        }
+
+        /// <summary>
         /// Attempts to create scene data from the device.
         /// </summary>
         /// <returns>A tuple containing a boolean indicating whether the operation was successful, the created scene data, and a list of OVRAnchors.</returns>
-        private async Task<Data.SceneData> CreateSceneDataFromDevice(OVRAnchor.FetchOptions fetchOptions)
+        private async Task<CreateSceneDataResults> CreateSceneDataFromDevice(OVRAnchor.FetchOptions fetchOptions)
         {
+            CreateSceneDataResults sceneDataResults;
+
             var sceneData = new Data.SceneData()
             {
                 CoordinateSystem = SerializationHelpers.CoordinateSystem.Unity,
@@ -615,6 +728,7 @@ namespace Meta.XR.MRUtilityKit
 
             var rooms = new List<OVRAnchor>();
             var result = await OVRAnchor.FetchAnchorsAsync(rooms, fetchOptions);
+            sceneDataResults.FetchResult = result.Status;
 
 #if UNITY_EDITOR
             OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromDevice)
@@ -664,7 +778,9 @@ namespace Meta.XR.MRUtilityKit
                 foreach (var child in childAnchors)
                 {
                     if (!child.TryGetComponent<OVRLocatable>(out var locatable))
+                    {
                         continue;
+                    }
 
                     tasks.Add(locatable.SetEnabledAsync(true));
                 }
@@ -672,18 +788,23 @@ namespace Meta.XR.MRUtilityKit
 
                 foreach (var child in childAnchors)
                 {
+                    if (child.TryGetComponent(out OVRSemanticLabels labels) && labels.IsEnabled)
+                    {
+                        labels.GetClassifications(_classificationsBuffer);
+                    }
+
+                    var semanticClassifications = new List<string>(1);
+                    foreach (var classification in _classificationsBuffer)
+                    {
+                        semanticClassifications.Add(OVRSemanticLabels.ToApiLabel(classification));
+                    }
+
                     var anchorData = new Data.AnchorData
                     {
                         Anchor = child,
+                        SemanticClassifications = semanticClassifications
                     };
-                    var splitLabels = new List<string>();
-                    if (child.TryGetComponent(out OVRSemanticLabels labels) && labels.IsEnabled)
-                    {
-#pragma warning disable CS0618 // Type or member is obsolete
-                        splitLabels.AddRange(labels.Labels.Split(','));
-#pragma warning restore CS0618 // Type or member is obsolete
-                    }
-                    anchorData.SemanticClassifications = splitLabels;
+
                     if (child.TryGetComponent(out OVRBounded2D bounds2) && bounds2.IsEnabled)
                     {
                         anchorData.PlaneBounds = new Data.PlaneBoundsData()
@@ -739,7 +860,10 @@ namespace Meta.XR.MRUtilityKit
                 }
                 sceneData.Rooms.Add(roomData);
             }
-            return sceneData;
+
+            sceneDataResults.SceneData = sceneData;
+
+            return sceneDataResults;
         }
 
         private void FindAllObjects(GameObject roomPrefab, out List<GameObject> walls, out List<GameObject> volumes,
@@ -825,7 +949,7 @@ namespace Meta.XR.MRUtilityKit
                 // if this is an INVISIBLE_WALL_FACE, it also needs the WALL_FACE label
                 if (walls[i].name.Equals(MRUKAnchor.SceneLabels.INVISIBLE_WALL_FACE.ToString()))
                 {
-                    objData.AnchorLabels.Add(MRUKAnchor.SceneLabels.WALL_FACE.ToString());
+                    objData.Label |= MRUKAnchor.SceneLabels.WALL_FACE;
                 }
 
                 objData.transform.parent = sceneRoom.transform;
@@ -1030,7 +1154,7 @@ namespace Meta.XR.MRUtilityKit
             realAnchor.transform.position = position;
             realAnchor.transform.rotation = rotation;
             MRUKAnchor objData = realAnchor.AddComponent<MRUKAnchor>();
-            objData.AnchorLabels.Add(realAnchor.name);
+            objData.Label = Utilities.StringLabelToEnum(realAnchor.name);
             if ((representation & AnchorRepresentation.PLANE) != 0)
             {
                 var size2d = new Vector2(objScale.x, objScale.y);
