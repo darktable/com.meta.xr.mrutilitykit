@@ -22,16 +22,16 @@
 using System.Collections;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
-    public class MRUKTestBase : MonoBehaviour
+    public class MRUKTestBase
     {
         protected const int DefaultTimeoutMs = 10000;
         protected const string EmptyScene = "Packages/com.meta.xr.mrutilitykit/Tests/Empty.unity";
-
 
         protected IEnumerator LoadScene(string sceneToLoad, bool awaitMRUKInit = true)
         {
@@ -53,14 +53,19 @@ namespace Meta.XR.MRUtilityKit.Tests
         protected IEnumerator LoadSceneFromJsonStringAndWait(string sceneJson)
         {
             // Loading from JSON is an async operation in the shared library so wait
-            // until we get the scene loaded event before continuing
-            bool sceneLoaded = false;
-            MRUK.Instance.SceneLoadedEvent.AddListener(() =>
-            {
-                sceneLoaded = true;
-            });
-            MRUK.Instance.LoadSceneFromJsonString(sceneJson);
-            yield return new WaitUntil(() => sceneLoaded);
+            // until the task completes before continuing
+            var result = MRUK.Instance.LoadSceneFromJsonString(sceneJson);
+            yield return new WaitUntil(() => result.IsCompleted);
+            Assert.AreEqual(MRUK.LoadDeviceResult.Success, result.Result, "Failed to load scene from json string");
+        }
+
+        protected IEnumerator LoadSceneFromPrefabAndWait(GameObject scenePrefab, bool clearSceneFirst = true)
+        {
+            // Loading from prefab is an async operation in the shared library so wait
+            // until the task completes before continuing
+            var result = MRUK.Instance.LoadSceneFromPrefab(scenePrefab, clearSceneFirst);
+            yield return new WaitUntil(() => result.IsCompleted);
+            Assert.AreEqual(MRUK.LoadDeviceResult.Success, result.Result, "Failed to load scene from prefab");
         }
     }
 }

@@ -26,7 +26,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
     [CustomEditor(typeof(Modifier), true)]
     [Feature(Feature.Scene)]
-    public class ModifierEditor : Editor
+    public class ModifierEditor : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {

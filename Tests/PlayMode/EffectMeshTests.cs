@@ -27,6 +27,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
@@ -47,7 +48,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/EffectMeshTests.unity");
 
-            _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
+            _jsonTestHelper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
@@ -105,8 +106,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator CountVertsFromObjectsInSequenceWithChildren()
         {
             SetupEffectMesh();
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom3Room1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom3Room1.text);
 
             foreach (var room in MRUK.Instance.Rooms)
             {
@@ -155,8 +155,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             SetupEffectMesh();
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.DefaultRoomNoAnchors.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.DefaultRoomNoAnchors.text);
 
             var vertCount = CountVertex();
 
@@ -175,8 +174,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             SetupEffectMesh();
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
@@ -195,8 +193,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var effectMesh = SetupEffectMesh();
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom3Room1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom3Room1.text);
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Room3Vertices();
@@ -206,8 +203,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             //track room updates, we want just vertices of Room one for this test
             effectMesh.TrackUpdates = true;
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
 
             vertCount = CountVertex();
             expectedVerts = GetRoom1Vertices();
@@ -228,19 +224,14 @@ namespace Meta.XR.MRUtilityKit.Tests
             //we just track one room, and we simulate an added room by the user
             effectMesh.SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
             Assert.AreEqual(expectedVerts, vertCount);
 
-            effectMesh.gameObject.SetActive(false);
-            effectMesh.TrackUpdates = false;
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom3Room1.text);
-            yield return null;
-
-            effectMesh.gameObject.SetActive(true);
+            effectMesh.SpawnOnStart = MRUK.RoomFilter.None;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom3Room1.text);
 
             _currentRoom = MRUK.Instance.GetCurrentRoom();
             List<MRUKRoom> manualCreateEffectMesh = new();
@@ -288,8 +279,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var effectMesh = SetupEffectMesh();
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
@@ -299,8 +289,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             effectMesh.gameObject.SetActive(false);
             effectMesh.TrackUpdates = false;
             effectMesh.SpawnOnStart = MRUK.RoomFilter.None;
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1MoreAnchors.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1MoreAnchors.text);
 
             effectMesh.gameObject.SetActive(true);
 
@@ -339,16 +328,14 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             SetupEffectMesh();
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Vertices();
 
             Assert.AreEqual(expectedVerts, vertCount);
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom1MoreAnchors.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1MoreAnchors.text);
 
             vertCount = CountVertex();
             expectedVerts = GetRoom1VerticesMoreAnchors();
@@ -367,8 +354,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             SetupEffectMesh();
 
-            MRUK.Instance.LoadSceneFromJsonString(_jsonTestHelper.SceneWithRoom3Room1.text);
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom3Room1.text);
 
             var vertCount = CountVertex();
             var expectedVerts = GetRoom1Room3Vertices();
@@ -380,7 +366,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private int CountVertex()
         {
-            var effectMesh = FindAnyObjectByType<EffectMesh>();
+            var effectMesh = Object.FindAnyObjectByType<EffectMesh>();
             int vertCount = 0;
             foreach (var values in effectMesh.EffectMeshObjects.Values)
             {
@@ -391,14 +377,14 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private int CountVertex(MRUKAnchor anchor)
         {
-            var effectMesh = FindAnyObjectByType<EffectMesh>();
+            var effectMesh = Object.FindAnyObjectByType<EffectMesh>();
             var effectMeshObject = effectMesh.EffectMeshObjects[anchor];
             return effectMeshObject.mesh.vertexCount;
         }
 
         private EffectMesh SetupEffectMesh()
         {
-            var effectMesh = FindAnyObjectByType<EffectMesh>();
+            var effectMesh = Object.FindAnyObjectByType<EffectMesh>();
             if (effectMesh == null)
             {
                 Assert.Fail();
@@ -419,10 +405,10 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
         private void DestroyAll<T>() where T : Component
         {
-            var allObjects = FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var allObjects = Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var obj in allObjects)
             {
-                DestroyImmediate(obj.gameObject);
+                Object.DestroyImmediate(obj.gameObject);
             }
         }
     }

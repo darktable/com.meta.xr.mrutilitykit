@@ -29,6 +29,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
@@ -54,7 +55,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity", false);
-            Helper = FindAnyObjectByType<JSONTestHelper>();
+            Helper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
@@ -298,7 +299,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private AnchorPrefabSpawner SetupAnchorPrefabSpawner()
         {
-            var anchorPrefabSpawner = FindAnyObjectByType<AnchorPrefabSpawner>();
+            var anchorPrefabSpawner = Object.FindAnyObjectByType<AnchorPrefabSpawner>();
             if (anchorPrefabSpawner == null)
             {
                 Assert.Fail();
@@ -309,10 +310,10 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private IEnumerator DestroyAnchors()
         {
-            var allObjects = FindObjectsByType<MRUKAnchor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            var allObjects = Object.FindObjectsByType<MRUKAnchor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             foreach (var anchor in allObjects)
             {
-                DestroyImmediate(anchor);
+                Object.DestroyImmediate(anchor);
             }
             yield return null;
         }

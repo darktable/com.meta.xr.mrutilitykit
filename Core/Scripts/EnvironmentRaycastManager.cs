@@ -111,7 +111,7 @@ namespace Meta.XR
                     }
                     else
                     {
-                        string message = $"{nameof(EnvironmentRaycastManager)} is not supported. Requirements: Quest 3, Unity >= 2022.3, 'com.unity.xr.oculus' >= 4.2.0.\n";
+                        string message = $"{nameof(EnvironmentRaycastManager)} is not supported. Requirements: Quest 3 or newer, Unity >= 2022.3.\n";
                         if (Application.isEditor)
                         {
                             message += $"To run the {nameof(EnvironmentRaycastManager)} in Editor, please use Meta Quest Link.\n";

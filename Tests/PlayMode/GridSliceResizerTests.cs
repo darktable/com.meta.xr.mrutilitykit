@@ -66,7 +66,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private void SerializeResizedMesh(string jsonFileName)
         {
-            _resizer = FindAnyObjectByType<GridSliceResizer>();
+            _resizer = Object.FindAnyObjectByType<GridSliceResizer>();
             if (_resizer)
             {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;
@@ -93,7 +93,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/GridSliceResizerTests.unity", false);
-            _resizer = FindAnyObjectByType<GridSliceResizer>();
+            _resizer = Object.FindAnyObjectByType<GridSliceResizer>();
             if (_resizer)
             {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;

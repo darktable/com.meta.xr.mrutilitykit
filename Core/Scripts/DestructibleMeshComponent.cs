@@ -495,7 +495,7 @@ namespace Meta.XR.MRUtilityKit
     }
 #if UNITY_EDITOR
     [CustomEditor(typeof(DestructibleMeshComponent))]
-    public class DestructibleMeshComponentEditor : Editor
+    public class DestructibleMeshComponentEditor : UnityEditor.Editor
     {
         private int _numSegments = 0;
         private bool _initialized = false;

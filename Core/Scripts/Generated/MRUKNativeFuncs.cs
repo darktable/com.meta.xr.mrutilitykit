@@ -70,29 +70,59 @@ namespace Meta.XR.MRUtilityKit
             All = 7,
         };
 
-        public delegate void LogPrinter(MrukLogLevel logLevel, string message);
+        public enum MrukLabel
+        {
+            Floor = 1,
+            Ceiling = 2,
+            WallFace = 4,
+            Table = 8,
+            Couch = 16,
+            DoorFrame = 32,
+            WindowFrame = 64,
+            Other = 128,
+            Storage = 256,
+            Bed = 512,
+            Screen = 1024,
+            Lamp = 2048,
+            Plant = 4096,
+            WallArt = 8192,
+            SceneMesh = 16384,
+            InvisibleWallFace = 32768,
+            Chair = 65536,
+            Unknown = 131072,
+            InnerWallFace = 262144,
+            OtherRoomFace = 524288,
+            Opening = 1048576,
+        };
+
+        public delegate void LogPrinter(MrukLogLevel logLevel, char* message, uint length);
 
         public delegate void MrukOnPreRoomAnchorAdded(ref MrukRoomAnchor roomAnchor, IntPtr userContext);
 
         public delegate void MrukOnRoomAnchorAdded(ref MrukRoomAnchor roomAnchor, IntPtr userContext);
 
-        public delegate void MrukOnRoomAnchorUpdated(ref MrukRoomAnchor roomAnchor, ref MrukUuid oldRoomAnchorUuid, IntPtr userContext);
+        public delegate void MrukOnRoomAnchorUpdated(ref MrukRoomAnchor roomAnchor, ref Guid oldRoomAnchorUuid, [MarshalAs(UnmanagedType.U1)] bool significantChange, IntPtr userContext);
 
         public delegate void MrukOnRoomAnchorRemoved(ref MrukRoomAnchor roomAnchor, IntPtr userContext);
 
         public delegate void MrukOnSceneAnchorAdded(ref MrukSceneAnchor sceneAnchor, IntPtr userContext);
 
-        public delegate void MrukOnSceneAnchorUpdated(ref MrukSceneAnchor sceneAnchor, IntPtr userContext);
+        public delegate void MrukOnSceneAnchorUpdated(ref MrukSceneAnchor sceneAnchor, [MarshalAs(UnmanagedType.U1)] bool significantChange, IntPtr userContext);
 
         public delegate void MrukOnSceneAnchorRemoved(ref MrukSceneAnchor sceneAnchor, IntPtr userContext);
 
         public delegate void MrukOnDiscoveryFinished(MrukResult result, IntPtr userContext);
 
+        public delegate Pose TrackingSpacePoseGetter();
+
+        public delegate void TrackingSpacePoseSetter(Pose pose);
+
         [StructLayout(LayoutKind.Sequential)]
-        public struct MrukPosef
+        public struct MrukLabelFilter
         {
-            public Vector3 position;
-            public Quaternion rotation;
+            public uint surfaceType;
+            public uint includedLabels;
+            [MarshalAs(UnmanagedType.U1)] public bool includedLabelsSet;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -121,13 +151,6 @@ namespace Meta.XR.MRUtilityKit
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        public struct MrukUuid
-        {
-            public ulong part1;
-            public ulong part2;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
         public struct MrukVolume
         {
             public Vector3 min;
@@ -147,16 +170,15 @@ namespace Meta.XR.MRUtilityKit
         public struct MrukSceneAnchor
         {
             public ulong space;
-            public MrukUuid uuid;
-            public MrukUuid roomUuid;
-            public MrukPosef pose;
+            public Guid uuid;
+            public Guid roomUuid;
+            public Pose pose;
             public MrukVolume volume;
             public MrukPlane plane;
-            public char** semanticLabels;
+            public MrukLabel semanticLabel;
             public Vector2* planeBoundary;
             public uint* globalMeshIndices;
             public Vector3* globalMeshPositions;
-            public uint semanticLabelsCount;
             public uint planeBoundaryCount;
             public uint globalMeshIndicesCount;
             public uint globalMeshPositionsCount;
@@ -168,7 +190,8 @@ namespace Meta.XR.MRUtilityKit
         public struct MrukRoomAnchor
         {
             public ulong space;
-            public MrukUuid uuid;
+            public Guid uuid;
+            public Pose pose;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -188,13 +211,36 @@ namespace Meta.XR.MRUtilityKit
         [StructLayout(LayoutKind.Sequential)]
         public struct MrukHit
         {
-            public MrukUuid roomAnchorUuid;
-            public MrukUuid sceneAnchorUuid;
+            public Guid roomAnchorUuid;
+            public Guid sceneAnchorUuid;
             public float hitDistance;
             public Vector3 hitPosition;
             public Vector3 hitNormal;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MrukSharedRoomsData
+        {
+            public Guid groupUuid;
+            public Guid* roomUuids;
+            public uint numRoomUuids;
+            public Guid alignmentRoomUuid;
+            public Pose roomWorldPoseOnHost;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct _MrukUuidAlignmentTest
+        {
+            public byte padding;
+            public Guid uuid;
+        }
+
+
+        /**
+         * This allows the engine to intercept the logs from the shared library and print them using the
+         * engine's logging system. Note that the log lines are NOT NULL terminated, and so you must take
+         * into account the length and be careful not to read past it.
+         */
         internal delegate void SetLogPrinterDelegate(LogPrinter printer);
 
         /**
@@ -206,6 +252,12 @@ namespace Meta.XR.MRUtilityKit
          */
         internal delegate MrukResult AnchorStoreCreateDelegate(ulong xrInstance, ulong xrSession, IntPtr xrInstanceProcAddrFunc, ulong baseSpace);
         internal delegate MrukResult AnchorStoreCreateWithoutOpenXrDelegate();
+
+        /**
+         * This should be called when the OpenXR instance is destroyed and it is no longer valid to attempt
+         * to make any OpenXR calls. This can happen with Link when exiting play mode.
+         */
+        internal delegate void AnchorStoreShutdownOpenXrDelegate();
 
         /**
          * Destroy the global anchor store
@@ -225,6 +277,11 @@ namespace Meta.XR.MRUtilityKit
         internal delegate MrukResult AnchorStoreStartDiscoveryDelegate([MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
 
         /**
+         * Start anchor query from shared group uuid in the anchor store
+         */
+        internal delegate MrukResult AnchorStoreStartQueryByLocalGroupDelegate(MrukSharedRoomsData sharedRoomsData, [MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
+
+        /**
          * Load the scene from a json string
          */
         internal delegate MrukResult AnchorStoreLoadSceneFromJsonDelegate(string jsonString, [MarshalAs(UnmanagedType.U1)] bool shouldRemoveMissingRooms, MrukSceneModel sceneModel);
@@ -233,13 +290,18 @@ namespace Meta.XR.MRUtilityKit
          * Save the scene to a json string.
          * @return The serialized JSON string. This string must be freed with FreeAnchorStoreJson after use!
          */
-        internal delegate char* AnchorStoreSaveSceneToJsonDelegate();
+        internal delegate char* AnchorStoreSaveSceneToJsonDelegate([MarshalAs(UnmanagedType.U1)] bool includeGlobalMesh, Guid[] roomUuids, uint numRoomUuids);
 
         /**
          * Free the json string returned by AnchorStoreSaveSceneToJson.
          * @param[in] jsonString The JSON string to free.
          */
         internal delegate void AnchorStoreFreeJsonDelegate(char* jsonString);
+
+        /**
+         * Given a prefabricated scene description, load it in the anchor store.
+         */
+        internal delegate MrukResult AnchorStoreLoadSceneFromPrefabDelegate(MrukRoomAnchor* roomAnchors, uint numRoomAnchors, MrukSceneAnchor* sceneAnchors, uint numSceneAnchors);
 
         /**
          * Clear and remove all rooms in the anchor store.
@@ -249,7 +311,7 @@ namespace Meta.XR.MRUtilityKit
         /**
          * Clear and remove the room that matches the given uuid.
          */
-        internal delegate void AnchorStoreClearRoomDelegate(MrukUuid roomUuid);
+        internal delegate void AnchorStoreClearRoomDelegate(Guid roomUuid);
 
         /**
          * Allows to forward OpenXR events from the engine into the shared library
@@ -264,15 +326,31 @@ namespace Meta.XR.MRUtilityKit
 
         /**
          * Cast a ray against all anchors in the room and return the first hit.
+         * A maxDistance of <= 0 will return the first hit regardless of distance.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreRaycastRoomDelegate(MrukUuid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceType, ref MrukHit outHit);
+        internal delegate bool AnchorStoreRaycastRoomDelegate(Guid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, MrukLabelFilter labelFilter, ref MrukHit outHit);
 
         /**
          * Cast a ray against all anchors in the room and return all hits along the ray.
+         * A maxDistance of <= 0 will return the hits along the ray regardless of distance.
          */
         [return: MarshalAs(UnmanagedType.U1)]
-        internal delegate bool AnchorStoreRaycastRoomAllDelegate(MrukUuid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceType, ref MrukHit outHits, ref uint outHitsCount);
+        internal delegate bool AnchorStoreRaycastRoomAllDelegate(Guid roomUuid, Vector3 origin, Vector3 direction, float maxDistance, MrukLabelFilter labelFilter, ref MrukHit outHits, ref uint outHitsCount);
+
+        /**
+         * Cast a ray against the anchor in the room and return the first hit.
+         * A maxDistance of <= 0 will return the hits along the ray regardless of distance.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool AnchorStoreRaycastAnchorDelegate(Guid sceneAnchorUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceTypes, ref MrukHit outHit);
+
+        /**
+         * Cast a ray against the anchor in the room and return all hits along the ray.
+         * A maxDistance of <= 0 will return the hits along the ray regardless of distance.
+         */
+        [return: MarshalAs(UnmanagedType.U1)]
+        internal delegate bool AnchorStoreRaycastAnchorAllDelegate(Guid sceneAnchorUuid, Vector3 origin, Vector3 direction, float maxDistance, uint surfaceTypes, ref MrukHit outHits, ref uint outHitsCount);
         [return: MarshalAs(UnmanagedType.U1)]
         internal delegate bool AnchorStoreIsDiscoveryRunningDelegate();
 
@@ -332,15 +410,37 @@ namespace Meta.XR.MRUtilityKit
          */
         internal delegate void FreeMeshSegmentationDelegate(MrukMesh3f* meshSegments, uint numSegments, ref MrukMesh3f reservedSegment);
 
+        /**
+         * The is a test function purely to test the marshalling of Uuid from C# to C++. It ensures that the
+         * packing between clang C++ and the C# definitions of MrukUuid are compatible.
+         *
+         * @param[in] packedUuid A uuid packed into a structure.
+         * @return A copy of the uuid that was passed in the structure.
+         */
+        internal delegate Guid _TestUuidMarshallingDelegate(_MrukUuidAlignmentTest packedUuid);
+
+        /**
+         * Converts the given label to the matching MrukLabel.
+         *
+         * @param[in] label The label as string.
+         * @return The converted MrukLabel.
+         */
+        internal delegate MrukLabel StringToMrukLabelDelegate(string label);
+        internal delegate void SetTrackingSpacePoseGetterDelegate(TrackingSpacePoseGetter getter);
+        internal delegate void SetTrackingSpacePoseSetterDelegate(TrackingSpacePoseSetter setter);
+
         internal static SetLogPrinterDelegate SetLogPrinter;
         internal static AnchorStoreCreateDelegate AnchorStoreCreate;
         internal static AnchorStoreCreateWithoutOpenXrDelegate AnchorStoreCreateWithoutOpenXr;
+        internal static AnchorStoreShutdownOpenXrDelegate AnchorStoreShutdownOpenXr;
         internal static AnchorStoreDestroyDelegate AnchorStoreDestroy;
         internal static AnchorStoreSetBaseSpaceDelegate AnchorStoreSetBaseSpace;
         internal static AnchorStoreStartDiscoveryDelegate AnchorStoreStartDiscovery;
+        internal static AnchorStoreStartQueryByLocalGroupDelegate AnchorStoreStartQueryByLocalGroup;
         internal static AnchorStoreLoadSceneFromJsonDelegate AnchorStoreLoadSceneFromJson;
         internal static AnchorStoreSaveSceneToJsonDelegate AnchorStoreSaveSceneToJson;
         internal static AnchorStoreFreeJsonDelegate AnchorStoreFreeJson;
+        internal static AnchorStoreLoadSceneFromPrefabDelegate AnchorStoreLoadSceneFromPrefab;
         internal static AnchorStoreClearRoomsDelegate AnchorStoreClearRooms;
         internal static AnchorStoreClearRoomDelegate AnchorStoreClearRoom;
         internal static AnchorStoreOnOpenXrEventDelegate AnchorStoreOnOpenXrEvent;
@@ -348,24 +448,33 @@ namespace Meta.XR.MRUtilityKit
         internal static AnchorStoreRegisterEventListenerDelegate AnchorStoreRegisterEventListener;
         internal static AnchorStoreRaycastRoomDelegate AnchorStoreRaycastRoom;
         internal static AnchorStoreRaycastRoomAllDelegate AnchorStoreRaycastRoomAll;
+        internal static AnchorStoreRaycastAnchorDelegate AnchorStoreRaycastAnchor;
+        internal static AnchorStoreRaycastAnchorAllDelegate AnchorStoreRaycastAnchorAll;
         internal static AnchorStoreIsDiscoveryRunningDelegate AnchorStoreIsDiscoveryRunning;
         internal static AddVectorsDelegate AddVectors;
         internal static TriangulatePolygonDelegate TriangulatePolygon;
         internal static FreeMeshDelegate FreeMesh;
         internal static ComputeMeshSegmentationDelegate ComputeMeshSegmentation;
         internal static FreeMeshSegmentationDelegate FreeMeshSegmentation;
+        internal static _TestUuidMarshallingDelegate _TestUuidMarshalling;
+        internal static StringToMrukLabelDelegate StringToMrukLabel;
+        internal static SetTrackingSpacePoseGetterDelegate SetTrackingSpacePoseGetter;
+        internal static SetTrackingSpacePoseSetterDelegate SetTrackingSpacePoseSetter;
 
         internal static void LoadNativeFunctions()
         {
             SetLogPrinter = MRUKNative.LoadFunction<SetLogPrinterDelegate>("SetLogPrinter");
             AnchorStoreCreate = MRUKNative.LoadFunction<AnchorStoreCreateDelegate>("AnchorStoreCreate");
             AnchorStoreCreateWithoutOpenXr = MRUKNative.LoadFunction<AnchorStoreCreateWithoutOpenXrDelegate>("AnchorStoreCreateWithoutOpenXr");
+            AnchorStoreShutdownOpenXr = MRUKNative.LoadFunction<AnchorStoreShutdownOpenXrDelegate>("AnchorStoreShutdownOpenXr");
             AnchorStoreDestroy = MRUKNative.LoadFunction<AnchorStoreDestroyDelegate>("AnchorStoreDestroy");
             AnchorStoreSetBaseSpace = MRUKNative.LoadFunction<AnchorStoreSetBaseSpaceDelegate>("AnchorStoreSetBaseSpace");
             AnchorStoreStartDiscovery = MRUKNative.LoadFunction<AnchorStoreStartDiscoveryDelegate>("AnchorStoreStartDiscovery");
+            AnchorStoreStartQueryByLocalGroup = MRUKNative.LoadFunction<AnchorStoreStartQueryByLocalGroupDelegate>("AnchorStoreStartQueryByLocalGroup");
             AnchorStoreLoadSceneFromJson = MRUKNative.LoadFunction<AnchorStoreLoadSceneFromJsonDelegate>("AnchorStoreLoadSceneFromJson");
             AnchorStoreSaveSceneToJson = MRUKNative.LoadFunction<AnchorStoreSaveSceneToJsonDelegate>("AnchorStoreSaveSceneToJson");
             AnchorStoreFreeJson = MRUKNative.LoadFunction<AnchorStoreFreeJsonDelegate>("AnchorStoreFreeJson");
+            AnchorStoreLoadSceneFromPrefab = MRUKNative.LoadFunction<AnchorStoreLoadSceneFromPrefabDelegate>("AnchorStoreLoadSceneFromPrefab");
             AnchorStoreClearRooms = MRUKNative.LoadFunction<AnchorStoreClearRoomsDelegate>("AnchorStoreClearRooms");
             AnchorStoreClearRoom = MRUKNative.LoadFunction<AnchorStoreClearRoomDelegate>("AnchorStoreClearRoom");
             AnchorStoreOnOpenXrEvent = MRUKNative.LoadFunction<AnchorStoreOnOpenXrEventDelegate>("AnchorStoreOnOpenXrEvent");
@@ -373,12 +482,18 @@ namespace Meta.XR.MRUtilityKit
             AnchorStoreRegisterEventListener = MRUKNative.LoadFunction<AnchorStoreRegisterEventListenerDelegate>("AnchorStoreRegisterEventListener");
             AnchorStoreRaycastRoom = MRUKNative.LoadFunction<AnchorStoreRaycastRoomDelegate>("AnchorStoreRaycastRoom");
             AnchorStoreRaycastRoomAll = MRUKNative.LoadFunction<AnchorStoreRaycastRoomAllDelegate>("AnchorStoreRaycastRoomAll");
+            AnchorStoreRaycastAnchor = MRUKNative.LoadFunction<AnchorStoreRaycastAnchorDelegate>("AnchorStoreRaycastAnchor");
+            AnchorStoreRaycastAnchorAll = MRUKNative.LoadFunction<AnchorStoreRaycastAnchorAllDelegate>("AnchorStoreRaycastAnchorAll");
             AnchorStoreIsDiscoveryRunning = MRUKNative.LoadFunction<AnchorStoreIsDiscoveryRunningDelegate>("AnchorStoreIsDiscoveryRunning");
             AddVectors = MRUKNative.LoadFunction<AddVectorsDelegate>("AddVectors");
             TriangulatePolygon = MRUKNative.LoadFunction<TriangulatePolygonDelegate>("TriangulatePolygon");
             FreeMesh = MRUKNative.LoadFunction<FreeMeshDelegate>("FreeMesh");
             ComputeMeshSegmentation = MRUKNative.LoadFunction<ComputeMeshSegmentationDelegate>("ComputeMeshSegmentation");
             FreeMeshSegmentation = MRUKNative.LoadFunction<FreeMeshSegmentationDelegate>("FreeMeshSegmentation");
+            _TestUuidMarshalling = MRUKNative.LoadFunction<_TestUuidMarshallingDelegate>("_TestUuidMarshalling");
+            StringToMrukLabel = MRUKNative.LoadFunction<StringToMrukLabelDelegate>("StringToMrukLabel");
+            SetTrackingSpacePoseGetter = MRUKNative.LoadFunction<SetTrackingSpacePoseGetterDelegate>("SetTrackingSpacePoseGetter");
+            SetTrackingSpacePoseSetter = MRUKNative.LoadFunction<SetTrackingSpacePoseSetterDelegate>("SetTrackingSpacePoseSetter");
         }
 
         internal static void UnloadNativeFunctions()
@@ -386,12 +501,15 @@ namespace Meta.XR.MRUtilityKit
             SetLogPrinter = null;
             AnchorStoreCreate = null;
             AnchorStoreCreateWithoutOpenXr = null;
+            AnchorStoreShutdownOpenXr = null;
             AnchorStoreDestroy = null;
             AnchorStoreSetBaseSpace = null;
             AnchorStoreStartDiscovery = null;
+            AnchorStoreStartQueryByLocalGroup = null;
             AnchorStoreLoadSceneFromJson = null;
             AnchorStoreSaveSceneToJson = null;
             AnchorStoreFreeJson = null;
+            AnchorStoreLoadSceneFromPrefab = null;
             AnchorStoreClearRooms = null;
             AnchorStoreClearRoom = null;
             AnchorStoreOnOpenXrEvent = null;
@@ -399,12 +517,18 @@ namespace Meta.XR.MRUtilityKit
             AnchorStoreRegisterEventListener = null;
             AnchorStoreRaycastRoom = null;
             AnchorStoreRaycastRoomAll = null;
+            AnchorStoreRaycastAnchor = null;
+            AnchorStoreRaycastAnchorAll = null;
             AnchorStoreIsDiscoveryRunning = null;
             AddVectors = null;
             TriangulatePolygon = null;
             FreeMesh = null;
             ComputeMeshSegmentation = null;
             FreeMeshSegmentation = null;
+            _TestUuidMarshalling = null;
+            StringToMrukLabel = null;
+            SetTrackingSpacePoseGetter = null;
+            SetTrackingSpacePoseSetter = null;
         }
 
     }

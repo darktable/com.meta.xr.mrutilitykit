@@ -260,6 +260,8 @@ namespace Meta.XR.MRUtilityKit
         {
             InitUpdateGradientTexture();
             ApplyMaterial();
+
+            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSpaceMapGPU).Send();
         }
 
         private void OnEnable()

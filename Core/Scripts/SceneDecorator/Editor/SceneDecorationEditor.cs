@@ -31,7 +31,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
     [CustomEditor(typeof(SceneDecoration))]
     [Feature(Feature.Scene)]
-    public class SceneDecorationEditor : Editor
+    public class SceneDecorationEditor : UnityEditor.Editor
     {
         private static readonly Type[] maskTypes = new Type[]
         {
@@ -53,7 +53,6 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             typeof(RayDistanceMask),
             typeof(SimplexNoiseMask),
             typeof(SlopeMask),
-            typeof(SpaceMapMask),
             typeof(SpaceMapGPUMask),
             typeof(StochasticMask)
         };

@@ -61,6 +61,8 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
             #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            // This multi_compile declaration is required for the Forward+ rendering path
+            #pragma multi_compile _ _FORWARD_PLUS
             #pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION //occl
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -103,6 +105,13 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
+                // The Forward+ light loop (LIGHT_LOOP_BEGIN) requires the InputData struct to be in its scope.
+                InputData inputData = (InputData)0;
+                inputData.positionWS = input.positionWS;
+                inputData.normalWS = input.normalWS;
+                inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
+                inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+
                 half3 color = half3(0, 0, 0);
                 half mainLightShadowAttenuation;
 
@@ -112,17 +121,32 @@ Shader "Meta/MRUK/Scene/HighlightsAndShadows"
                 const float4 shadowCoord = GetShadowCoord(vertexInput);
                 mainLightShadowAttenuation = MainLightRealtimeShadow(shadowCoord);
                 half alpha = (1 - mainLightShadowAttenuation) * _ShadowIntensity;
+				half finalAlpha = alpha;
 
+#if defined(_ADDITIONAL_LIGHTS)
                 //Additional lights highlights.
                 float lightAlpha = 0;
-                for (int i = 0; i < GetAdditionalLightsCount(); i++) {
-                    Light light = GetAdditionalLight(i, input.positionWS, float4(0, 0, 0, 0));
+#if USE_FORWARD_PLUS
+                UNITY_LOOP for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
+                {
+                    Light light = GetAdditionalLight(lightIndex, inputData.positionWS, half4(1,1,1,1));
                     float ndtol = saturate(dot(light.direction, input.normalWS));
                     lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
                     color += light.color * lightAlpha * (1-alpha);
                 }
+#endif
+                // Additional light loop. The GetAdditionalLightsCount method always returns 0 in Forward+.
+                uint pixelLightCount = GetAdditionalLightsCount();
+                LIGHT_LOOP_BEGIN(pixelLightCount)
+                    Light light = GetAdditionalLight(lightIndex, input.positionWS, float4(0, 0, 0, 0));
+                    float ndtol = saturate(dot(light.direction, input.normalWS));
+                    lightAlpha = light.distanceAttenuation * ndtol * _HighLightAttenuation * light.shadowAttenuation;
+                    color += light.color * lightAlpha * (1-alpha);
+				LIGHT_LOOP_END
+				finalAlpha = alpha + (lightAlpha * _HighlightOpacity);
+#endif
                 float occlusionValue = META_DEPTH_GET_OCCLUSION_VALUE_WORLDPOS(input.positionWS, _EnvironmentDepthBias);//occl
-                return half4(color * occlusionValue, (alpha + (lightAlpha * _HighlightOpacity)) * occlusionValue);
+                return half4(color * occlusionValue, finalAlpha * occlusionValue);
             }
             ENDHLSL
         }

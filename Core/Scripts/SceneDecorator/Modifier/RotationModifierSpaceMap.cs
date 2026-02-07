@@ -38,7 +38,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
         public override void ApplyModifier(GameObject decorationGO, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration, Candidate candidate)
         {
-            var spaceMap = FindAnyObjectByType<SpaceMap>();
+            var spaceMap = FindAnyObjectByType<SpaceMapGPU>();
             if (spaceMap == null)
             {
                 return;

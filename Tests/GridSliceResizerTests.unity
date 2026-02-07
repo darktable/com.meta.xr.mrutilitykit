@@ -104,7 +104,7 @@ NavMeshSettings:
   serializedVersion: 2
   m_ObjectHideFlags: 0
   m_BuildSettings:
-    serializedVersion: 2
+    serializedVersion: 3
     agentTypeID: 0
     agentRadius: 0.5
     agentHeight: 2
@@ -117,7 +117,7 @@ NavMeshSettings:
     cellSize: 0.16666667
     manualTileSize: 0
     tileSize: 256
-    accuratePlacement: 0
+    buildHeightMesh: 0
     maxJobWorkers: 0
     preserveTilesOutsideBounds: 0
     debug:
@@ -130,13 +130,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 919132147623444000}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &919132147623444000
 GameObject:
@@ -149,7 +149,6 @@ GameObject:
   - component: {fileID: 543450651876451482}
   - component: {fileID: 919132147623444002}
   - component: {fileID: 919132147623444001}
-  - component: {fileID: 919132147623444003}
   - component: {fileID: 919132147623444004}
   m_Layer: 0
   m_Name: bevelcube
@@ -208,18 +207,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 919132147623444000}
   m_Mesh: {fileID: -5495902117074765545, guid: c1e06f36f6a71234ab15a7826c4871d9, type: 3}
---- !u!114 &919132147623444003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 919132147623444000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f6832b7244f19ce41aaa0535e6f789cc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &919132147623444004
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -244,3 +231,9 @@ MonoBehaviour:
   BorderZPositive: 0.01
   StretchCenter: 0
   UpdateInPlayMode: 1
+  OriginalMesh: {fileID: -5495902117074765545, guid: c1e06f36f6a71234ab15a7826c4871d9, type: 3}
+--- !u!1660057539 &9223372036854775807
+SceneRoots:
+  m_ObjectHideFlags: 0
+  m_Roots:
+  - {fileID: 543450651876451482}

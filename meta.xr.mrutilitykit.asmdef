@@ -7,7 +7,8 @@
         "Unity.TextMeshPro",
         "Meta.XR.EnvironmentDepth",
         "Oculus.Interaction",
-        "Meta.XR.ImmersiveDebugger"
+        "Meta.XR.ImmersiveDebugger",
+        "Oculus.VR.Editor"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -43,7 +43,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/CRUDTests.unity", false);
-            _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
+            _jsonTestHelper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
         [UnityTearDown]
         public IEnumerator TearDown()
@@ -225,5 +225,4 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
     }
-
 }

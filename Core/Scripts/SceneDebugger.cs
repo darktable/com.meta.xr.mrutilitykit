@@ -865,12 +865,13 @@ namespace Meta.XR.MRUtilityKit
                     {
                         exportGlobalMesh = exportGlobalMeshJSONDropdown.options[exportGlobalMeshJSONDropdown.value].text.ToLower() == "true";
                     }
-                    var scene = SerializationHelpers.Serialize(SerializationHelpers.CoordinateSystem.Unity,
+                    var scene = MRUK.Instance.SaveSceneToJsonString(
                     exportGlobalMesh
                     );
                     var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
                     var path = Path.Combine(Application.persistentDataPath, filename);
                     File.WriteAllText(path, scene);
+                    Debug.Log($"Saved Scene JSON to {path}");
                 }
             }
             catch (Exception e)

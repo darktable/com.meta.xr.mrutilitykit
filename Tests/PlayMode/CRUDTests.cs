@@ -37,7 +37,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/CRUDTests.unity", false);
-            _jsonTestHelper = FindAnyObjectByType<JSONTestHelper>();
+            _jsonTestHelper = Object.FindAnyObjectByType<JSONTestHelper>();
             yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
             _currentRoom = MRUK.Instance.GetCurrentRoom();
         }
@@ -385,6 +385,5 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return null;
         }
     }
-
 }
 

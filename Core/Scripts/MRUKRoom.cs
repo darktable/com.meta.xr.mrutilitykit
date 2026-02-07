@@ -60,7 +60,6 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public OVRAnchor Anchor { get; internal set; } = OVRAnchor.Null;
 
-
         /// <summary>
         ///     A room is considered local if it was loaded from device. If it was loaded from some other source,
         ///     e.g. JSON or Prefab then it is not local.
@@ -253,63 +252,28 @@ namespace Meta.XR.MRUtilityKit
         ///@endcond
 
         /// <summary>
-        /// Updates the room's label and the GameObject's name based on the provided room data.
-        /// If a room label is available, it sets the GameObject's name to include the label.
-        /// Otherwise, it uses the room's anchor UUID for the GameObject's name.
-        /// </summary>
-        /// <param name="roomData">The data containing information about the room, including the label and anchor.</param>
-        internal void UpdateRoomLabel(Data.RoomData roomData)
-        {
-            {
-                gameObject.name = $"Room - {roomData.Anchor.Uuid}";
-            }
-        }
-
-        /// <summary>
         /// Shares this room with the specified group
         /// </summary>
         /// <param name="groupUuid">UUID of the group to which the room should be shared.</param>
         /// <returns>A task that tracks the asynchronous operation.</returns>
         /// <exception cref="InvalidOperationException">Thrown if <see cref="Anchor"/> is <see cref="OVRAnchor.Null"/></exception>
         /// <exception cref="ArgumentException">Thrown if <paramref name="groupUuid"/> is empty.</exception>
-        public OVRTask<OVRResult<OVRAnchor.ShareResult>> ShareRoomAsync(Guid groupUuid)
+        public async OVRTask<OVRResult<OVRAnchor.ShareResult>> ShareRoomAsync(Guid groupUuid)
         {
             if (Anchor == OVRAnchor.Null)
             {
                 throw new InvalidOperationException($"{nameof(Anchor)} must not be {nameof(OVRAnchor.Null)}");
             }
 
-
             if (Guid.Empty == groupUuid)
             {
                 throw new ArgumentException(nameof(groupUuid));
             }
-            return Anchor.ShareAsync(groupUuid);
-        }
-
-        internal void UpdateRoom(Data.RoomData roomData)
-        {
-            var useRoomLayout = true;
-
-            if (useRoomLayout)
+            if (Anchor.TryGetComponent<OVRSharable>(out var sharable))
             {
-                WallAnchors.Clear();
-                foreach (var wallUuid in roomData.RoomLayout.WallsUuid)
-                {
-                    var anchor = FindAnchorByUuid(wallUuid);
-
-                    Assert.IsNotNull(anchor, $"Wall anchor with UUID {wallUuid} not found!");
-                    if (anchor)
-                    {
-                        WallAnchors.Add(anchor);
-                    }
-                }
-
-                FloorAnchor = FindAnchorByUuid(roomData.RoomLayout.FloorUuid);
-                CeilingAnchor = FindAnchorByUuid(roomData.RoomLayout.CeilingUuid);
-                Assert.IsNotNull(CeilingAnchor, $"Ceiling anchor with UUID {roomData.RoomLayout.CeilingUuid} not found!");
-                Assert.IsNotNull(FloorAnchor, $"Floor anchor with UUID {roomData.RoomLayout.FloorUuid} not found!");
+                await sharable.SetEnabledAsync(true);
             }
+            return await Anchor.ShareAsync(groupUuid);
         }
 
         internal MRUKAnchor FindAnchorByUuid(Guid uuid)
@@ -1665,79 +1629,6 @@ namespace Meta.XR.MRUtilityKit
             AnchorCreatedEvent.RemoveAllListeners();
             AnchorRemovedEvent.RemoveAllListeners();
             AnchorUpdatedEvent.RemoveAllListeners();
-        }
-
-        internal void CreateAnchor(Data.AnchorData anchorData, Matrix4x4 anchorOffset)
-        {
-            var anchorName = Utilities.GetAnchorName(anchorData);
-            var anchorGO = new GameObject(anchorName);
-
-            anchorGO.transform.SetParent(transform);
-            anchorGO.transform.position = anchorOffset.MultiplyPoint3x4(anchorData.Transform.Translation);
-            anchorGO.transform.rotation = anchorOffset.rotation * Quaternion.Euler(anchorData.Transform.Rotation);
-            anchorGO.transform.localScale = anchorData.Transform.Scale;
-
-            var createdAnchor = anchorGO.AddComponent<MRUKAnchor>();
-            createdAnchor.Room = this;
-            createdAnchor.Anchor = anchorData.Anchor;
-            createdAnchor.UpdateAnchor(anchorData);
-
-            Anchors.Add(createdAnchor);
-            AnchorCreatedEvent.Invoke(createdAnchor);
-        }
-
-        /// <summary>
-        ///     Compares the current MRUKRoom data to another room data. If all the anchors contained within it are
-        ///     identical then this function returns true.
-        /// </summary>
-        /// <param name="roomData">The other room data.</param>
-        /// <returns>True if the two rooms are identical, false otherwise.</returns>
-        internal bool IsIdenticalRoom(Data.RoomData roomData)
-        {
-            bool allAnchorsEqual = true;
-            foreach (var anchor in Anchors)
-            {
-                bool anchorEqual = false;
-                foreach (var anchorData in roomData.Anchors)
-                {
-                    if (anchor.Equals(anchorData))
-                    {
-                        anchorEqual = true;
-                        break;
-                    }
-                }
-
-                if (!anchorEqual)
-                {
-                    allAnchorsEqual = false;
-                    break;
-                }
-            }
-
-            return Anchor == roomData.Anchor && allAnchorsEqual && roomData.Anchors.Count == Anchors.Count;
-        }
-
-        /// <summary>
-        ///     Checks to see if the room is the same. They are classed as the same room if any
-        ///     of the anchors contained within it have the same UUID, even if some anchors may have
-        ///     been added, removed or modified.
-        /// </summary>
-        /// <param name="roomData">The other room data.</param>
-        /// <returns>True if the two rooms are the same, false otherwise.</returns>
-        internal bool IsSameRoom(Data.RoomData roomData)
-        {
-            foreach (var anchor in Anchors)
-            {
-                foreach (var anchorData in roomData.Anchors)
-                {
-                    if (anchor.Anchor == anchorData.Anchor)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
         }
     }
 }

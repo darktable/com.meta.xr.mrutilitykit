@@ -678,16 +678,6 @@ namespace Meta.XR.MRUtilityKit
         /// <returns>True if the anchor has any of the specified labels, false otherwise.</returns>
         public bool HasAnyLabel(SceneLabels labelFlags) => (Label & labelFlags) != 0;
 
-        internal void UpdateAnchor(Data.AnchorData newData)
-        {
-            PlaneBoundary2D = newData.PlaneBoundary2D;
-            PlaneRect = Utilities.GetPlaneRectFromAnchorData(newData);
-            VolumeBounds = Utilities.GetVolumeBoundsFromAnchorData(newData);
-            _mesh = Utilities.GetMeshFromAnchorData(newData);
-
-            Label = newData.Labels;
-        }
-
         /// <summary>
         /// Retrieves the labels associated with this object as an enum. This method is obsolete.
         /// Use the 'Label' property directly instead.
@@ -696,19 +686,5 @@ namespace Meta.XR.MRUtilityKit
         /// <see cref="OVRSemanticLabels.DeprecationMessage" />
         [Obsolete("Use '" + nameof(Label) + "' instead.")]
         public SceneLabels GetLabelsAsEnum() => Label;
-
-        /// <summary>
-        /// Compares the current MRUKAnchor object with another Data.AnchorData object for equality.
-        /// </summary>
-        /// <param name="anchorData">The Data.AnchorData object to compare with.</param>
-        /// <returns>True if both objects are equal, false otherwise.</returns>
-        internal bool Equals(Data.AnchorData anchorData)
-        {
-            return Anchor == anchorData.Anchor &&
-                   PlaneRect == Utilities.GetPlaneRectFromAnchorData(anchorData) &&
-                   VolumeBounds == Utilities.GetVolumeBoundsFromAnchorData(anchorData) &&
-                   Label == anchorData.Labels &&
-                   PlaneBoundary2D.SequenceEqual(anchorData.PlaneBoundary2D);
-        }
     }
 }

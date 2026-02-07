@@ -28,6 +28,20 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class GeneralTests : MRUKTestBase
     {
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            MRUKNative.LoadMRUKSharedLibrary();
+            yield return null;
+        }
+
+        [UnityTearDown]
+        public IEnumerator TearDown()
+        {
+            MRUKNative.FreeMRUKSharedLibrary();
+            yield return null;
+        }
+
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator ClassificationToSceneLabelsConversion()
@@ -47,5 +61,16 @@ namespace Meta.XR.MRUtilityKit.Tests
             Assert.IsTrue(allLabels.SequenceEqual(convertedLabels));
             yield return true;
         }
+
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator UuidMarshalling()
+        {
+            Guid guid = Guid.NewGuid();
+            var guidCopy = MRUKNativeFuncs._TestUuidMarshalling(new MRUKNativeFuncs._MrukUuidAlignmentTest { uuid = guid });
+            Assert.AreEqual(guid, guidCopy);
+            yield return true;
+        }
+
     }
 }

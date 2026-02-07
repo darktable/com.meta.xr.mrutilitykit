@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Meta.XR.Util;
@@ -29,10 +30,12 @@ namespace Meta.XR.MRUtilityKit
     /// Space Map generates a 2D top-down texture of the room’s layout.
     /// Parameters are exposed for complete RGBA control of the texture creation.
     /// </summary>
+    [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
     [Feature(Feature.Scene)]
     public class SpaceMap : MonoBehaviour
     {
         [Tooltip("When the scene data is loaded, this controls what room(s) the prefabs will spawn in.")]
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public MRUK.RoomFilter CreateOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
         // Instead of creating a texture all in code, we prefer an external texture
@@ -42,6 +45,7 @@ namespace Meta.XR.MRUtilityKit
         // Performance will be improved in future versions.
         [Tooltip(
             "Texture requirements: Read/Write enabled, RGBA 32 bit format. Texture suggestions: Wrap Mode = Clamped, size small (<128x128)")]
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public Texture2D TextureMap;
 
         Bounds MapBounds = new Bounds();
@@ -49,11 +53,13 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         /// The center of the texture. Note that Offset.y aligns with Unity's Z.
         /// </summary>
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public Vector2 Offset => new Vector2(MapBounds.center.x, MapBounds.center.z);
 
         /// <summary>
         /// The dimensions of the texture, including the MapBorder. Note that Scale.y aligns with Unity's Z.
         /// </summary>
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public Vector2 Scale => new Vector2(
             Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2,
             Mathf.Max(MapBounds.size.x, MapBounds.size.z) + MapBorder * 2);
@@ -62,18 +68,22 @@ namespace Meta.XR.MRUtilityKit
         int PixelDimensions = 128;
 
         [Tooltip("The gradient of the generated map.")]
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public Gradient MapGradient = new();
 
         [Tooltip(
             "How far inside the room the left end of the Texture Gradient should appear. 0 is at the surface, negative is inside the room.")]
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public float InnerBorder = -0.5f;
 
         [Tooltip(
             "How far outside the room the right end of the Texture Gradient should appear. 0 is at the surface, positive is outside the room.")]
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public float OuterBorder = 0.0f;
 
         [Tooltip(
             "How much the texture map should extend from the room bounds, in meters. Should ideally be greater than or equal to outerPosition.")]
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public float MapBorder = 0.0f;
 
         const string MATERIAL_PROPERTY_NAME = "_SpaceMap";
@@ -104,6 +114,7 @@ namespace Meta.XR.MRUtilityKit
         /// Initializes map values, starts the pixel calculation process, and updates global shader properties.
         /// </summary>
         /// <param name="room">The room to calculate the map for. If null, calculates for all rooms.</param>
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU's 'StartSpaceMap' method instead.", false)]
         public void CalculateMap(MRUKRoom room = null)
         {
             if (TextureMap == null)
@@ -152,6 +163,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="room">The room to check the surface distance in.</param>
         /// <param name="worldPosition">The world position to check.</param>
         /// <returns>The distance to the nearest surface.</returns>
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public float GetSurfaceDistance(MRUKRoom room, Vector3 worldPosition)
         {
             float closestDist = Mathf.Infinity;
@@ -208,6 +220,7 @@ namespace Meta.XR.MRUtilityKit
         // <summary>
         /// Resets the pixel colors of the space map to black, effectively clearing any previously calculated data.
         /// </summary>
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU instead.", false)]
         public void ResetFreespace()
         {
             for (int x = 0; x < PixelDimensions; x++)
@@ -226,6 +239,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="worldPosition">The world position to get the color for.</param>
         /// <param name="getBilinear">If true, blends the color between pixels. If false, clamps to the nearest pixel color.</param>
         /// <returns>The color at the specified position.</returns>
+        [Obsolete("SpaceMap is deprecated. Please use SpaceMapGPU's 'GetColorAtPosition' method instead.", false)]
         public Color GetColorAtPosition(Vector3 worldPosition, bool getBilinear = true)
         {
             // GetPixelBilinear requires UV coordinates (0...1)

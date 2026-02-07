@@ -22,6 +22,7 @@ Shader "Meta/MRUK/Projector/BlobShadow" {
 		_FalloffTex ("FallOff", 2D) = "white" {}
 		_ShadowIntensity ("Intensity", Range (0, 1)) = 0.8
 		_Color ("Color", Color) = (0,0,0,1)
+	    _EnvironmentDepthBias ("Environment Depth Bias", Float) = 0.06
 	}
 	Subshader {
 		Tags {"RenderType"="Opaque"}
@@ -33,7 +34,9 @@ Shader "Meta/MRUK/Projector/BlobShadow" {
 			#pragma vertex vert
 			#pragma fragment frag
 			#pragma multi_compile_fog
-			#include "UnityCG.cginc"
+            #include "Packages/com.meta.xr.sdk.core/Shaders/EnvironmentDepth/BiRP/EnvironmentOcclusionBiRP.cginc"
+
+            #pragma multi_compile _ HARD_OCCLUSION SOFT_OCCLUSION
 
 			struct appdata
             {
@@ -46,6 +49,7 @@ Shader "Meta/MRUK/Projector/BlobShadow" {
 				float4 uvFalloff : TEXCOORD1;
 				UNITY_FOG_COORDS(2)
 				float4 pos : SV_POSITION;
+			    float4 worldPos : TEXCOORD2;
 				UNITY_VERTEX_OUTPUT_STEREO
 			};
 
@@ -61,6 +65,7 @@ Shader "Meta/MRUK/Projector/BlobShadow" {
 				o.pos = UnityObjectToClipPos (v.vertex);
 				o.uvShadow = mul (unity_Projector, v.vertex);
 				o.uvFalloff = mul (unity_ProjectorClip, v.vertex);
+			    o.worldPos = mul(unity_ObjectToWorld, v.vertex);
 				UNITY_TRANSFER_FOG(o,o.pos);
 				return o;
 			}
@@ -69,15 +74,18 @@ Shader "Meta/MRUK/Projector/BlobShadow" {
 			sampler2D _FalloffTex;
 			half _ShadowIntensity;
 			fixed4 _Color;
+			float _EnvironmentDepthBias;
 
 			fixed4 frag (vertex_out i) : SV_Target
 			{
+			    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
 				fixed4 texS = tex2Dproj (_ShadowTex, UNITY_PROJ_COORD(i.uvShadow));
 				fixed4 texF = tex2Dproj (_FalloffTex, UNITY_PROJ_COORD(i.uvFalloff));
 				fixed4 res = lerp(fixed4(0,0,0,0), fixed4(_Color.r,_Color.g,_Color.b, texS.a), texF.a * _ShadowIntensity);
 
 				UNITY_APPLY_FOG_COLOR(i.fogCoord, res, fixed4(1,1,1,1));
-				return res;
+                const float occlusion_value = META_DEPTH_GET_OCCLUSION_VALUE_WORLDPOS(i.worldPos, _EnvironmentDepthBias);
+				return res * occlusion_value;
 			}
 			ENDCG
 		}

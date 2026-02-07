@@ -92,60 +92,6 @@ namespace Meta.XR.MRUtilityKit
             return bounds;
         }
 
-        /// <summary>
-        /// Gets the name of an anchor based on its semantic classification.
-        /// </summary>
-        /// <param name="anchorData">The Data.AnchorData object representing the anchor.</param>
-        /// <returns>The name of the anchor, or "UNDEFINED_ANCHOR" if no semantic classification is available.</returns>
-        internal static string GetAnchorName(Data.AnchorData anchorData)
-        {
-            MRUKAnchor.SceneLabels labels = anchorData.Labels;
-            return labels != 0
-                ? labels.ToString()
-                : "UNDEFINED_ANCHOR";
-        }
-
-        internal static Rect? GetPlaneRectFromAnchorData(Data.AnchorData data)
-        {
-            if (data.PlaneBounds == null)
-            {
-                return null;
-            }
-
-            return new Rect(data.PlaneBounds.Value.Min, data.PlaneBounds.Value.Max - data.PlaneBounds.Value.Min);
-        }
-
-        internal static Bounds? GetVolumeBoundsFromAnchorData(Data.AnchorData data)
-        {
-            if (data.VolumeBounds == null)
-            {
-                return null;
-            }
-
-            Vector3 volumeBoundsMin = data.VolumeBounds.Value.Min;
-            Vector3 volumeBoundsMax = data.VolumeBounds.Value.Max;
-            Vector3 volumeBoundsCenterOffset = (volumeBoundsMin + volumeBoundsMax) * 0.5f;
-            return new Bounds(volumeBoundsCenterOffset, volumeBoundsMax - volumeBoundsMin);
-        }
-
-        internal static Mesh GetMeshFromAnchorData(Data.AnchorData data)
-        {
-
-            var meshData = data.MeshData;
-            if (!meshData.HasValue)
-            {
-                return null;
-            }
-
-            var newMesh = new Mesh
-            {
-                indexFormat = meshData.Value.Indices.Length > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16,
-                vertices = meshData.Value.Positions,
-                triangles = meshData.Value.Indices
-            };
-            return newMesh;
-        }
-
         internal static Mesh SetupAnchorMeshGeometry(MRUKAnchor anchorInfo, bool useFunctionalSurfaces = false,
             EffectMesh.TextureCoordinateModes[] textureCoordinateModes = null)
         {
@@ -561,7 +507,6 @@ namespace Meta.XR.MRUtilityKit
             return result;
         }
 
-
         internal static MRUKAnchor.SceneLabels StringLabelsToEnum(IList<string> labels)
         {
             MRUKAnchor.SceneLabels result = 0;
@@ -591,6 +536,17 @@ namespace Meta.XR.MRUtilityKit
             // So we can also do this conversion at runtime
             int bitShift = (int)classification;
             return (MRUKAnchor.SceneLabels)(1 << bitShift);
+        }
+
+        internal static Guid ReverseGuidByteOrder(Guid guid)
+        {
+            Span<byte> bytes = stackalloc byte[16];
+            guid.TryWriteBytes(bytes);
+            // Reverse the byte order of the first 3 parts (first 8 bytes, then next 2 bytes, then next 2 bytes)
+            bytes.Slice(0, 4).Reverse();
+            bytes.Slice(4, 2).Reverse();
+            bytes.Slice(6, 2).Reverse();
+            return new Guid(bytes);
         }
 
         internal static void DrawWireSphere(Vector3 center, float radius, Color color, float duration, int quality = 3)
@@ -633,7 +589,6 @@ namespace Meta.XR.MRUtilityKit
                 }
             }
         }
-
     }
 
     internal struct Float3X3

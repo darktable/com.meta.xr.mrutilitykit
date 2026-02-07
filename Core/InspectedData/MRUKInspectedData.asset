@@ -232,3 +232,17 @@ MonoBehaviour:
       DisplayName: Space Map
     memberName: OutputTexture
     _editorSelectedGizmoIndex: 0
+  - enabled: 1
+    typeName: Meta.XR.MRUtilityKit.ImmersiveSceneDebugger, meta.xr.mrutilitykit
+    attribute:
+      GizmoType: 0
+      ShowGizmoByDefault: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 1
+      Category: Meta MRUK Tools
+      Description: Launches the space setup. The space will be reloaded.
+      DisplayName: Launch space setup
+    memberName: GetLaunchSpaceSetup
+    _editorSelectedGizmoIndex: 0

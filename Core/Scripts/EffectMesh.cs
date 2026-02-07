@@ -354,8 +354,11 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            DestroyMesh(anchor);
-            CreateEffectMesh(anchor);
+            if (anchor.HasAnyLabel(Labels))
+            {
+                DestroyMesh(anchor);
+                CreateEffectMesh(anchor);
+            }
         }
 
         private void ReceiveAnchorRemovedCallback(MRUKAnchor anchor)
@@ -375,7 +378,10 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            CreateEffectMesh(anchor);
+            if (anchor.HasAnyLabel(Labels))
+            {
+                CreateEffectMesh(anchor);
+            }
         }
 
         private void ReceiveCreatedRoom(MRUKRoom room)
@@ -617,11 +623,11 @@ namespace Meta.XR.MRUtilityKit
                 {
                     float minDistance = float.MaxValue;
                     int closestWallIndex = -1;
-                    Vector3 rightPos = current.transform.position - current.transform.right * current.PlaneRect.Value.size.x * 0.5f;
+                    Vector3 rightPos = current.transform.position + current.transform.right * current.PlaneRect.Value.min.x;
                     for (int i = 0; i < walls.Count; i++)
                     {
                         MRUKAnchor wall = walls[i];
-                        Vector3 leftPos = wall.transform.position + wall.transform.right * wall.PlaneRect.Value.size.x * 0.5f;
+                        Vector3 leftPos = wall.transform.position + wall.transform.right * wall.PlaneRect.Value.max.x;
                         float distance = Vector3.Distance(rightPos, leftPos);
                         if (distance < minDistance)
                         {
@@ -855,9 +861,6 @@ namespace Meta.XR.MRUtilityKit
                 newRenderer.enabled = !hideMesh;
             }
 
-            Vector2 wallScale = anchorInfo.PlaneRect.Value.size;
-            float ceilingHeight = wallScale.y;
-
             List<List<Vector2>> holes = null;
 
             Rect wallRect = anchorInfo.PlaneRect.Value;
@@ -917,7 +920,7 @@ namespace Meta.XR.MRUtilityKit
             float seamlessScaleFactor = GetSeamlessFactor(totalWallLength, 1);
 
             // direction to points
-            float thisSegmentLength = wallScale.x;
+            float thisSegmentLength = wallRect.width;
 
             Vector3 wallNorm = Vector3.forward;
             Vector4 wallTan = new Vector4(1, 0, 0, 1);
@@ -941,7 +944,7 @@ namespace Meta.XR.MRUtilityKit
                         // Default to stretch in case maintain aspect ratio is set for both axes
                         default:
                         case WallTextureCoordinateModeV.STRETCH:
-                            denominatorY = ceilingHeight;
+                            denominatorY = wallRect.height;
                             break;
                         case WallTextureCoordinateModeV.METRIC:
                             denominatorY = 1;
@@ -981,7 +984,7 @@ namespace Meta.XR.MRUtilityKit
                     MeshUVs[x][vertCounter] = new Vector2((defaultSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
                 }
 
-                MeshVertices[vertCounter] = new Vector3(u - thisSegmentLength / 2, v - ceilingHeight / 2, 0);
+                MeshVertices[vertCounter] = new Vector3(vert.x, vert.y, 0);
                 MeshColors[vertCounter] = Color.white;
                 MeshNormals[vertCounter] = wallNorm;
                 MeshTangents[vertCounter] = wallTan;

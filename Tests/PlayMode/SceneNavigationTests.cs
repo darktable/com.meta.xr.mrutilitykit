@@ -131,8 +131,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator SetUp()
         {
             yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SceneNavigationTests.unity", false);
-            _sceneNav = FindFirstObjectByType<SceneNavigation>();
-            _effectMesh = FindFirstObjectByType<EffectMesh>();
+            _sceneNav = Object.FindFirstObjectByType<SceneNavigation>();
+            _effectMesh = Object.FindFirstObjectByType<EffectMesh>();
         }
 
 
@@ -148,8 +148,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             _effectMesh.DestroyMesh();
             _sceneNav.RemoveNavMeshData();
-            MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            yield return null;
+            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
             SetUpSceneNavigationTest(_builtInCustomAgent);
             _sceneNav.BuildSceneNavMesh();
             yield return null;
@@ -167,8 +166,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             _effectMesh.DestroyMesh();
             _sceneNav.RemoveNavMeshData();
-            MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            yield return null;
+            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
             SetUpSceneNavigationTest(_builtInDefaultAgent);
             _sceneNav.BuildSceneNavMesh();
             yield return null;
@@ -186,8 +184,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             _effectMesh.DestroyMesh();
             _sceneNav.RemoveNavMeshData();
-            MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            yield return null;
+            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
             SetUpSceneNavigationTest(_sceneDataCustomAgent);
             _sceneNav.BuildSceneNavMesh();
             yield return null;
@@ -204,8 +201,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             _effectMesh.DestroyMesh();
             _sceneNav.RemoveNavMeshData();
-            MRUK.Instance.LoadSceneFromPrefab(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            yield return null;
+            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
             SetUpSceneNavigationTest(_sceneDataDefaultAgent);
             _sceneNav.BuildSceneNavMesh();
             yield return null;
@@ -223,8 +219,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             _effectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
             _effectMesh.DestroyMesh();
             _sceneNav.RemoveNavMeshData();
-            MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
             SetUpSceneNavigationTest(_sceneDataCustomAgentGlobalMesh);
             _sceneNav.BuildSceneNavMesh();
             yield return null;
@@ -243,8 +238,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             _effectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
             _effectMesh.DestroyMesh();
             _sceneNav.RemoveNavMeshData();
-            MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
-            yield return null;
+            yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
             SetUpSceneNavigationTest(_builtInCustomAgentGlobalMesh);
             _sceneNav.BuildSceneNavMesh();
             yield return null;

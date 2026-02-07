@@ -40,9 +40,9 @@ namespace Meta.XR.MRUtilityKit.Tests
                 yield return true;
                 yield break;
             }
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SpaceMapGPUTests.unity", false);
-            SpaceMapGPU = FindAnyObjectByType<SpaceMapGPU>();
-            SpaceMapGPUTestHelper = FindAnyObjectByType<SpaceMapGPUTestHelper>();
+            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SpaceMapGPUTests.unity");
+            SpaceMapGPU = Object.FindAnyObjectByType<SpaceMapGPU>();
+            SpaceMapGPUTestHelper = Object.FindAnyObjectByType<SpaceMapGPUTestHelper>();
         }
 
         [UnityTearDown]
@@ -59,7 +59,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             // and compute shaders only run on GPU's
             if (!Application.isBatchMode)
             {
-                CheckRoom(0);
+                yield return CheckRoom(0);
             }
             yield return null;
         }
@@ -72,7 +72,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             // and compute shaders only run on GPU's
             if (!Application.isBatchMode)
             {
-                CheckRoom(1);
+                yield return CheckRoom(1);
             }
             yield return null;
         }
@@ -86,15 +86,15 @@ namespace Meta.XR.MRUtilityKit.Tests
             // and compute shaders only run on GPU's
             if (!Application.isBatchMode)
             {
-                CheckRoom(0, true);
+                yield return CheckRoom(0, true);
             }
             yield return null;
         }
 
-        private void CheckRoom(int index, bool updateAnchors = false)
+        private IEnumerator CheckRoom(int index, bool updateAnchors = false)
         {
             MRUK.Instance.SceneSettings.RoomIndex = index;
-            MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
+            yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
             SpaceMapGPU = SetupSpaceMapGPU();
 
             SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
@@ -112,7 +112,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             {
                 index = 1;
                 MRUK.Instance.SceneSettings.RoomIndex = index;
-                MRUK.Instance.LoadSceneFromJsonString(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
+                yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[MRUK.Instance.SceneSettings.RoomIndex].text);
                 SpaceMapGPU = SetupSpaceMapGPU();
 
                 SpaceMapGPU.StartSpaceMap(MRUK.RoomFilter.AllRooms);
@@ -124,7 +124,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private SpaceMapGPU SetupSpaceMapGPU()
         {
-            var spaceMap = FindAnyObjectByType<SpaceMapGPU>();
+            var spaceMap = Object.FindAnyObjectByType<SpaceMapGPU>();
             if (spaceMap == null)
             {
                 Assert.Fail();

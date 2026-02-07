@@ -98,6 +98,7 @@ namespace Meta.XR.MRUtilityKit
         private MRUK.PositioningMethod _positioningMethod = MRUK.PositioningMethod.CENTER;
         private DebugAction _getBestPoseFromRaycastDebugger;
         private DebugAction _getKeyWallDebugger;
+        private DebugAction _getLaunchSpaceSetupDebugger;
         private MRUKAnchor.SceneLabels _largestSurfaceFilter = MRUKAnchor.SceneLabels.TABLE;
         private DebugAction _getLargestSurfaceDebugger;
         private DebugAction _getClosestSeatPoseDebugger;
@@ -223,6 +224,7 @@ namespace Meta.XR.MRUtilityKit
             _raycastDebugger = RayCastDebugger();
             _getBestPoseFromRaycastDebugger = GetBestPoseFromRaycastDebugger();
             _getKeyWallDebugger = GetKeyWallDebugger();
+            _getLaunchSpaceSetupDebugger = GetLaunchSpaceSetupDebugger();
             _getLargestSurfaceDebugger = GetLargestSurfaceDebugger();
             _getClosestSeatPoseDebugger = GetClosestSeatPoseDebugger();
             _getClosestSurfacePositionDebugger = GetClosestSurfacePositionDebugger();
@@ -326,6 +328,11 @@ namespace Meta.XR.MRUtilityKit
             SetDebugAction(_getKeyWallDebugger);
         }
 
+        private void GetLaunchSpaceSetup()
+        {
+            SetDebugAction(_getLaunchSpaceSetupDebugger);
+        }
+
         private void GetLargestSurface()
         {
             SetDebugAction(_getLargestSurfaceDebugger);
@@ -412,6 +419,26 @@ namespace Meta.XR.MRUtilityKit
                 },
                 () => { },
                 () => { _debugCube.SetActive(false); }
+            );
+        }
+
+        /// <summary>
+        /// Launches the space setup. The space will be reloaded.
+        /// </summary>
+        private DebugAction GetLaunchSpaceSetupDebugger()
+        {
+            return new DebugAction(
+                async () =>
+                {
+                    var spaceCaptured = await OVRScene.RequestSpaceSetup();
+                    if (!spaceCaptured)
+                    {
+                        return;
+                    }
+                    await MRUK.Instance.LoadSceneFromDevice(false);
+                },
+                () => { },
+                () => { }
             );
         }
 
@@ -743,12 +770,13 @@ namespace Meta.XR.MRUtilityKit
         /// </summary>
         public void ExportJSON()
         {
-            var scene = SerializationHelpers.Serialize(SerializationHelpers.CoordinateSystem.Unity,
+            var scene = MRUK.Instance.SaveSceneToJsonString(
                 exportGlobalMeshJSON
             );
             var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
             var path = Path.Combine(Application.persistentDataPath, filename);
             File.WriteAllText(path, scene);
+            Debug.Log($"Saved Scene JSON to {path}");
         }
 
         /// <summary>

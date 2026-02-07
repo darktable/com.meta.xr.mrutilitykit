@@ -29,6 +29,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
@@ -94,7 +95,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var counter = 0;
             var prefab = GetSceneDecoration(decorationsIndex).decorationPrefabs[0];
-            foreach (var go in FindObjectsByType<PoolManagerComponent.PoolableData>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (var go in Object.FindObjectsByType<PoolManagerComponent.PoolableData>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (go.name.Length < prefab.name.Length)
                 {
@@ -112,7 +113,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private string GetJsonString()
         {
-            var decorationrefs = FindAnyObjectByType<SceneDecoratorTestReferences>();
+            var decorationrefs = Object.FindAnyObjectByType<SceneDecoratorTestReferences>();
             if (decorationrefs == null)
             {
                 Assert.Fail();
@@ -122,7 +123,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private SceneDecoration GetSceneDecoration(int index)
         {
-            var decorationrefs = FindAnyObjectByType<SceneDecoratorTestReferences>();
+            var decorationrefs = Object.FindAnyObjectByType<SceneDecoratorTestReferences>();
             if (decorationrefs == null)
             {
                 Assert.Fail();
@@ -131,7 +132,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
         private SceneDecorator.SceneDecorator SetupSceneDecorator()
         {
-            var sceneDecorator = FindAnyObjectByType<SceneDecorator.SceneDecorator>();
+            var sceneDecorator = Object.FindAnyObjectByType<SceneDecorator.SceneDecorator>();
             sceneDecorator.recursionLimit = 1;
             sceneDecorator.DecorateOnStart = MRUK.RoomFilter.None;
             sceneDecorator.TrackUpdates = true;

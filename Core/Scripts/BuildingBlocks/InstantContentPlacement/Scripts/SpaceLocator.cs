@@ -166,7 +166,7 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
 
 #if UNITY_EDITOR
     [CustomEditor(typeof(SpaceLocator), true)]
-    internal class SpaceLocatorEditor : Editor {
+    internal class SpaceLocatorEditor : UnityEditor.Editor {
         public override void OnInspectorGUI()
         {
             var targetObject = target as SpaceLocator;
