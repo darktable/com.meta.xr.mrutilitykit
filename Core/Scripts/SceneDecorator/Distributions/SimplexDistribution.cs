@@ -83,7 +83,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                     float dx = (ix + 1) * stride.x;
                     float dy = (iy + 1) * stride.y;
 
-                    var noise = SimplexNoise.srdnoise(new(dx, dy), 0);
+                    var noise = SimplexNoise.Srdnoise(new(dx, dy), 0);
                     dx += noise.x * config.noiseOffsetRadius;
                     dy += noise.y * config.noiseOffsetRadius;
 

@@ -59,13 +59,13 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
         private static Float3X3 GenerateAffineTransform(Vector2 position, float rotation, Vector2 scale, Vector2 shear)
         {
-            var sinValue = Mathf.Deg2Rad * rotation;
-            var cosValue = Mathf.Cos(sinValue);
+            var rotationRadians = Mathf.Deg2Rad * rotation;
+            var cosValue = Mathf.Cos(rotationRadians);
             var mat = new Float3X3(scale.x, 0f, 0f, 0f, scale.y, 0f, 0f, 0f, 1f);
 
             mat = Float3X3.Multiply(new Float3X3(1f, shear.x, 0f, shear.y, 1f, 0f, 0f, 0f, 1f), mat);
 
-            sinValue = Mathf.Sin(sinValue);
+            var sinValue = Mathf.Sin(rotationRadians);
             mat = Float3X3.Multiply(new Float3X3(cosValue, -sinValue, 0f, sinValue, cosValue, 0f, 0f, 0f, 1f), mat);
             mat = Float3X3.Multiply(new Float3X3(1f, 0f, position.x, 0f, 1f, position.y, 0f, 0f, 1f), mat);
 

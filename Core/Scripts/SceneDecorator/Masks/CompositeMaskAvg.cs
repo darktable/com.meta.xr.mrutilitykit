@@ -33,6 +33,15 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         [SerializeField]
         private CompositeMaskAdd.MaskLayer[] maskLayers;
 
+        /// <summary>
+        /// This method applies the mask to the given candidate.
+        /// It first generates an affine transformation based on the provided parameters,
+        /// and then applies this transformation to the local position of the candidate.
+        /// The resulting position is used to sample the mask layers, which are averaged
+        /// to produce a final value that represents the mask for the candidate.
+        /// </summary>
+        /// <param name="c">The candidate to apply the mask to.</param>
+        /// <returns>The average mask value for the given candidate.</returns>
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);

@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-
 using System;
 using UnityEngine;
 
@@ -119,7 +118,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     }
 
     /// <summary>
-    /// Which axis  to use
+    /// Which axis to use
     /// </summary>
     [Flags]
     public enum Axes

@@ -10,7 +10,13 @@
         "Oculus.VR.PlayModeTests",
         "meta.xr.mrutilitykit",
         "meta.xr.mrutilitykit.editor",
-        "Unity.AI.Navigation"
+        "Unity.AI.Navigation",
+        "Meta.XR.Editor.Callbacks",
+        "Meta.XR.Editor.Id",
+        "Meta.XR.Editor.Notifications",
+        "Meta.XR.Editor.UserInterface",
+        "Meta.XR.Editor.ToolingSupport",
+        "Meta.XR.Editor.Settings"
     ],
     "includePlatforms": [],
     "excludePlatforms": [

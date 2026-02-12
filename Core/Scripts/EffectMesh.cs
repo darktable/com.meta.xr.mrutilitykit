@@ -259,13 +259,13 @@ namespace Meta.XR.MRUtilityKit
 
         private static readonly string Suffix = "_EffectMesh";
 
-        private Dictionary<MRUKAnchor, EffectMeshObject> effectMeshObjects = new();
+        private Dictionary<MRUKAnchor, EffectMeshObject> _effectMeshObjects = new();
 
         /// <summary>
         /// Gets a dictionary that maps MRUKAnchor instances to their corresponding spawned EffectMeshObject.
         /// This should be treated as read-only, do not modify the contents.
         /// </summary>
-        public IReadOnlyDictionary<MRUKAnchor, EffectMeshObject> EffectMeshObjects => effectMeshObjects;
+        public IReadOnlyDictionary<MRUKAnchor, EffectMeshObject> EffectMeshObjects => _effectMeshObjects;
 
 
         /// <summary>
@@ -294,7 +294,8 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadEffectMesh).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadEffectMesh);
+            unifiedEvent.SendMRUKEvent();
             if (MRUK.Instance is null)
             {
                 return;
@@ -423,7 +424,7 @@ namespace Meta.XR.MRUtilityKit
         public void DestroyMesh(LabelFilter label = new LabelFilter())
         {
             List<MRUKAnchor> itemsToRemove = new();
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
@@ -435,7 +436,7 @@ namespace Meta.XR.MRUtilityKit
 
             foreach (var itemToRemove in itemsToRemove)
             {
-                effectMeshObjects.Remove(itemToRemove);
+                _effectMeshObjects.Remove(itemToRemove);
                 _unTrackedAnchors.Add(itemToRemove);
             }
         }
@@ -461,12 +462,12 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="anchor">MRUK Anchor</param>
         public void DestroyMesh(MRUKAnchor anchor)
         {
-            if (effectMeshObjects.TryGetValue(anchor, out var eMO))
+            if (_effectMeshObjects.TryGetValue(anchor, out var eMO))
             {
                 if (eMO.effectMeshGO)
                 {
                     DestroyImmediate(eMO.effectMeshGO);
-                    effectMeshObjects.Remove(anchor);
+                    _effectMeshObjects.Remove(anchor);
                     _unTrackedAnchors.Add(anchor);
                 }
             }
@@ -482,7 +483,7 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void AddColliders(LabelFilter label = new LabelFilter())
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Key && !kv.Value.collider && filterByLabel)
@@ -502,7 +503,7 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void DestroyColliders(LabelFilter label = new LabelFilter())
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.collider && filterByLabel)
@@ -520,7 +521,7 @@ namespace Meta.XR.MRUtilityKit
         /// The default is a new instance of LabelFilter, which includes all labels.</param>
         public void ToggleShadowCasting(bool shouldCast, LabelFilter label = new LabelFilter())
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
@@ -546,7 +547,7 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void ToggleEffectMeshVisibility(bool shouldShow, LabelFilter label = new LabelFilter(), Material materialOverride = null)
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
@@ -571,7 +572,7 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void ToggleEffectMeshColliders(bool doEnable, LabelFilter label = new LabelFilter())
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 var filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (!filterByLabel)
@@ -599,7 +600,7 @@ namespace Meta.XR.MRUtilityKit
         /// </param>
         public void OverrideEffectMaterial(Material newMaterial, LabelFilter label = new LabelFilter())
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 bool filterByLabel = label.PassesFilter(kv.Key.Label);
                 if (kv.Value.effectMeshGO && filterByLabel)
@@ -758,7 +759,7 @@ namespace Meta.XR.MRUtilityKit
         /// or null if the mesh could not be created.</returns>
         public EffectMeshObject CreateEffectMesh(MRUKAnchor anchorInfo)
         {
-            if (effectMeshObjects.ContainsKey(anchorInfo))
+            if (_effectMeshObjects.ContainsKey(anchorInfo))
             {
                 //Anchor already has an EffectMeshComponent
                 return null;
@@ -798,7 +799,7 @@ namespace Meta.XR.MRUtilityKit
                 effectMeshObject.collider = AddCollider(anchorInfo, effectMeshObject);
             }
 
-            effectMeshObjects.Add(anchorInfo, effectMeshObject);
+            _effectMeshObjects.Add(anchorInfo, effectMeshObject);
             return effectMeshObject;
         }
 
@@ -827,7 +828,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void CreateEffectMeshWall(MRUKAnchor anchorInfo, float totalWallLength, ref float uSpacing, List<MRUKRoom> connectedRooms)
         {
-            if (effectMeshObjects.ContainsKey(anchorInfo))
+            if (_effectMeshObjects.ContainsKey(anchorInfo))
             {
                 //WallAnchor already has an EffectMeshComponent
                 return;
@@ -889,24 +890,24 @@ namespace Meta.XR.MRUtilityKit
 
             int totalVertices = vertices.Length;
 
-            int UVChannelCount = Math.Min(8, textureCoordinateModes.Length);
+            int uvChannelCount = Math.Min(8, textureCoordinateModes.Length);
 
-            Vector3[] MeshVertices = new Vector3[totalVertices];
+            Vector3[] meshVertices = new Vector3[totalVertices];
 
             for (int i = 0; i < vertices.Length; ++i)
             {
-                MeshVertices[i] = vertices[i];
+                meshVertices[i] = vertices[i];
             }
 
-            Vector2[][] MeshUVs = new Vector2[UVChannelCount][];
-            for (int x = 0; x < UVChannelCount; x++)
+            Vector2[][] meshUVs = new Vector2[uvChannelCount][];
+            for (int x = 0; x < uvChannelCount; x++)
             {
-                MeshUVs[x] = new Vector2[totalVertices];
+                meshUVs[x] = new Vector2[totalVertices];
             }
 
-            Color32[] MeshColors = new Color32[totalVertices];
-            Vector3[] MeshNormals = new Vector3[totalVertices];
-            Vector4[] MeshTangents = new Vector4[totalVertices];
+            Color32[] meshColors = new Color32[totalVertices];
+            Vector3[] meshNormals = new Vector3[totalVertices];
+            Vector4[] meshTangents = new Vector4[totalVertices];
 
             int vertCounter = 0;
 
@@ -920,12 +921,12 @@ namespace Meta.XR.MRUtilityKit
 
             for (int j = 0; j < vertices.Length; j++)
             {
-                var vert = MeshVertices[j];
+                var vert = meshVertices[j];
 
                 float u = vert.x - wallRect.xMin;
                 float v = vert.y - wallRect.yMin;
 
-                for (int x = 0; x < UVChannelCount; x++)
+                for (int x = 0; x < uvChannelCount; x++)
                 {
                     float denominatorX;
                     float denominatorY;
@@ -974,59 +975,59 @@ namespace Meta.XR.MRUtilityKit
                         denominatorY = denominatorX;
                     }
 
-                    MeshUVs[x][vertCounter] = new Vector2((defaultSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
+                    meshUVs[x][vertCounter] = new Vector2((defaultSpacing + thisSegmentLength - u) / denominatorX, v / denominatorY);
                 }
 
-                MeshVertices[vertCounter] = new Vector3(vert.x, vert.y, 0);
-                MeshColors[vertCounter] = Color.white;
-                MeshNormals[vertCounter] = wallNorm;
-                MeshTangents[vertCounter] = wallTan;
+                meshVertices[vertCounter] = new Vector3(vert.x, vert.y, 0);
+                meshColors[vertCounter] = Color.white;
+                meshNormals[vertCounter] = wallNorm;
+                meshTangents[vertCounter] = wallTan;
 
                 vertCounter++;
             }
 
             uSpacing += thisSegmentLength;
 
-            int[] MeshTriangles = triangles;
+            int[] meshTriangles = triangles;
 
             newMesh.Clear();
             newMesh.name = anchorInfo.name;
-            newMesh.vertices = MeshVertices;
-            for (int x = 0; x < UVChannelCount; x++)
+            newMesh.vertices = meshVertices;
+            for (int x = 0; x < uvChannelCount; x++)
             {
                 switch (x)
                 {
                     case 0:
-                        newMesh.uv = MeshUVs[x];
+                        newMesh.uv = meshUVs[x];
                         break;
                     case 1:
-                        newMesh.uv2 = MeshUVs[x];
+                        newMesh.uv2 = meshUVs[x];
                         break;
                     case 2:
-                        newMesh.uv3 = MeshUVs[x];
+                        newMesh.uv3 = meshUVs[x];
                         break;
                     case 3:
-                        newMesh.uv4 = MeshUVs[x];
+                        newMesh.uv4 = meshUVs[x];
                         break;
                     case 4:
-                        newMesh.uv5 = MeshUVs[x];
+                        newMesh.uv5 = meshUVs[x];
                         break;
                     case 5:
-                        newMesh.uv6 = MeshUVs[x];
+                        newMesh.uv6 = meshUVs[x];
                         break;
                     case 6:
-                        newMesh.uv7 = MeshUVs[x];
+                        newMesh.uv7 = meshUVs[x];
                         break;
                     case 7:
-                        newMesh.uv8 = MeshUVs[x];
+                        newMesh.uv8 = meshUVs[x];
                         break;
                 }
             }
 
-            newMesh.colors32 = MeshColors;
-            newMesh.triangles = MeshTriangles;
-            newMesh.normals = MeshNormals;
-            newMesh.tangents = MeshTangents;
+            newMesh.colors32 = meshColors;
+            newMesh.triangles = meshTriangles;
+            newMesh.normals = meshNormals;
+            newMesh.tangents = meshTangents;
 
             effectMeshObject.mesh = newMesh;
 
@@ -1035,7 +1036,7 @@ namespace Meta.XR.MRUtilityKit
                 effectMeshObject.collider = AddCollider(anchorInfo, effectMeshObject);
             }
 
-            effectMeshObjects.Add(anchorInfo, effectMeshObject);
+            _effectMeshObjects.Add(anchorInfo, effectMeshObject);
         }
 
         private void CreateGlobalMeshObject(MRUKAnchor globalMeshAnchor)
@@ -1046,7 +1047,7 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
 
-            if (effectMeshObjects.ContainsKey(globalMeshAnchor))
+            if (_effectMeshObjects.ContainsKey(globalMeshAnchor))
             {
                 //Anchor already has an EffectMeshComponent
                 return;
@@ -1085,7 +1086,7 @@ namespace Meta.XR.MRUtilityKit
             renderer.enabled = !hideMesh;
             renderer.shadowCastingMode = castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off;
             effectMeshObject.mesh = trimesh;
-            effectMeshObjects.Add(globalMeshAnchor, effectMeshObject);
+            _effectMeshObjects.Add(globalMeshAnchor, effectMeshObject);
         }
 
         /// <summary>
@@ -1094,7 +1095,7 @@ namespace Meta.XR.MRUtilityKit
         /// <param name="newParent">The new parent transform to which all effect mesh objects will be attached.</param>
         public void SetEffectObjectsParent(Transform newParent)
         {
-            foreach (var kv in effectMeshObjects)
+            foreach (var kv in _effectMeshObjects)
             {
                 kv.Value.effectMeshGO.transform.SetParent(newParent);
             }

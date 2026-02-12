@@ -27,6 +27,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
+using Random = UnityEngine.Random;
 
 namespace Meta.XR.MRUtilityKit
 {
@@ -88,7 +89,7 @@ namespace Meta.XR.MRUtilityKit
         }
 
         /// <summary>
-        /// Gets or sets the reserved space at the bottom of the mesh. TThis space is not included in the destructible area, allowing for controlled segmentation.
+        /// Gets or sets the reserved space at the bottom of the mesh. This space is not included in the destructible area, allowing for controlled segmentation.
         /// </summary>
         public float ReservedBottom
         {
@@ -114,7 +115,7 @@ namespace Meta.XR.MRUtilityKit
             /// </summary>
             public Vector3[] positions;
             /// <summary>
-            /// The indices that define the mesh topology.\
+            /// The indices that define the mesh topology.
             /// Use the <see cref="MeshSegmentationResult"/> struct to create and manage mesh segments.
             /// </summary>
             public int[] indices;
@@ -484,11 +485,26 @@ namespace Meta.XR.MRUtilityKit
             GetDestructibleMeshSegments(segments);
             foreach (var segment in segments)
             {
-                // Create a new material with a random color for each segment
-                var newMaterial = new Material(Shader.Find("Oculus/Unlit"))
+                Material newMaterial = null;
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null)
                 {
-                    color = UnityEngine.Random.ColorHSV()
-                };
+                    shader = Shader.Find("Standard");
+                }
+
+                if (shader != null)
+                {
+                    newMaterial = new Material(shader)
+                    {
+                        color = Random.ColorHSV(0.0f, 1f, 0.0f, 1f, 0.0f, 1f, 0.9f, 0.9f)
+                    };
+                }
+                else
+                {
+                    Debug.LogError("Could not find the URP/Lit or Standard shader.");
+                    continue;
+                }
+
                 if (segment.TryGetComponent<MeshRenderer>(out var renderer))
                 {
                     renderer.material = newMaterial;

@@ -40,10 +40,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         }
 
         /// <summary>
-        /// This is not used in this mask
+        /// Validates whether the candidate is acceptable for height sampling.
+        /// This mask does not perform any filtering and always accepts all candidates
+        /// since it only samples height values without applying constraints.
         /// </summary>
         /// <param name="candidate">Candidate with the information from the distribution</param>
-        /// <returns>Not used</returns>
+        /// <returns>Always returns true as this mask accepts all candidates</returns>
         public override bool Check(Candidate candidate)
         {
             return true;

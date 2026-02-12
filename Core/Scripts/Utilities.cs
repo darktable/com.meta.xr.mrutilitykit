@@ -24,6 +24,7 @@ using System.Threading.Tasks;
 using Meta.XR.MRUtilityKit.Extensions;
 using Unity.Collections;
 #if UNITY_EDITOR
+using Meta.XR.Telemetry;
 using UnityEditor;
 #endif
 using UnityEngine;
@@ -426,10 +427,10 @@ namespace Meta.XR.MRUtilityKit
             var gameObject = monoBehaviour.gameObject;
             foreach (Transform child in gameObject.transform)
             {
-                UnityEngine.Object.DestroyImmediate(child.gameObject);
+                UnityEngine.Object.Destroy(child.gameObject);
             }
 
-            UnityEngine.Object.DestroyImmediate(gameObject.gameObject);
+            UnityEngine.Object.Destroy(gameObject.gameObject);
         }
 
         /// <summary>
@@ -626,6 +627,7 @@ namespace Meta.XR.MRUtilityKit
             }
             catch (Exception e)
             {
+                IssueTracker.TrackError(IssueTracker.SDK.MRUK, "mruk-editor-action-failed", e, enableDebugLog: false);
                 EditorUtility.DisplayDialog("Operation Not Available", e.Message, "OK");
             }
         }
@@ -712,64 +714,64 @@ namespace Meta.XR.MRUtilityKit
         private const float Ko = 0.428571428571f; // 3/7
         private const float jitter = 1.0f; // Less gives more regular pattern
 
-        private static Vector2 mod289(Vector2 v)
+        private static Vector2 Mod289(Vector2 v)
         {
             return new Vector2(v.x - Mathf.Floor((v.x * (1.0f / 289.0f)) * 289.0f),
                 v.y - Mathf.Floor((v.y * (1.0f / 289.0f)) * 289.0f));
         }
 
-        private static Vector3 mod289(Vector3 v)
+        private static Vector3 Mod289(Vector3 v)
         {
             return new Vector3(v.x - Mathf.Floor((v.x * (1.0f / 289.0f)) * 289.0f),
                 v.y - Mathf.Floor((v.y * (1.0f / 289.0f)) * 289.0f),
                 v.z - Mathf.Floor((v.z * (1.0f / 289.0f)) * 289.0f));
         }
 
-        private static Vector3 permute(Vector3 x)
+        private static Vector3 Permute(Vector3 x)
         {
-            return mod289(Vector3.Scale(new Vector3(x.x * 34.0f + 1, x.y * 34.0f + 1, x.z * 34.0f + 1), x));
+            return Mod289(Vector3.Scale(new Vector3(x.x * 34.0f + 1, x.y * 34.0f + 1, x.z * 34.0f + 1), x));
         }
 
-        private static float mod7(float v)
+        private static float Mod7(float v)
         {
             return v - Mathf.Floor(v / 7.0f) * 7.0f;
         }
 
-        private static Vector3 mod7(Vector3 v)
+        private static Vector3 Mod7(Vector3 v)
         {
             return new Vector3(v.x - Mathf.Floor(v.x / 7.0f) * 7.0f,
                 v.y - Mathf.Floor(v.y / 7.0f) * 7.0f,
                 v.z - Mathf.Floor(v.z / 7.0f) * 7.0f);
         }
 
-        internal static Vector2 cellular(Vector2 P)
+        internal static Vector2 Cellular(Vector2 P)
         {
             const float K = 0.142857142857f; // 1/7
             const float Ko = 0.428571428571f; // 3/7
             const float jitter = 1.0f; // Less gives more regular pattern
 
-            var Pi = mod289(P.Floor());
+            var Pi = Mod289(P.Floor());
             var Pf = P - P.Floor();
             var oi = new Vector3(-1.0f, 0.0f, 1.0f);
             var of = new Vector3(-0.5f, 0.5f, 1.5f);
-            var px = permute(oi.Add(Pi.x));
-            var p = permute(oi.Add(px.x).Add(Pi.y)); // p11, p12, p13
-            var ox = mod289(p * K).Subtract(Ko);
-            var _mod7 = mod7(p * K);
+            var px = Permute(oi.Add(Pi.x));
+            var p = Permute(oi.Add(px.x).Add(Pi.y)); // p11, p12, p13
+            var ox = Mod289(p * K).Subtract(Ko);
+            var _mod7 = Mod7(p * K);
             var oy = (_mod7.Floor() * K).Subtract(Ko);
             var dx = ox * (Pf.x + 0.5f + jitter);
             var dy = of.Subtract(Pf.y) + jitter * oy;
             var d1 = Vector3.Scale(dx, dx) + Vector3.Scale(dy, dy); // d11, d12 and d13, squared
-            p = permute(oi.Add(px.y + Pi.y)); // p21, p22, p23
-            ox = mod289(p * K).Subtract(Ko);
-            _mod7 = mod7(p * K);
+            p = Permute(oi.Add(px.y + Pi.y)); // p21, p22, p23
+            ox = Mod289(p * K).Subtract(Ko);
+            _mod7 = Mod7(p * K);
             oy = (_mod7.Floor() * K).Subtract(Ko);
             dx = ox * (Pf.x - 0.5f + jitter);
             dy = Vector3.Scale(oy, of.Subtract(Pf.y)).Add(jitter);
             var d2 = Vector3.Scale(dx, dx) + Vector3.Scale(dy, dy); // d21, d22 and d23, squared
-            p = permute(oi.Add(px.z + Pi.y)); // p31, p32, p33
-            ox = mod289(p * K).Subtract(Ko);
-            oy = mod7(p.Floor() * K * K).Subtract(Ko);
+            p = Permute(oi.Add(px.z + Pi.y)); // p31, p32, p33
+            ox = Mod289(p * K).Subtract(Ko);
+            oy = Mod7(p.Floor() * K * K).Subtract(Ko);
             dx = ox * (Pf.x - 1.5f + jitter);
             dy = Vector3.Scale(oy, of.Subtract(Pf.y).Add(jitter));
             var d3 = Vector3.Scale(dx, dx) + Vector3.Scale(dy, dy); // d31, d32 and d33, squared
@@ -793,7 +795,7 @@ namespace Meta.XR.MRUtilityKit
 
     internal static class SimplexNoise
     {
-        internal static Vector3 srdnoise(Vector2 pos, float rot)
+        internal static Vector3 Srdnoise(Vector2 pos, float rot)
         {
             // Scale the input position
             var p = pos * 100f;

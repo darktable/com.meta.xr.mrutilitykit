@@ -39,23 +39,31 @@ namespace Meta.XR.MRUtilityKit
         public Material GuardianMaterial;
 
         /// <summary>
-        /// This is how far, in meters, the player must be form a surface for the Guardian to become visible (
+        /// This is how far, in meters, the player must be from a surface for the Guardian to become visible (
         /// in other words, it blends `_GuardianFade` from 0 to 1). The position of the
         /// user is calculated as a point 0.2m above the ground. This is to catch tripping hazards
         /// as well as walls. All <see cref="MRUKAnchor"/>s but the floor and ceiling are considered
         /// for this calculation.
         /// </summary>
-        [Tooltip("This is how far, in meters, the player must be form a surface for the Guardian to become visible (in other words, it blends `_GuardianFade` from 0 to 1). The position of the user is calculated as a point 0.2m above the ground. This is to catch tripping hazards, as well as walls.")]
+        [Tooltip("This is how far, in meters, the player must be from a surface for the Guardian to become visible (in other words, it blends `_GuardianFade` from 0 to 1). The position of the user is calculated as a point 0.2m above the ground. This is to catch tripping hazards, as well as walls.")]
         public float GuardianDistance = 1.0f;
 
+        /// <summary>
+        /// Initializes the RoomGuardian component by configuring passthrough blending and starting telemetry.
+        /// </summary>
         private void Start()
         {
             // required for passthrough blending to work properly
             OVRPlugin.eyeFovPremultipliedAlphaModeEnabled = false;
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadRoomGuardian).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadRoomGuardian);
+            unifiedEvent.SendMRUKEvent();
         }
 
-        void Update()
+        /// <summary>
+        /// Updates the Guardian effect by calculating the distance to the nearest surface and adjusting the fade value.
+        /// The Guardian becomes more visible as the user approaches room boundaries.
+        /// </summary>
+        private void Update()
         {
             if (GuardianMaterial == null)
             {

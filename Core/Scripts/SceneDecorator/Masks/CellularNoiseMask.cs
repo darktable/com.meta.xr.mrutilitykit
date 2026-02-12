@@ -40,18 +40,18 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);
-            var tuv = Float3X3.Multiply(affineTransform, new Vector3(c.localPos.x, c.localPos.y, 1f));
-            tuv /= tuv.z;
+            var transformedUV = Float3X3.Multiply(affineTransform, new Vector3(c.localPos.x, c.localPos.y, 1f));
+            transformedUV /= transformedUV.z;
 
-            float value = Mathf.Abs(WorleyNoise.cellular(new Vector2(tuv.x, tuv.z)).x);
+            float value = Mathf.Abs(WorleyNoise.Cellular(new Vector2(transformedUV.x, transformedUV.y)).x);
 
             return value;
         }
 
         /// <summary>
-        /// Not used on this mask
+        /// Determines whether the candidate passes the mask check. This mask always returns true as it uses sampling rather than boolean filtering.
         /// </summary>
-        /// <param name="c">The candidate</param>
+        /// <param name="c">The candidate to check against the mask.</param>
         /// <returns>true</returns>
         public override bool Check(Candidate c)
         {

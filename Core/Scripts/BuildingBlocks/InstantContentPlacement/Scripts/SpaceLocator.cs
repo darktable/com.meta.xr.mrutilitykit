@@ -173,7 +173,7 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
         public override void OnInspectorGUI()
         {
             var targetObject = target as SpaceLocator;
-            if(targetObject != null && targetObject.UseCustomSize)
+            if (targetObject != null && targetObject.UseCustomSize)
             {
                 DrawDefaultInspector();
             }

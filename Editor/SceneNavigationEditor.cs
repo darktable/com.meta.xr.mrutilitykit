@@ -19,9 +19,10 @@
  */
 
 using System;
-using UnityEngine;
-using UnityEditor;
 using Meta.XR.MRUtilityKit;
+using Meta.XR.Telemetry;
+using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(SceneNavigation))]
 public class SceneNavigationEditor : Editor
@@ -209,6 +210,7 @@ public class SceneNavigationEditor : Editor
         }
         catch (Exception e)
         {
+            IssueTracker.TrackError(IssueTracker.SDK.MRUK, "mruk-navmesh-operation-failed", e, enableDebugLog: false);
             EditorUtility.DisplayDialog("Operation Not Available", e.Message, "OK");
         }
     }

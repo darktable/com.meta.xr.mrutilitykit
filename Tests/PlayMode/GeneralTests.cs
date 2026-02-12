@@ -32,13 +32,18 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator ClassificationToSceneLabelsConversion()
         {
+            yield return RunTestOnAllScenes(ClassificationToSceneLabelsConversion);
+        }
+
+        private IEnumerator ClassificationToSceneLabelsConversion(MRUKRoom room)
+        {
             var allLabels = Enum.GetValues(typeof(MRUKAnchor.SceneLabels)) as MRUKAnchor.SceneLabels[];
             Assert.IsNotNull(allLabels);
             var convertedLabels = Enum.GetValues(typeof(OVRSemanticLabels.Classification))
                 .Cast<OVRSemanticLabels.Classification>()
                 .Select(classification =>
                 {
-                    int bitShift = (int)classification;
+                    var bitShift = (int)classification;
                     Assert.IsTrue(bitShift >= 0);
                     Assert.IsTrue(bitShift < 32);
                     return Utilities.ClassificationToSceneLabel(classification);
@@ -52,10 +57,14 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator UuidMarshalling()
         {
-            Guid guid = Guid.NewGuid();
-            var guidCopy = MRUKNativeFuncs._TestUuidMarshalling(new MRUKNativeFuncs._MrukUuidAlignmentTest { uuid = guid });
-            Assert.AreEqual(guid, guidCopy);
-            yield return true;
+            yield return RunTestOnAllScenes((room) =>
+            {
+                var guid = Guid.NewGuid();
+                var guidCopy = MRUKNativeFuncs._TestUuidMarshalling(new MRUKNativeFuncs._MrukUuidAlignmentTest
+                { uuid = guid });
+                Assert.AreEqual(guid, guidCopy);
+                return null;
+            });
         }
 
     }

@@ -260,7 +260,7 @@ namespace Meta.XR
         private readonly Matrix4x4[] _matrixV = new Matrix4x4[NumEyes];
         private readonly Matrix4x4[] _matrixVP_inv = new Matrix4x4[NumEyes];
         private readonly Plane[][] _camFrustumPlanes = { new Plane[6], new Plane[6] };
-        private Vector4 _EnvironmentDepthZBufferParams;
+        private Vector4 _environmentDepthZBufferParams;
         private readonly DepthFrameDesc[] _depthFrameDesc = new DepthFrameDesc[NumEyes];
         private Matrix4x4 _worldToTrackingSpaceMatrix = Matrix4x4.identity;
         internal bool _warmUpRaycast;
@@ -345,8 +345,8 @@ namespace Meta.XR
             _shader.SetFloat(EnvironmentDepthTextureSizeId, depthTexture.width);
             Assert.AreEqual(depthTexture.width, depthTexture.height);
 
-            _EnvironmentDepthZBufferParams = Shader.GetGlobalVector(EnvironmentDepthZBufferParamsId);
-            _shader.SetVector(EnvironmentDepthZBufferParamsId, _EnvironmentDepthZBufferParams);
+            _environmentDepthZBufferParams = Shader.GetGlobalVector(EnvironmentDepthZBufferParamsId);
+            _shader.SetVector(EnvironmentDepthZBufferParamsId, _environmentDepthZBufferParams);
             _shader.SetBuffer(0, CopiedDepthTextureId, _computeBuffer);
             _shader.Dispatch(0, 1, 1, 1);
 
@@ -422,7 +422,7 @@ namespace Meta.XR
         private Vector3 WorldPosAtDepthTexCoord(Vector2Int texCoord)
         {
             float linearDepth = SampleDepthTexture(texCoord);
-            float clipSpaceDepth = linearDepth == 0.0f ? 0.0f : _EnvironmentDepthZBufferParams.x / linearDepth - _EnvironmentDepthZBufferParams.y;
+            float clipSpaceDepth = linearDepth == 0.0f ? 0.0f : _environmentDepthZBufferParams.x / linearDepth - _environmentDepthZBufferParams.y;
             const float oneOverTextureSize = 1f / TextureSize;
             var clipPos = new Vector4(texCoord.x * oneOverTextureSize * 2.0f - 1.0f,
                                       texCoord.y * oneOverTextureSize * 2.0f - 1.0f, clipSpaceDepth, 1.0f);

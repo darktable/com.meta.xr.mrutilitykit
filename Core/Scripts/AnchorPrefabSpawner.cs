@@ -314,7 +314,8 @@ namespace Meta.XR.MRUtilityKit
 
         protected virtual void Start()
         {
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadAnchorPrefabSpawner).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadAnchorPrefabSpawner);
+            unifiedEvent.SendMRUKEvent();
             if (MRUK.Instance is null)
             {
                 return;
@@ -342,28 +343,12 @@ namespace Meta.XR.MRUtilityKit
                 }
             });
 
+            MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveCreatedRoom);
+            MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
+
             if (!TrackUpdates)
             {
                 return;
-            }
-        }
-
-
-        protected virtual void OnEnable()
-        {
-            if (MRUK.Instance)
-            {
-                MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveCreatedRoom);
-                MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
-            }
-        }
-
-        protected virtual void OnDisable()
-        {
-            if (MRUK.Instance)
-            {
-                MRUK.Instance.RoomCreatedEvent.RemoveListener(ReceiveCreatedRoom);
-                MRUK.Instance.RoomRemovedEvent.RemoveListener(ReceiveRemovedRoom);
             }
         }
 

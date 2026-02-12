@@ -43,21 +43,23 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
         public UnityEvent<MeshFilter> OnGlobalMeshLoadComplete;
 
         private EffectMesh _effectMesh;
+
         private void Awake()
         {
             _effectMesh = GetComponent<EffectMesh>();
         }
-        public void OnEnable()
+
+        private void OnEnable()
         {
             _effectMesh.OnMeshLoadedComplete += HandleMeshLoaded;
         }
 
-        public void OnDisable()
+        private void OnDisable()
         {
             _effectMesh.OnMeshLoadedComplete -= HandleMeshLoaded;
         }
 
-        void HandleMeshLoaded()
+        private void HandleMeshLoaded()
         {
             foreach (var effectMeshObj in _effectMesh.EffectMeshObjects)
             {

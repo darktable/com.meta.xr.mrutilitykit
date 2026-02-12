@@ -22,6 +22,10 @@ using Meta.XR.MRUtilityKit;
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// Custom editor for MRUKAnchor components that provides a specialized inspector interface
+/// to display anchor properties and runtime information.
+/// </summary>
 [CustomEditor(typeof(MRUKAnchor))]
 public class MRUKAnchorEditor : Editor
 {
@@ -41,6 +45,10 @@ public class MRUKAnchorEditor : Editor
         _roomAnchor = serializedObject.FindProperty($"<{nameof(MRUKAnchor.Room)}>k__BackingField");
     }
 
+    /// <summary>
+    /// Draws the custom inspector GUI for MRUKAnchor components, displaying anchor properties
+    /// and runtime information in a read-only format during play mode.
+    /// </summary>
     public override void OnInspectorGUI()
     {
         serializedObject.Update();

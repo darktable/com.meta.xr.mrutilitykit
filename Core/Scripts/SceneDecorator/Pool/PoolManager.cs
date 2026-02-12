@@ -26,13 +26,13 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     /// <summary>
     /// A pool manager that manages pools of primitives.
     /// </summary>
-    /// <typeparam name="K"></typeparam>
-    /// <typeparam name="P"></typeparam>
+    /// <typeparam name="K">The type of the primitive object used as a key for the pools.</typeparam>
+    /// <typeparam name="P">The type of the pool that extends Pool&lt;K&gt;.</typeparam>
     [Feature(Feature.Scene)]
     public class PoolManager<K, P> where K : class
         where P : Pool<K>
     {
-        private Dictionary<K, P> _pools = new Dictionary<K, P>();
+        private readonly Dictionary<K, P> _pools = new Dictionary<K, P>();
 
         /// <summary>
         /// Adds a pool to the collection, associated with the given primitive.

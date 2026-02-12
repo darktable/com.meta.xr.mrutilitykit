@@ -36,17 +36,14 @@ namespace Meta.XR.MRUtilityKit.Tests
     {
         protected JSONTestHelper _jsonTestHelper;
 
-        [UnitySetUp]
-        public IEnumerator SetUp()
-        {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SerializationTests.unity", false);
-            _jsonTestHelper = Object.FindAnyObjectByType<JSONTestHelper>();
-        }
+        protected override string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/SerializationTests.unity";
+        protected override bool AwaitForMRUKInitialization => false;
 
-        [UnityTearDown]
-        public IEnumerator TearDown()
+        [UnitySetUp]
+        public override IEnumerator SetUp()
         {
-            yield return UnloadScene();
+            yield return base.SetUp();
+            _jsonTestHelper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
 
         /// <summary>
@@ -76,6 +73,17 @@ namespace Meta.XR.MRUtilityKit.Tests
             yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.UnityExpectedSerializedScene.text);
             Assert.AreEqual(1, MRUK.Instance.Rooms.Count);
             MRUK.Instance.ClearScene();
+            Assert.AreEqual(0, MRUK.Instance.Rooms.Count);
+        }
+
+        [UnityTest]
+        [Timeout(DefaultTimeoutMs)]
+        public IEnumerator DestroyGameObjectTest()
+        {
+            yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.UnityExpectedSerializedScene.text);
+            Assert.AreEqual(1, MRUK.Instance.Rooms.Count);
+            Utilities.DestroyGameObjectAndChildren(MRUK.Instance.Rooms[0]);
+            yield return null;
             Assert.AreEqual(0, MRUK.Instance.Rooms.Count);
         }
 

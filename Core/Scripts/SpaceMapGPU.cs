@@ -66,7 +66,7 @@ namespace Meta.XR.MRUtilityKit
         public MRUK.RoomFilter CreateOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
         [Tooltip("If enabled, updates on scene elements such as rooms and anchors will be handled by this class")]
-        internal bool TrackUpdates = true;
+        internal bool _trackUpdates = true;
 
         [Space]
         [Header("Textures")]
@@ -126,7 +126,7 @@ namespace Meta.XR.MRUtilityKit
         private Matrix4x4 _orthoCamProjectionViewMatrix;
         private Rect _currentRoomBounds;
 
-        private RenderTexture[] _RTextures = new RenderTexture[2];
+        private RenderTexture[] _rTextures = new RenderTexture[2];
 
         private const string OculusUnlitShader = "Oculus/Unlit";
 
@@ -136,7 +136,7 @@ namespace Meta.XR.MRUtilityKit
         private int _csFillSpaceMapKernel;
         private int _csPrepareSpaceMapKernel;
 
-        private const string SHADER_GLOBAL_SPACEMAPCAMERAMATRIX = "_SpaceMapProjectionViewMatrix";
+        private const string ShaderGlobalSpaceMapCameraMatrix = "_SpaceMapProjectionViewMatrix";
 
         private const float CameraDistance = 10f;
         private const float AspectRatio = 1f;
@@ -155,7 +155,7 @@ namespace Meta.XR.MRUtilityKit
             StepID = Shader.PropertyToID("Step"),
             SourceID = Shader.PropertyToID("Source"),
             ResultID = Shader.PropertyToID("Result"),
-            SpaceMapCameraMatrixID = Shader.PropertyToID(SHADER_GLOBAL_SPACEMAPCAMERAMATRIX);
+            SpaceMapCameraMatrixID = Shader.PropertyToID(ShaderGlobalSpaceMapCameraMatrix);
 
         private Dictionary<MRUKRoom, RenderTexture> _roomTextures = new Dictionary<MRUKRoom, RenderTexture>();
 
@@ -261,16 +261,14 @@ namespace Meta.XR.MRUtilityKit
             InitUpdateGradientTexture();
             ApplyMaterial();
 
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSpaceMapGPU).Send();
-        }
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSpaceMap);
+            unifiedEvent.SendMRUKEvent();
 
-        private void OnEnable()
-        {
             if (MRUK.Instance is not null)
             {
                 MRUK.Instance.RegisterSceneLoadedCallback(SceneLoaded);
 
-                if (TrackUpdates)
+                if (_trackUpdates)
                 {
                     MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveCreatedRoom);
                     MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRemovedRoom);
@@ -279,7 +277,7 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-        private void OnDisable()
+        private void OnDestroy()
         {
             if (MRUK.Instance == null)
             {
@@ -288,7 +286,7 @@ namespace Meta.XR.MRUtilityKit
 
             MRUK.Instance.SceneLoadedEvent.RemoveListener(SceneLoaded);
 
-            if (TrackUpdates)
+            if (_trackUpdates)
             {
                 MRUK.Instance.RoomCreatedEvent.RemoveListener(ReceiveCreatedRoom);
                 MRUK.Instance.RoomRemovedEvent.RemoveListener(ReceiveRemovedRoom);
@@ -324,7 +322,7 @@ namespace Meta.XR.MRUtilityKit
 
         private bool IsInitialized()
         {
-            return _RTextures[0] != null && _isOrthoCameraInitialized;
+            return _rTextures[0] != null && _isOrthoCameraInitialized;
         }
 
         private void UpdateBuffer(MRUKRoom room)
@@ -353,12 +351,12 @@ namespace Meta.XR.MRUtilityKit
 
             var wh = TextureDimension;
 
-            if (_RTextures[0] == null || _RTextures[0].width != wh || _RTextures[0].height != wh)
+            if (_rTextures[0] == null || _rTextures[0].width != wh || _rTextures[0].height != wh)
             {
-                TryReleaseRT(_RTextures[0]);
-                TryReleaseRT(_RTextures[1]);
-                _RTextures[0] = CreateNewRenderTexture(wh);
-                _RTextures[1] = CreateNewRenderTexture(wh);
+                TryReleaseRT(_rTextures[0]);
+                TryReleaseRT(_rTextures[1]);
+                _rTextures[0] = CreateNewRenderTexture(wh);
+                _rTextures[1] = CreateNewRenderTexture(wh);
             }
 
             commandBuffer.SetViewProjectionMatrices(_orthoCamViewMatrix, _orthoCamProjectionMatrix);
@@ -419,7 +417,7 @@ namespace Meta.XR.MRUtilityKit
             var threadGroupsY = Mathf.CeilToInt(TextureDimension / 8.0f);
 
             CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, SourceID, rt);
-            CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, ResultID, _RTextures[0]);
+            CSSpaceMap.SetTexture(_csPrepareSpaceMapKernel, ResultID, _rTextures[0]);
             CSSpaceMap.Dispatch(_csPrepareSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
 
             var stepAmount = (int)Mathf.Log(TextureDimension, 2);
@@ -434,17 +432,17 @@ namespace Meta.XR.MRUtilityKit
                 resultIndex = (i + 1) % 2;
 
                 CSSpaceMap.SetInt(StepID, step);
-                CSSpaceMap.SetTexture(_csSpaceMapKernel, SourceID, _RTextures[sourceIndex]);
-                CSSpaceMap.SetTexture(_csSpaceMapKernel, ResultID, _RTextures[resultIndex]);
+                CSSpaceMap.SetTexture(_csSpaceMapKernel, SourceID, _rTextures[sourceIndex]);
+                CSSpaceMap.SetTexture(_csSpaceMapKernel, ResultID, _rTextures[resultIndex]);
                 CSSpaceMap.Dispatch(_csSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
             }
 
             // Swap indexes to get the correct one for source again.
-            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, SourceID, _RTextures[resultIndex]);
-            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, ResultID, _RTextures[sourceIndex]);
+            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, SourceID, _rTextures[resultIndex]);
+            CSSpaceMap.SetTexture(_csFillSpaceMapKernel, ResultID, _rTextures[sourceIndex]);
             CSSpaceMap.Dispatch(_csFillSpaceMapKernel, threadGroupsX, threadGroupsY, 1);
 
-            Graphics.Blit(_RTextures[sourceIndex], rt);
+            Graphics.Blit(_rTextures[sourceIndex], rt);
 
             gradientMaterial.SetTexture("_MainTex", rt);
             SpaceMapUpdatedEvent.Invoke();
@@ -452,7 +450,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void ReceiveUpdatedRoom(MRUKRoom room)
         {
-            if (TrackUpdates)
+            if (_trackUpdates)
             {
                 RegisterAnchorUpdates(room);
                 if (IsInitialized())
@@ -465,7 +463,7 @@ namespace Meta.XR.MRUtilityKit
         private void ReceiveCreatedRoom(MRUKRoom room)
         {
             // Only create the effect mesh when we track room updates.
-            if (TrackUpdates &&
+            if (_trackUpdates &&
                 CreateOnStart == MRUK.RoomFilter.AllRooms)
             {
                 RegisterAnchorUpdates(room);
@@ -499,7 +497,7 @@ namespace Meta.XR.MRUtilityKit
         private void ReceiveAnchorUpdatedCallback(MRUKAnchor anchor)
         {
             // only update the anchor when we track updates
-            if (!TrackUpdates)
+            if (!_trackUpdates)
             {
                 return;
             }
@@ -511,7 +509,7 @@ namespace Meta.XR.MRUtilityKit
 
         private void ReceiveAnchorRemovedCallback(MRUKAnchor anchor)
         {
-            // There is no check on TrackUpdates when removing an anchor.
+            // There is no check on _trackUpdates when removing an anchor.
             if (IsInitialized())
             {
                 UpdateBuffer(anchor.Room);
@@ -521,7 +519,7 @@ namespace Meta.XR.MRUtilityKit
         private void ReceiveAnchorCreatedEvent(MRUKAnchor anchor)
         {
             // Only create the anchor when we track updates.
-            if (!TrackUpdates)
+            if (!_trackUpdates)
             {
                 return;
             }

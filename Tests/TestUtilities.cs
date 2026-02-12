@@ -327,18 +327,18 @@ namespace Meta.XR.MRUtilityKit.Tests
                         {
                             case "BuildOnSceneLoaded":
                                 reader.Read();
-                                var BuildOnSceneLoaded = reader.Value.ToString();
-                                sceneNavigation.BuildOnSceneLoaded = Enum.Parse<MRUK.RoomFilter>(BuildOnSceneLoaded);
+                                var buildOnSceneLoaded = reader.Value.ToString();
+                                sceneNavigation.BuildOnSceneLoaded = Enum.Parse<MRUK.RoomFilter>(buildOnSceneLoaded);
                                 break;
                             case "CollectGeometry":
                                 reader.Read();
-                                var CollectGeometry = reader.Value.ToString();
-                                sceneNavigation.BuildOnSceneLoaded = Enum.Parse<MRUK.RoomFilter>(CollectGeometry);
+                                var collectGeometry = reader.Value.ToString();
+                                sceneNavigation.BuildOnSceneLoaded = Enum.Parse<MRUK.RoomFilter>(collectGeometry);
                                 break;
                             case "CollectObjects":
                                 reader.Read();
-                                var CollectObjects = reader.Value.ToString();
-                                sceneNavigation.BuildOnSceneLoaded = Enum.Parse<MRUK.RoomFilter>(CollectObjects);
+                                var collectObjects = reader.Value.ToString();
+                                sceneNavigation.BuildOnSceneLoaded = Enum.Parse<MRUK.RoomFilter>(collectObjects);
                                 break;
                             case "AgentRadius":
                                 reader.Read();

@@ -56,9 +56,8 @@ namespace Meta.XR.MRUtilityKit
         [SerializeField] private float _reservedTop = 0f;
         [SerializeField] private float _reservedBottom = 0f;
 
+        private const string DestructibleGlobalMeshObjectName = "DestructibleGlobalMesh";
         private readonly Dictionary<MRUKRoom, DestructibleGlobalMesh> _spawnedDestructibleMeshes = new();
-        private const string _destructibleGlobalMeshObjectName = "DestructibleGlobalMesh";
-        private static List<Vector3> _points = new List<Vector3>();
 
         /// <summary>
         /// Gets or sets whether to keep some reserved un-destructible space (defined in meters).
@@ -128,7 +127,8 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadDestructibleGlobalMeshSpawner).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadDestructibleGlobalMeshSpawner);
+            unifiedEvent.SendMRUKEvent();
             MRUK.Instance.RegisterSceneLoadedCallback(() =>
             {
                 if (CreateOnRoomLoaded == MRUK.RoomFilter.None)
@@ -199,7 +199,7 @@ namespace Meta.XR.MRUtilityKit
                 throw new Exception(
                     "A destructible mesh can not be created for this room as it does not contain a global mesh anchor.");
             }
-            var destructibleGlobalMeshGO = new GameObject(_destructibleGlobalMeshObjectName);
+            var destructibleGlobalMeshGO = new GameObject(DestructibleGlobalMeshObjectName);
             destructibleGlobalMeshGO.transform.SetParent(room.GlobalMeshAnchor.transform, false);
             var dMesh = destructibleGlobalMeshGO.AddComponent<DestructibleMeshComponent>();
             dMesh.GlobalMeshMaterial = _globalMeshMaterial;

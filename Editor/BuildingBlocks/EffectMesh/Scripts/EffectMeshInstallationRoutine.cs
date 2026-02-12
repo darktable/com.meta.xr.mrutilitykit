@@ -18,9 +18,9 @@
  * limitations under the License.
  */
 
-using Meta.XR.BuildingBlocks.Editor;
 using System;
 using System.Collections.Generic;
+using Meta.XR.BuildingBlocks.Editor;
 using UnityEditor;
 using UnityEngine;
 
@@ -39,22 +39,25 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
              Description = "Initial configuration types for the Effect Mesh block.")]
         internal EffectMeshVariant EffectMeshTheme = EffectMeshVariant.Default;
 
+        /// <summary>
+        /// Installs the Effect Mesh building block by instantiating the appropriate prefab variant.
+        /// </summary>
+        /// <param name="block">The block data containing information about the building block to install.</param>
+        /// <param name="selectedGameObject">The currently selected GameObject in the scene (not used in this implementation).</param>
+        /// <returns>A list containing the instantiated Effect Mesh prefab GameObject.</returns>
         public override List<GameObject> Install(BlockData block, GameObject selectedGameObject)
         {
-            GameObject spawnedPrefab;
             var defaultPrefab = Prefab.transform.GetChild(0).gameObject;
             var globalMeshPrefab = Prefab.transform.GetChild(1).gameObject;
-
-            spawnedPrefab = EffectMeshTheme == EffectMeshVariant.Default
+            var spawnedPrefab = EffectMeshTheme == EffectMeshVariant.Default
                 ? Instantiate(defaultPrefab)
                 : Instantiate(globalMeshPrefab);
-            spawnedPrefab.name = EffectMeshTheme == EffectMeshVariant.Default
-                ? $"{Utils.BlockPublicTag} {defaultPrefab.name}"
-                : $"{Utils.BlockPublicTag} {globalMeshPrefab.name}";
-
-            Undo.RegisterCreatedObjectUndo(spawnedPrefab, $"install {spawnedPrefab.name}");
+            var prefabName = EffectMeshTheme == EffectMeshVariant.Default ? defaultPrefab.name : globalMeshPrefab.name;
+            spawnedPrefab.name = $"{Utils.BlockPublicTag} {prefabName}";
+            Undo.RegisterCreatedObjectUndo(spawnedPrefab, $"Install {prefabName}");
             return new List<GameObject> { spawnedPrefab };
         }
+
         internal override IReadOnlyCollection<InstallationStepInfo> GetInstallationSteps(VariantsSelection selection)
         {
             if (!UsesPrefab)
@@ -62,7 +65,7 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
 
             return new List<InstallationStepInfo>
             {
-                new(null,"Choose your desired variant of the Effect Mesh prefab."),
+                new(null, "Choose your desired variant of the Effect Mesh prefab."),
                 new(null, "Instantiates an appropriate Effect Mesh prefab."),
                 new(null, $"Renames the instantiated prefab to <b>{Utils.BlockPublicTag} {TargetBlockData.BlockName} - $type</b>.")
             };

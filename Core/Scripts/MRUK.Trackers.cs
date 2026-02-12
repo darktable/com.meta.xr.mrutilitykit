@@ -52,8 +52,8 @@ namespace Meta.XR.MRUtilityKit
             /// <param name="entityId">The entity id.</param>
             public TrackableKey(ulong space, ulong entityId)
             {
-                this._space = space;
-                this._entityId = entityId;
+                _space = space;
+                _entityId = entityId;
             }
 
             /// <summary>
@@ -292,16 +292,16 @@ namespace Meta.XR.MRUtilityKit
 
             if (config.QRCodeTrackingEnabled)
             {
-                OVRTelemetry.Start(TelemetryConstants.MarkerId.StartMarkerTracker)
-                    .SetResult(result == MRUKNativeFuncs.MrukResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
-                    .Send();
+                var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.StartMarkerTracker);
+                unifiedEvent.SetMetadata("result", result == MRUKNativeFuncs.MrukResult.Success);
+                unifiedEvent.SendMRUKEvent();
             }
 
             if (config.KeyboardTrackingEnabled)
             {
-                OVRTelemetry.Start(TelemetryConstants.MarkerId.StartKeyboardTracker)
-                    .SetResult(result == MRUKNativeFuncs.MrukResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
-                    .Send();
+                var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.StartKeyboardTracker);
+                unifiedEvent.SetMetadata("result", result == MRUKNativeFuncs.MrukResult.Success);
+                unifiedEvent.SendMRUKEvent();
             }
 
             if (result == MRUKNativeFuncs.MrukResult.Success)

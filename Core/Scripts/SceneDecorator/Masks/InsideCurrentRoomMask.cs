@@ -30,24 +30,30 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     public class InsideCurrentRoomMask : Mask
     {
         /// <summary>
-        /// This is not used in this check
+        /// Returns a constant value since this mask only performs boolean checks.
+        /// The actual filtering logic is implemented in the Check method.
         /// </summary>
         /// <param name="candidate">Candidate with the information from the distribution</param>
-        /// <returns>Not used in this check, always 0</returns>
+        /// <returns>Always returns 0 as this mask is used for boolean filtering only</returns>
         public override float SampleMask(Candidate candidate)
         {
             return 0;
         }
 
         /// <summary>
-        /// Checks if the hit point of the candidate is in the current room
+        /// Validates whether the candidate's hit point is located inside the current room.
+        /// This method performs the primary filtering logic for this mask.
         /// </summary>
-        /// <param name="c">Candidate with the information from the distribution</param>
-        /// <returns>The adjusted and clamped value</returns>
-        public override bool Check(Candidate c)
+        /// <param name="candidate">Candidate with the information from the distribution</param>
+        /// <returns>True if the candidate's hit point is inside the current room, false otherwise</returns>
+        public override bool Check(Candidate candidate)
         {
             var room = MRUK.Instance.GetCurrentRoom();
-            return room.IsPositionInRoom(c.hit.point);
+            if (room == null)
+            {
+                return false;
+            }
+            return room.IsPositionInRoom(candidate.hit.point);
         }
     }
 }

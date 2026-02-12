@@ -72,14 +72,16 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         private PoolManagerComponent _poolManagerComponent;
         private PoolManagerSingleton _poolManagerSingleton;
 
-        private Dictionary<GameObject, MRUKAnchor> _spawnedDecorations = new Dictionary<GameObject, MRUKAnchor>();
+        private Dictionary<GameObject, MRUKAnchor> _spawnedDecorations = new();
+
         private void Start()
         {
             _poolManagerSingleton = gameObject.AddComponent<PoolManagerSingleton>();
             _poolManagerComponent = gameObject.AddComponent<PoolManagerComponent>();
             InitPools();
 
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDecoration).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneDecoration);
+            unifiedEvent.SendMRUKEvent();
             if (MRUK.Instance is null)
             {
                 return;
@@ -115,11 +117,14 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                         break;
                 }
             }
+
+            MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveRoomCreated);
+            MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRoomRemoved);
         }
 
         private void InitPools()
         {
-            List<PoolManagerComponent.PoolDesc> defaultPools = new();
+            var defaultPools = new List<PoolManagerComponent.PoolDesc>();
             foreach (var decoration in sceneDecorations)
             {
                 foreach (var prim in decoration.decorationPrefabs)
@@ -136,21 +141,9 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             _poolManagerComponent.defaultPools = defaultPools.ToArray();
             _poolManagerComponent.InitDefaultPools();
         }
-
-        private void OnEnable()
+        private void OnDestroy()
         {
-            if (!MRUK.Instance)
-            {
-                return;
-            }
-
-            MRUK.Instance.RoomCreatedEvent.AddListener(ReceiveRoomCreated);
-            MRUK.Instance.RoomRemovedEvent.AddListener(ReceiveRoomRemoved);
-        }
-
-        private void OnDisable()
-        {
-            if (!MRUK.Instance)
+            if (MRUK.Instance is null)
             {
                 return;
             }
@@ -209,7 +202,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
         private void ClearDecorations(MRUKAnchor anchor)
         {
-            List<GameObject> decorationToRemove = new();
+            var decorationToRemove = new List<GameObject>();
             foreach (var kv in _spawnedDecorations)
             {
                 if (kv.Value != anchor)
@@ -232,7 +225,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         // from another tool which also receives updates
         private void ClearDecorations(MRUKRoom room)
         {
-            List<GameObject> decorationToRemove = new();
+            var decorationToRemove = new List<GameObject>();
             foreach (var kv in _spawnedDecorations)
             {
                 if (kv.Value.Room != room)
@@ -323,7 +316,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
                     continue;
                 }
 
-                List<MRUKAnchor> anchors = GetAnchorsWithLabel(room, flag);
+                var anchors = GetAnchorsWithLabel(room, flag);
 
                 if (anchors != null)
                 {
@@ -567,8 +560,8 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
             var anchorDist = sceneAnchor.GetClosestSurfacePosition(closestHit.point, out var closestPosition);
 
-            GameObject decorationGO = sceneDecoration.decorationPrefabs[Random.Range(0, sceneDecoration.decorationPrefabs.Length)];
-            Candidate candidate = new Candidate()
+            var decorationGO = sceneDecoration.decorationPrefabs[Random.Range(0, sceneDecoration.decorationPrefabs.Length)];
+            var candidate = new Candidate()
             {
                 decorationPrefab = decorationGO,
                 localPos = localPos,

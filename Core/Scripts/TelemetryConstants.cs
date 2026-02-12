@@ -20,6 +20,8 @@
 
 /// @cond
 
+using UnityEngine;
+
 namespace Meta.XR.MRUtilityKit
 {
     public static class TelemetryConstants
@@ -48,10 +50,50 @@ namespace Meta.XR.MRUtilityKit
             public const int StartKeyboardTracker = 651896297;
         }
 
+        public static class EventName
+        {
+            public const string LoadAnchorPrefabSpawner = "LOAD_ANCHOR_PREFAB_SPAWNER";
+            public const string LoadRoomGuardian = "LOAD_ROOM_GUARDIAN";
+            public const string LoadDestructibleGlobalMeshSpawner = "LOAD_DESTRUCTIBLE_GLOBAL_MESH_SPAWNER";
+            public const string LoadEffectMesh = "LOAD_EFFECT_MESH";
+            public const string LoadSceneDebugger = "LOAD_SCENE_DEBUGGER";
+            public const string LoadSpaceMap = "LOAD_SPACE_MAP";
+            public const string StartMarkerTracker = "START_MARKER_TRACKER";
+            public const string StartKeyboardTracker = "START_KEYBOARD_TRACKER";
+            public const string LoadGridSliceResizer = "LOAD_GRID_SLICE_RESIZER";
+            public const string LoadSceneFromJson = "LOAD_SCENE_FROM_JSON";
+            public const string LoadSceneFromDevice = "LOAD_SCENE_FROM_DEVICE";
+            public const string LoadPassthroughCameraAccess = "LOAD_PASSTHROUGH_CAMERA_ACCESS";
+            public const string MrukSetCustomWorldLockAnchor = "MRUK_SET_CUSTOM_WORLD_LOCK_ANCHOR";
+            public const string LoadEnvironmentRaycast = "LOAD_ENVIRONMENT_RAYCAST";
+            public const string LoadSceneFromPrefab = "LOAD_SCENE_FROM_PREFAB";
+            public const string LoadSceneNavigation = "LOAD_SCENE_NAVIGATION";
+            public const string LoadEnvironmentRaycastOpenxr = "LOAD_ENVIRONMENT_RAYCAST_OPENXR";
+            public const string LoadSceneDecoration = "LOAD_SCENE_DECORATION";
+            public const string LoadHifiScene = "LOAD_HIFI_SCENE";
+            public const string LoadFindSpawnPositions = "LOAD_FIND_SPAWN_POSITIONS";
+            public const string RunTestOnAllScenes = "RUN_TEST_ON_ALL_SCENES";
+        }
+
         public static class AnnotationType
         {
             public const string SceneName = "SceneName";
             public const string NumRooms = "NumRooms";
+        }
+    }
+
+    internal static class MRUKTelemetryEvent
+    {
+        private static readonly string ApplicationPlatform = Application.platform.ToString();
+
+        public static bool SendMRUKEvent(this OVRPlugin.UnifiedEventData eventData)
+        {
+            eventData.productType = "mruk";
+            eventData.isEssential = OVRPlugin.Bool.False;
+            eventData.SetMetadata("device_os", SystemInfo.operatingSystem);
+            eventData.SetMetadata("developer_platform", ApplicationPlatform);
+            eventData.SetMetadata("openxr_runtime_name", OVRPlugin.runtimeName);
+            return eventData.Send();
         }
     }
 }

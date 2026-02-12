@@ -37,8 +37,6 @@ namespace Meta.XR.MRUtilityKit.Tests
     {
         private JSONTestHelper _helper;
 
-        private MRUKRoom _currentRoom;
-
         private static readonly int Room1WallCount = 7;
         private static readonly int Room1FloorCount = 1;
         private static readonly int Room1CeilingCount = 1;
@@ -51,17 +49,16 @@ namespace Meta.XR.MRUtilityKit.Tests
         private static readonly int Room3TableCount = 1;
         private static readonly int Room3OtherCount = 2;
 
-        [UnitySetUp]
-        public IEnumerator SetUp()
-        {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity", false);
-            _helper = Object.FindAnyObjectByType<JSONTestHelper>();
-        }
+        protected override string SceneToTest =>
+            "Packages/com.meta.xr.mrutilitykit/Tests/AnchorPrefabSpawnerTests.unity";
 
-        [UnityTearDown]
-        public IEnumerator TearDown()
+        protected override bool AwaitForMRUKInitialization => false;
+
+        [UnitySetUp]
+        public override IEnumerator SetUp()
         {
-            yield return UnloadScene();
+            yield return base.SetUp();
+            _helper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
 
         private (int, int, int, int, int) CountSpawnedChildrenInRoom(MRUKRoom room)
@@ -136,16 +133,14 @@ namespace Meta.XR.MRUtilityKit.Tests
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.GetCurrentRoom());
 
-
-            Assert.AreEqual(createdWalls, Room1WallCount);
-            Assert.AreEqual(createdFloor, Room1FloorCount);
-            Assert.AreEqual(createdCeiling, Room1CeilingCount);
-            Assert.AreEqual(createdTable, Room1TableCount);
-            Assert.AreEqual(createdOther, Room1OtherCount);
+            Assert.AreEqual(Room1WallCount, createdWalls);
+            Assert.AreEqual(Room1FloorCount, createdFloor);
+            Assert.AreEqual(Room1CeilingCount, createdCeiling);
+            Assert.AreEqual(Room1TableCount, createdTable);
+            Assert.AreEqual(Room1OtherCount, createdOther);
 
             yield return null;
         }
-
 
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
@@ -157,20 +152,20 @@ namespace Meta.XR.MRUtilityKit.Tests
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
 
-            Assert.AreEqual(createdWalls, Room1WallCount);
-            Assert.AreEqual(createdFloor, Room1FloorCount);
-            Assert.AreEqual(createdCeiling, Room1CeilingCount);
-            Assert.AreEqual(createdTable, Room1TableCount);
-            Assert.AreEqual(createdOther, Room1OtherCount);
+            Assert.AreEqual(Room1WallCount, createdWalls);
+            Assert.AreEqual(Room1FloorCount, createdFloor);
+            Assert.AreEqual(Room1CeilingCount, createdCeiling);
+            Assert.AreEqual(Room1TableCount, createdTable);
+            Assert.AreEqual(Room1OtherCount, createdOther);
 
             (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[1]);
 
-            Assert.AreEqual(createdWalls, Room3WallCount);
-            Assert.AreEqual(createdFloor, Room3FloorCount);
-            Assert.AreEqual(createdCeiling, Room3CeilingCount);
-            Assert.AreEqual(createdTable, Room3TableCount);
-            Assert.AreEqual(createdOther, Room3OtherCount);
+            Assert.AreEqual(Room3WallCount, createdWalls);
+            Assert.AreEqual(Room3FloorCount, createdFloor);
+            Assert.AreEqual(Room3CeilingCount, createdCeiling);
+            Assert.AreEqual(Room3TableCount, createdTable);
+            Assert.AreEqual(Room3OtherCount, createdOther);
 
             yield return null;
         }
@@ -200,7 +195,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
 
-            Assert.AreEqual(createdWalls, Room1WallCount);
+            Assert.AreEqual(Room1WallCount, createdWalls);
 
             yield return null;
         }
@@ -215,22 +210,22 @@ namespace Meta.XR.MRUtilityKit.Tests
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
 
-            Assert.AreEqual(createdWalls, Room1WallCount);
-            Assert.AreEqual(createdFloor, Room1FloorCount);
-            Assert.AreEqual(createdCeiling, Room1CeilingCount);
-            Assert.AreEqual(createdTable, Room1TableCount);
-            Assert.AreEqual(createdOther, Room1OtherCount);
+            Assert.AreEqual(Room1WallCount, createdWalls);
+            Assert.AreEqual(Room1FloorCount, createdFloor);
+            Assert.AreEqual(Room1CeilingCount, createdCeiling);
+            Assert.AreEqual(Room1TableCount, createdTable);
+            Assert.AreEqual(Room1OtherCount, createdOther);
 
             yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom3Room1.text);
 
             (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[1]);
 
-            Assert.AreEqual(createdWalls, Room3WallCount);
-            Assert.AreEqual(createdFloor, Room3FloorCount);
-            Assert.AreEqual(createdCeiling, Room3CeilingCount);
-            Assert.AreEqual(createdTable, Room3TableCount);
-            Assert.AreEqual(createdOther, Room3OtherCount);
+            Assert.AreEqual(Room3WallCount, createdWalls);
+            Assert.AreEqual(Room3FloorCount, createdFloor);
+            Assert.AreEqual(Room3CeilingCount, createdCeiling);
+            Assert.AreEqual(Room3TableCount, createdTable);
+            Assert.AreEqual(Room3OtherCount, createdOther);
 
             yield return null;
         }
@@ -246,22 +241,22 @@ namespace Meta.XR.MRUtilityKit.Tests
             var (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
 
-            Assert.AreEqual(createdWalls, Room1WallCount);
-            Assert.AreEqual(createdFloor, Room1FloorCount);
-            Assert.AreEqual(createdCeiling, Room1CeilingCount);
-            Assert.AreEqual(createdTable, Room1TableCount);
-            Assert.AreEqual(createdOther, Room1OtherCount);
+            Assert.AreEqual(Room1WallCount, createdWalls);
+            Assert.AreEqual(Room1FloorCount, createdFloor);
+            Assert.AreEqual(Room1CeilingCount, createdCeiling);
+            Assert.AreEqual(Room1TableCount, createdTable);
+            Assert.AreEqual(Room1OtherCount, createdOther);
 
             yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1MoreAnchors.text);
 
             (createdWalls, createdFloor, createdCeiling, createdTable, createdOther) =
-                 CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
+                CountSpawnedChildrenInRoom(MRUK.Instance.Rooms[0]);
 
-            Assert.AreEqual(createdWalls, Room1WallCount);
-            Assert.AreEqual(createdFloor, Room1FloorCount);
-            Assert.AreEqual(createdCeiling, Room1CeilingCount);
-            Assert.AreEqual(createdTable, Room1TableCount + 2);
-            Assert.AreEqual(createdOther, Room1OtherCount);
+            Assert.AreEqual(Room1WallCount, createdWalls);
+            Assert.AreEqual(Room1FloorCount, createdFloor);
+            Assert.AreEqual(Room1CeilingCount, createdCeiling);
+            Assert.AreEqual(Room1TableCount + 2, createdTable);
+            Assert.AreEqual(Room1OtherCount, createdOther);
 
             yield return null;
         }
@@ -270,7 +265,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator AllAnchorsHaveSpawnedPrefab()
         {
-            var anchorPrefabSpawner = SetupAnchorPrefabSpawner();
+            SetupAnchorPrefabSpawner();
 
             yield return LoadSceneFromJsonStringAndWait(_helper.SceneWithRoom1.text);
 
@@ -281,7 +276,6 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             yield return null;
         }
-
 
         private bool HasSpawnedChild(MRUKAnchor anchorParent)
         {

@@ -19,7 +19,6 @@
  */
 
 using Meta.XR.Util;
-using UnityEditor;
 using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
@@ -31,7 +30,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     public class KeepUprightWithSurfaceModifier : Modifier
     {
         /// <summary>
-        /// The axis that is used to determine the upright direction.
+        /// The axis that is used to determine the upright orientation of a decoration
         /// </summary>
         [SerializeField]
         public Vector3 uprightAxis = new(0f, 1f, 0f);

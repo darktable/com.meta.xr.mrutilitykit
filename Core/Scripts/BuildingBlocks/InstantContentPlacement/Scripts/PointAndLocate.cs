@@ -23,7 +23,7 @@ using UnityEngine;
 namespace Meta.XR.MRUtilityKit.BuildingBlocks
 {
     /// <summary>
-    /// Point a position in physical environment and place the Target prefab
+    /// Provides functionality to point at a position in the physical environment and place the Target prefab at that location using raycasting.
     /// </summary>
     public class PointAndLocate : SpaceLocator
     {
@@ -37,10 +37,14 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
         protected override Transform RaycastOrigin => _raycastOrigin;
 
         /// <summary>
-        /// Cast a ray from <see cref="RaycastOrigin"/> and place the <see cref="Target"/> object.
+        /// Casts a ray from the <see cref="RaycastOrigin"/> into the physical environment and attempts to place the Target object at the hit location.
         /// </summary>
         public void Locate() => TryLocateSpace(out _);
 
+        /// <summary>
+        /// Creates and returns a ray for raycasting operations using the position and forward direction of the RaycastOrigin transform.
+        /// </summary>
+        /// <returns>A Ray starting from the RaycastOrigin position and pointing in its forward direction.</returns>
         protected internal override Ray GetRaycastRay() => new(RaycastOrigin.position, RaycastOrigin.forward);
     }
 }

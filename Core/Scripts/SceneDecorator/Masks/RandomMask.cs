@@ -29,12 +29,22 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class RandomMask : Mask
     {
-        public override float SampleMask(Candidate c)
+        /// <summary>
+        /// Returns a random value between 0 and 1.
+        /// </summary>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
+        /// <returns>A random float value between 0 and 1</returns>
+        public override float SampleMask(Candidate candidate)
         {
             return Random.value;
         }
 
-        public override bool Check(Candidate c)
+        /// <summary>
+        /// Checks if the candidate is valid for this mask.
+        /// </summary>
+        /// <param name="candidate">Candidate with the information from the distribution</param>
+        /// <returns>Always returns true as all candidates are valid for random sampling</returns>
+        public override bool Check(Candidate candidate)
         {
             return true;
         }

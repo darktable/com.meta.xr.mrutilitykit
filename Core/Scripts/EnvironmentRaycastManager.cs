@@ -25,6 +25,9 @@ using Meta.XR.MRUtilityKit;
 using UnityEngine;
 using UnityEngine.Android;
 using UnityEngine.Assertions;
+#if UNITY_EDITOR
+using Meta.XR.Telemetry;
+#endif
 
 namespace Meta.XR
 {
@@ -63,10 +66,12 @@ namespace Meta.XR
             Assert.IsNull(_instance, $"More than one {nameof(EnvironmentRaycastManager)} component. Only one instance is allowed at a time. New instance: {name}");
             if (!IsSupported)
             {
-                Debug.LogError($"{nameof(EnvironmentRaycastManager)} is not supported. Please check the '{nameof(IsSupported)}' property before enabling this component.\n" +
-                               "Open 'Meta > Tools > Project Setup Tool' to see requirements.\n");
 #if UNITY_EDITOR
-                Debug.LogError("When running in Editor over Meta Quest Link, please enable 'Settings > Beta > Spatial Data over Meta Quest Link'.");
+                IssueTracker.TrackError(IssueTracker.SDK.MRUK, "mruk-environment-raycast-not-supported",
+                    $"{nameof(EnvironmentRaycastManager)} is not supported. Please check the '{nameof(EnvironmentRaycastManager)}.{nameof(IsSupported)}' property before enabling this component.\n" +
+                    "When running in Editor over Meta Quest Link, please enable 'Settings > Beta > Spatial Data over Meta Quest Link'.");
+#else
+                Debug.LogError($"{nameof(EnvironmentRaycastManager)} is not supported. Please check the '{nameof(EnvironmentRaycastManager)}.{nameof(IsSupported)}' property before enabling this component.");
 #endif
             }
             _instance = this;
@@ -76,8 +81,9 @@ namespace Meta.XR
 
         private void Start()
         {
-            int markerId = IsUsingOpenXRProvider() ? TelemetryConstants.MarkerId.LoadEnvironmentRaycastManagerOpenXR : TelemetryConstants.MarkerId.LoadEnvironmentRaycastManager;
-            OVRTelemetry.Start(markerId).Send();
+            string eventName = IsUsingOpenXRProvider() ? TelemetryConstants.EventName.LoadEnvironmentRaycastOpenxr : TelemetryConstants.EventName.LoadEnvironmentRaycast;
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(eventName);
+            unifiedEvent.SendMRUKEvent();
         }
 
         private void OnEnable() => SetProviderEnabled(true);
@@ -286,7 +292,8 @@ namespace Meta.XR
         /// <summary>
         /// This transform allows you to override the default tracking space.
         /// </summary>
-        [SerializeField] public Transform CustomTrackingSpace;
+        [SerializeField]
+        public Transform CustomTrackingSpace;
 
         private Transform GetTrackingSpace()
         {
@@ -306,6 +313,8 @@ namespace Meta.XR
             private int _lastTrackingSpaceUpdateFrame = -1;
             private Matrix4x4 _worldToTrackingMatrix = Matrix4x4.identity;
             private Matrix4x4 _trackingToWorldMatrix = Matrix4x4.identity;
+
+            public bool IsReady => _handle.HasValue;
 
             bool IEnvironmentRaycastProvider.IsSupported => OVRPlugin.GetEnvironmentRaycastSupported(out bool isSupported).IsSuccess() && isSupported;
 
@@ -385,8 +394,6 @@ namespace Meta.XR
             {
                 OVRPlugin.DestroyEnvironmentRaycaster(handle); // can fail when the app is quitting, so no need to check the result and log an error
             }
-
-            public bool IsReady => _handle.HasValue;
 
             bool IEnvironmentRaycastProvider.Raycast(Ray ray, out EnvironmentRaycastHit hit, float maxDistance, bool reconstructNormal, bool allowOccludedRayOrigin)
             {

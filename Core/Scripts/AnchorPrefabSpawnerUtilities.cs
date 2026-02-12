@@ -321,7 +321,7 @@ namespace Meta.XR.MRUtilityKit
 
             var anchorVolume = anchor.VolumeBounds.Value.size.x * anchor.VolumeBounds.Value.size.y *
                                anchor.VolumeBounds.Value.size.z;
-            var anchorAverageSide = MathF.Pow(anchorVolume, 1f / 3.0f); // cubic root
+            var anchorAverageSide = Mathf.Pow(anchorVolume, 1f / 3.0f); // cubic root
             var closestSizeDifference = Mathf.Infinity;
             foreach (var prefab in prefabList)
             {
@@ -614,7 +614,6 @@ namespace Meta.XR.MRUtilityKit
             }
 
             var prefabSize = prefabBounds?.size ?? Vector3.one;
-            cardinalAxisIndex = 0;
             if (calculateFacingDirection && !matchAspectRatio)
             {
                 anchorInfo.Room.GetDirectionAwayFromClosestWall(anchorInfo, out cardinalAxisIndex);
@@ -737,7 +736,7 @@ namespace Meta.XR.MRUtilityKit
             return rotation switch
             {
                 1 => new Bounds(new Vector3(-center.y, center.x, center.z), new Vector3(size.y, size.x, size.z)),
-                2 => new Bounds(new Vector3(-center.x, -center.x, center.z), size),
+                2 => new Bounds(new Vector3(-center.x, -center.y, center.z), size),
                 3 => new Bounds(new Vector3(center.y, -center.x, center.z), new Vector3(size.y, size.x, size.z)),
                 _ => bounds
             };
@@ -770,7 +769,7 @@ namespace Meta.XR.MRUtilityKit
 
             scale = ScalePrefab(scale, scalingMode);
 
-            return scale;
+            return new Vector3(scale.x, scale.y, 1.0f);
         }
 
         /// <summary>

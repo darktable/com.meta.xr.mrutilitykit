@@ -25,8 +25,19 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit
 {
+    /// <summary>
+    /// Block data implementation for FindSpawnPositions building blocks that handles installation
+    /// and configuration of FindSpawnPositions components in the Unity scene.
+    /// </summary>
     public class FindSpawnPositionsBlockData : BlockData
     {
+        /// <summary>
+        /// Installs the FindSpawnPositions building block with special handling for selected GameObjects.
+        /// If a GameObject is selected when the block is installed, it will be configured as the spawn object
+        /// with a spawn amount of 1 by default.
+        /// </summary>
+        /// <param name="selectedGameObject">The currently selected GameObject in the scene, which will be set as the spawn object if provided.</param>
+        /// <returns>A list containing the created GameObject(s) with the FindSpawnPositions component.</returns>
         protected override List<GameObject> InstallRoutine(GameObject selectedGameObject)
         {
             var createdObjects = base.InstallRoutine(selectedGameObject);
@@ -34,7 +45,7 @@ namespace Meta.XR.MRUtilityKit
 
             if (block != null && selectedGameObject != null)
             {
-                // Case when dropping hover a selected GameObject
+                // Case when dropping over a selected GameObject
                 // We will spawn said object instead, and limit the amount to 1 by default
                 block.transform.SetParent(selectedGameObject.transform, false);
                 var findSpawnPositions = block.GetComponent<FindSpawnPositions>();

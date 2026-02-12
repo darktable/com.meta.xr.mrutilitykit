@@ -243,7 +243,7 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///  Gets a value indicating whether the component has been initialized.
-        ///  When subscribing a callback to the <see cref="SceneLoadedEvent"/> event,
+        ///  When using <see cref="RegisterSceneLoadedCallback"/> to register a callback,
         ///  it will be triggered right away if the component is already initialized.
         /// </summary>
         public bool IsInitialized
@@ -254,14 +254,15 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Event that is triggered when the scene is loaded.
-        ///     When subscribing a callback to this event,
-        ///     it will be triggered right away if the <see cref="MRUK"/> component is already initialized.
+        ///     Use <see cref="RegisterSceneLoadedCallback"/> to register callbacks instead of subscribing
+        ///     directly to this event, as it provides the benefit of having the callback execute immediately
+        ///     if the scene is already loaded.
         /// </summary>
         [field: SerializeField, FormerlySerializedAs(nameof(SceneLoadedEvent))]
         public UnityEvent SceneLoadedEvent
         {
             get;
-            private set;
+            internal set;
         } = new();
 
         /// <summary>
@@ -273,7 +274,7 @@ namespace Meta.XR.MRUtilityKit
         public UnityEvent<MRUKRoom> RoomCreatedEvent
         {
             get;
-            private set;
+            internal set;
         } = new();
 
         /// <summary>
@@ -286,7 +287,7 @@ namespace Meta.XR.MRUtilityKit
         public UnityEvent<MRUKRoom> RoomUpdatedEvent
         {
             get;
-            private set;
+            internal set;
         } = new();
 
         /// <summary>
@@ -298,15 +299,17 @@ namespace Meta.XR.MRUtilityKit
         public UnityEvent<MRUKRoom> RoomRemovedEvent
         {
             get;
-            private set;
+            internal set;
         } = new();
 
         /// <summary>
         ///     When world locking is enabled the position and rotation of the OVRCameraRig/TrackingSpace transform will be adjusted each frame to ensure
-        ///     the room anchors are where they should be relative to the camera position. This is necessary to
+        ///     that the room anchors are where they should be relative to the camera position. This is necessary to
         ///     ensure the position of the virtual objects in the world do not get out of sync with the real world.
-        ///     Make sure that there your scene is making use of the <see cref="OVRCameraRig"/> component.
+        ///     Make sure that your scene is making use of the <see cref="OVRCameraRig"/> component.
         /// </summary>
+        [Tooltip("When world locking is enabled the position and rotation of the OVRCameraRig/TrackingSpace transform will be adjusted each frame to ensure " +
+            "that the room anchors are where they should be relative to the camera position.")]
         public bool EnableWorldLock = true;
 
         /// <summary>
@@ -326,7 +329,6 @@ namespace Meta.XR.MRUtilityKit
         public Matrix4x4 TrackingSpaceOffset = Matrix4x4.identity;
 
         internal int currentRoomLoadedIndex = -1;
-
         private bool _worldLockActive = false;
         private bool _worldLockWasEnabled = false;
         private bool _loadSceneCalled = false;
@@ -336,7 +338,7 @@ namespace Meta.XR.MRUtilityKit
         /// <summary>
         ///     This is the final event that tells developer code that Scene API and MR Utility Kit have been initialized, and that the room can be queried.
         /// </summary>
-        void InitializeScene()
+        private void InitializeScene()
         {
             try
             {
@@ -352,9 +354,23 @@ namespace Meta.XR.MRUtilityKit
 
         /// <summary>
         ///     Register to receive a callback when the scene is loaded. If the scene is already loaded
-        ///     at the time this is called, the callback will be invoked immediatly.
+        ///     at the time this is called, the callback will be invoked immediately.
         /// </summary>
-        /// <param name="callback"></param>
+        /// <remarks>
+        ///     Callbacks are invoked in the order they were registered. This is important if there are
+        ///     dependencies between different components. For example, EffectMesh spawns colliders and
+        ///     another component may expect the colliders to already exist when it runs to perform
+        ///     physics checks. To ensure proper initialization order, register callbacks that create
+        ///     dependencies (like EffectMesh) before registering callbacks that depend on them.
+        ///     <para>
+        ///     EffectMesh registers for the callback in Start(). If you have your own component that also
+        ///     needs to register in Start() and depends on EffectMesh, you must configure it with a higher
+        ///     execution order to ensure it registers after EffectMesh. For more information on script
+        ///     execution order, see the Unity documentation:
+        ///     https://docs.unity3d.com/Manual/class-MonoManager.html
+        ///     </para>
+        /// </remarks>
+        /// <param name="callback">The callback function to be invoked when the scene is loaded.</param>
         public void RegisterSceneLoadedCallback(UnityAction callback)
         {
             SceneLoadedEvent.AddListener(callback);
@@ -552,7 +568,7 @@ namespace Meta.XR.MRUtilityKit
 
         [SerializeField] internal GameObject _immersiveSceneDebuggerPrefab;
 
-        void Awake()
+        private void Awake()
         {
             if (OVRCameraRig.Instance == null)
             {
@@ -565,6 +581,7 @@ namespace Meta.XR.MRUtilityKit
                 return;
             }
             Instance = this;
+
 
             if (SceneSettings != null && SceneSettings.LoadSceneOnStartup)
             {
@@ -701,8 +718,6 @@ namespace Meta.XR.MRUtilityKit
                 }
 #endif
             }
-
-            UpdateGlobalContext();
 
             bool worldLockActive = false;
 
@@ -865,9 +880,10 @@ namespace Meta.XR.MRUtilityKit
             }
 
 
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.SetCustomWorldLockAnchor)
-                .SetResult(isSetAnchorSuccessful ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
-                .Send();
+            var unifiedEvent =
+                new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.MrukSetCustomWorldLockAnchor);
+            unifiedEvent.SetMetadata("result", isSetAnchorSuccessful);
+            unifiedEvent.SendMRUKEvent();
         }
 
 
@@ -1030,13 +1046,14 @@ namespace Meta.XR.MRUtilityKit
         {
             if (sceneModel == SceneModel.V2 || sceneModel == SceneModel.V2FallbackV1)
             {
-                OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadHiFiScene).Send();
+                var hifiUnifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadHifiScene);
+                hifiUnifiedEvent.SendMRUKEvent();
             }
             var result = await LoadSceneFromDeviceSharedLib(requestSceneCaptureIfNoDataFound, removeMissingRooms, sceneModel, sharedRoomsData);
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromDevice)
-                .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count.ToString())
-                .SetResult(result == LoadDeviceResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
-                .Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneFromDevice);
+            unifiedEvent.SetMetadata(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count);
+            unifiedEvent.SetMetadata("result", result == LoadDeviceResult.Success);
+            unifiedEvent.SendMRUKEvent();
             return result;
         }
 
@@ -1076,11 +1093,11 @@ namespace Meta.XR.MRUtilityKit
             }
 
             var result = await LoadSceneFromPrefabSharedLib(scenePrefab);
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromPrefab)
-                .AddAnnotation(TelemetryConstants.AnnotationType.SceneName, scenePrefab.name)
-                .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count.ToString())
-                .SetResult(result == LoadDeviceResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
-                .Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneFromPrefab);
+            unifiedEvent.SetMetadata(TelemetryConstants.AnnotationType.SceneName, scenePrefab.name);
+            unifiedEvent.SetMetadata(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count);
+            unifiedEvent.SetMetadata("result", result == LoadDeviceResult.Success);
+            unifiedEvent.SendMRUKEvent();
             return result;
         }
 
@@ -1121,14 +1138,14 @@ namespace Meta.XR.MRUtilityKit
         public async Task<LoadDeviceResult> LoadSceneFromJsonString(string jsonString, bool removeMissingRooms = true)
         {
             var result = await LoadSceneFromJsonSharedLib(jsonString, removeMissingRooms);
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneFromJson)
-                .AddAnnotation(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count.ToString())
-                .SetResult(result == LoadDeviceResult.Success ? OVRPlugin.Qpl.ResultType.Success : OVRPlugin.Qpl.ResultType.Fail)
-                .Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneFromJson);
+            unifiedEvent.SetMetadata(TelemetryConstants.AnnotationType.NumRooms, Rooms.Count);
+            unifiedEvent.SetMetadata("result", result == LoadDeviceResult.Success);
+            unifiedEvent.SendMRUKEvent();
             return result;
         }
 
-        void FindObjects(string objName, Transform rootTransform, ref List<GameObject> objList)
+        private void FindObjects(string objName, Transform rootTransform, ref List<GameObject> objList)
         {
             if (rootTransform.name.Equals(objName))
             {

@@ -27,15 +27,26 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
     /// </summary>
     public class VisualizeEnvRaycast : MonoBehaviour
     {
-        [SerializeField, Tooltip("Supply a LineRenderer to visualize the raycast ray")] private LineRenderer _raycastLine;
-        [SerializeField, Tooltip("Supply a Transform to see the ray hit point")] private Transform _raycastHitPoint;
+        [SerializeField]
+        [Tooltip("Supply a LineRenderer to visualize the raycast ray")]
+        private LineRenderer _raycastLine;
+        [SerializeField]
+        [Tooltip("Supply a Transform to see the ray hit point")]
+        private Transform _raycastHitPoint;
 
-        [SerializeField] internal SpaceLocator _spaceLocator;
+        [SerializeField]
+        internal SpaceLocator _spaceLocator;
         private EnvironmentRaycastManager _raycastManager;
 
-        private void Awake() => _raycastManager = FindFirstObjectByType<EnvironmentRaycastManager>();
+        private void Awake()
+        {
+            _raycastManager = FindFirstObjectByType<EnvironmentRaycastManager>();
+        }
 
-        private void Update() => VisualizeRay();
+        private void Update()
+        {
+            VisualizeRay();
+        }
 
         private void VisualizeRay()
         {
@@ -47,18 +58,20 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
             bool hasHit = _raycastManager.Raycast(ray, out var hit) || hit.status == EnvironmentRaycastHitStatus.HitPointOccluded;
             bool hasNormal = hit.normalConfidence > 0f;
 
-            _raycastLine.enabled = hasHit;
-            _raycastHitPoint.gameObject.SetActive(hasHit && hasNormal);
-
             if (_raycastLine != null)
             {
+                _raycastLine.enabled = hasHit;
                 _raycastLine.SetPosition(0, ray.origin);
                 _raycastLine.SetPosition(1, hit.point);
             }
 
-            if (_raycastHitPoint != null && hasNormal)
+            if (_raycastHitPoint != null)
             {
-                _raycastHitPoint.SetPositionAndRotation(hit.point, Quaternion.LookRotation(hit.normal));
+                _raycastHitPoint.gameObject.SetActive(hasHit && hasNormal);
+                if (hasNormal)
+                {
+                    _raycastHitPoint.SetPositionAndRotation(hit.point, Quaternion.LookRotation(hit.normal));
+                }
             }
         }
     }

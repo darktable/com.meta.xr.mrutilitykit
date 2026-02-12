@@ -235,9 +235,9 @@ namespace Meta.XR.MRUtilityKit
             "Access the anchors used as navigable surfaces directly.")]
         public Dictionary<MRUKAnchor, GameObject> Surfaces { get; private set; } = new();
 
-        private const float _minimumNavMeshSurfaceArea = 0;
+        private const float MinimumNavMeshSurfaceArea = 0;
         private NavMeshSurface _navMeshSurface;
-        private const string _obstaclePrefix = "_obstacles";
+        private const string ObstaclePrefix = "_obstacles";
         private Transform _obstaclesRoot;
         private Transform _surfacesRoot;
 
@@ -247,7 +247,7 @@ namespace Meta.XR.MRUtilityKit
             {
                 if (_obstaclesRoot == null)
                 {
-                    _obstaclesRoot = new GameObject(_obstaclePrefix).transform;
+                    _obstaclesRoot = new GameObject(ObstaclePrefix).transform;
                 }
 
                 return _obstaclesRoot;
@@ -264,7 +264,8 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneNavigation).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneNavigation);
+            unifiedEvent.SendMRUKEvent();
             if (MRUK.Instance is null)
             {
                 return;
@@ -697,7 +698,7 @@ namespace Meta.XR.MRUtilityKit
         {
             if (_navMeshSurface.navMeshData.sourceBounds.extents.x *
                 _navMeshSurface.navMeshData.sourceBounds.extents.z >
-                _minimumNavMeshSurfaceArea)
+                MinimumNavMeshSurfaceArea)
             {
                 if (Agents != null)
                 {
@@ -804,7 +805,7 @@ namespace Meta.XR.MRUtilityKit
         private void InstantiateObstacle(MRUKAnchor anchor, bool shouldCarve, bool carveOnlyStationary,
             float carvingTimeToStationary, float carvingMoveThreshold, Vector3 obstacleSize, Vector3 obstacleCenter)
         {
-            var obstacleGO = new GameObject($"{_obstaclePrefix}_{anchor.name}");
+            var obstacleGO = new GameObject($"{ObstaclePrefix}_{anchor.name}");
             obstacleGO.transform.SetParent(_obstaclesRoot.transform);
             var obstacle = obstacleGO.AddComponent<NavMeshObstacle>();
             obstacle.carving = shouldCarve;

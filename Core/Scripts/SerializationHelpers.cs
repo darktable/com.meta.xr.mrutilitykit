@@ -54,8 +54,10 @@ namespace Meta.XR.MRUtilityKit
         [Obsolete("Coordinate system is now obsolete, JSON files are now always serialized in OpenXR coordinate system")]
         public enum CoordinateSystem
         {
-            Unity, // Unity coordinate system
-            Unreal, // Unreal Engine coordinate system
+            // Unity coordinate system
+            Unity,
+            // Unreal Engine coordinate system
+            Unreal,
         }
 
 

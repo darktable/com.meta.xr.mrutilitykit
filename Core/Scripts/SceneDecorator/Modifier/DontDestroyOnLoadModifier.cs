@@ -29,6 +29,13 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
     [Feature(Feature.Scene)]
     public class DontDestroyOnLoadModifier : Modifier
     {
+        /// <summary>
+        /// Applies the DontDestroyOnLoad modifier to the specified GameObject.
+        /// </summary>
+        /// <param name="decorationGO">The GameObject to apply the modifier to</param>
+        /// <param name="sceneAnchor">The anchor associated with the scene</param>
+        /// <param name="sceneDecoration">The scene decoration configuration</param>
+        /// <param name="candidate">The candidate being processed</param>
         public override void ApplyModifier(GameObject decorationGO, MRUKAnchor sceneAnchor, SceneDecoration sceneDecoration,
             Candidate candidate)
         {

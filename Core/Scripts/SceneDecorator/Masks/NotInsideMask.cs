@@ -24,7 +24,7 @@ using UnityEngine;
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
     /// <summary>
-    /// A mask that returns true if the object is not inside a sceneelement with the specified label
+    /// A mask that returns true if the object is not inside a scene element with the specified label
     /// </summary>
     [Feature(Feature.Scene)]
     public class NotInsideMask : Mask
@@ -32,23 +32,24 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <summary>
         /// Define which Labels should be checked for this mask.
         /// </summary>
-        [SerializeField] public MRUKAnchor.SceneLabels Labels;
+        [SerializeField]
+        public MRUKAnchor.SceneLabels Labels;
 
         /// <summary>
-        /// This is not used in this mask
+        /// Returns a sample value for the mask. This mask uses boolean logic in the Check method instead of sampling.
         /// </summary>
         /// <param name="c">Candidate with the information from the distribution</param>
-        /// <returns>Not used in this mask, always 0</returns>
+        /// <returns>Always returns 0 as this mask does not use sampling</returns>
         public override float SampleMask(Candidate c)
         {
             return 0;
         }
 
         /// <summary>
-        /// Checks if the hit point of the candidate is inside an MRUKAnchor
+        /// Determines whether the candidate position is valid by checking if it is NOT inside any scene volume with the specified labels.
         /// </summary>
         /// <param name="c">Candidate with the information from the distribution</param>
-        /// <returns>The adjusted and clamped value</returns>
+        /// <returns>True if the candidate is not inside a scene element with the specified labels, false otherwise</returns>
         public override bool Check(Candidate c)
         {
             var bounds = Utilities.GetPrefabBounds(c.decorationPrefab);

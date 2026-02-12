@@ -33,18 +33,12 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// <summary>
         /// Returns the length of the pool.
         /// </summary>
-        protected override int CountAll
-        {
-            get => pool.Length;
-        }
+        protected override int CountAll => pool.Length;
 
         /// <summary>
         /// Returns the active objects in the pool.
         /// </summary>
-        protected override int CountActive
-        {
-            get => index;
-        }
+        protected override int CountActive => index;
 
         /// <summary>
         /// Provides a fixed pool with the given size and the type of primitive. Use callbacks to register specific callbacks
@@ -88,16 +82,17 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
 
         public override void Release(T t)
         {
-            var eIndex = indices[t];
-            if (!pool[eIndex].active) //Protect against double releasing
+            var entryIndex = indices[t];
+            // Protect against double releasing
+            if (!pool[entryIndex].active)
             {
                 return;
             }
 
-            pool[eIndex].active = false;
+            pool[entryIndex].active = false;
 
             --index;
-            Swap(eIndex, index);
+            Swap(entryIndex, index);
             if (callbacks.OnRelease != null)
             {
                 callbacks.OnRelease(t);

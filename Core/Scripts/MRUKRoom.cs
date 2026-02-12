@@ -228,7 +228,7 @@ namespace Meta.XR.MRUtilityKit
             public Matrix4x4 Transform;
         }
 
-        Bounds _roomBounds = new();
+        private Bounds _roomBounds = new();
 
         // a CW list of bottom-left corner points of each wall, in Unity space
         private List<Vector3> _corners = new();
@@ -1548,6 +1548,14 @@ namespace Meta.XR.MRUtilityKit
             AnchorCreatedEvent.RemoveAllListeners();
             AnchorRemovedEvent.RemoveAllListeners();
             AnchorUpdatedEvent.RemoveAllListeners();
+
+            // Under normal circumstances the room game object should only be destroyed in response to the MRUK shared library destroying it.
+            // But in some cases, e.g. when loading a new scene, the game object may be destroyed. And we must inform the MRUK shared library
+            // to keep the state in sync.
+            if (MRUKNativeFuncs.ClearRoom != null)
+            {
+                MRUKNativeFuncs.ClearRoom(Anchor.Uuid);
+            }
         }
     }
 }

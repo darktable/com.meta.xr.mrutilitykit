@@ -18,11 +18,25 @@
  * limitations under the License.
  */
 using System.Collections.Generic;
-using Meta.XR.MRUtilityKit.SceneDecorator;
 using UnityEngine;
+using Meta.XR.MRUtilityKit.SceneDecorator;
 
-public class SceneDecoratorTestReferences : MonoBehaviour
+namespace Meta.XR.MRUtilityKit.Tests
 {
-    [SerializeField] public List<SceneDecoration> Decorations;
-    [SerializeField] public TextAsset Scene1;
+    /// <summary>
+    /// Test helper class that holds references to scene decorations and test scene assets.
+    /// </summary>
+    public class SceneDecoratorTestReferences : MonoBehaviour
+    {
+        /// <summary>
+        /// List of scene decorations used for testing.
+        /// </summary>
+        [SerializeField]
+        public List<SceneDecoration> Decorations;
+        /// <summary>
+        /// Test scene asset data.
+        /// </summary>
+        [SerializeField]
+        public TextAsset Scene1;
+    }
 }

@@ -26,7 +26,6 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
-
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
     /// <summary>

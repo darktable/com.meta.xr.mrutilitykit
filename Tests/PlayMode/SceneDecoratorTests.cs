@@ -35,23 +35,10 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class SceneDecoratorTests : MRUKTestBase
     {
-        private MRUKRoom _currentRoom;
-
-        private static readonly int Expected_CubeGridFloorNotInside_GlobalMesh = 7;
-        private static readonly int Expected_EggSimplexWallPhysicsCollider = 18;
-        private static readonly int Expected_FloorCeilingWallGlobalMeshStaggered = 988;
-
-        [UnitySetUp]
-        public IEnumerator SetUp()
-        {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SceneDecoratorTests.unity");
-        }
-
-        [UnityTearDown]
-        public IEnumerator TearDown()
-        {
-            yield return UnloadScene();
-        }
+        private static readonly int ExpectedCubeGridFloorNotInsideGlobalMesh = 7;
+        private static readonly int ExpectedEggSimplexWallPhysicsCollider = 18;
+        private static readonly int ExpectedFloorCeilingWallGlobalMeshStaggered = 988;
+        protected override string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/SceneDecoratorTests.unity";
 
         private IEnumerator RunTest(int decorationIndex, int expected)
         {
@@ -71,21 +58,21 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator CubeGridFloorNotInside_GlobalMesh()
         {
-            yield return RunTest(0, Expected_CubeGridFloorNotInside_GlobalMesh);
+            yield return RunTest(0, ExpectedCubeGridFloorNotInsideGlobalMesh);
         }
 
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator EggSimplexWallPhysicsCollider()
         {
-            yield return RunTest(1, Expected_EggSimplexWallPhysicsCollider);
+            yield return RunTest(1, ExpectedEggSimplexWallPhysicsCollider);
         }
 
         [UnityTest]
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator FloorCeilingWallGlobalMeshStaggered()
         {
-            yield return RunTest(2, Expected_FloorCeilingWallGlobalMeshStaggered);
+            yield return RunTest(2, ExpectedFloorCeilingWallGlobalMeshStaggered);
         }
 
         private int CountDecorations(int decorationsIndex)
@@ -110,22 +97,22 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private string GetJsonString()
         {
-            var decorationrefs = Object.FindAnyObjectByType<SceneDecoratorTestReferences>();
-            if (decorationrefs == null)
+            var decorationRefs = Object.FindAnyObjectByType<SceneDecoratorTestReferences>();
+            if (decorationRefs == null)
             {
                 Assert.Fail();
             }
-            return decorationrefs.Scene1.text;
+            return decorationRefs.Scene1.text;
         }
 
         private SceneDecoration GetSceneDecoration(int index)
         {
-            var decorationrefs = Object.FindAnyObjectByType<SceneDecoratorTestReferences>();
-            if (decorationrefs == null)
+            var decorationRefs = Object.FindAnyObjectByType<SceneDecoratorTestReferences>();
+            if (decorationRefs == null)
             {
                 Assert.Fail();
             }
-            return decorationrefs.Decorations[index];
+            return decorationRefs.Decorations[index];
         }
         private SceneDecorator.SceneDecorator SetupSceneDecorator()
         {

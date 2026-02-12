@@ -74,6 +74,8 @@ namespace Meta.XR.MRUtilityKit
         private GameObject _debugNormal;
         private GameObject _navMeshViz;
         private GameObject _debugAnchor;
+        private GameObject _surfaceOutlineRenderer;
+        private LineRenderer _surfaceLineRenderer;
         private bool _previousShowDebugAnchors;
         private Mesh _debugCheckerMesh;
         private MRUKAnchor _previousShownDebugAnchor;
@@ -102,7 +104,7 @@ namespace Meta.XR.MRUtilityKit
         private DebugAction _getLargestSurfaceDebugger;
         private DebugAction _getClosestSeatPoseDebugger;
         private DebugAction _getClosestSurfacePositionDebugger;
-        private bool exportGlobalMeshJSON = true;
+        private bool _exportGlobalMeshJSON = true;
 
         private DebugAction? _currentDebugAction;
 
@@ -174,16 +176,19 @@ namespace Meta.XR.MRUtilityKit
             {
                 _execute?.Invoke();
             }
+
             public bool Equals(DebugAction other)
             {
                 return _setup == other._setup &&
                         _execute == other._execute &&
                         _cleanup == other._cleanup;
             }
+
             public override bool Equals(object obj)
             {
                 return obj is DebugAction other && Equals(other);
             }
+
             public override int GetHashCode()
             {
                 unchecked
@@ -195,10 +200,12 @@ namespace Meta.XR.MRUtilityKit
                     return hash;
                 }
             }
+
             public static bool operator ==(DebugAction left, DebugAction right)
             {
                 return left.Equals(right);
             }
+
             public static bool operator !=(DebugAction left, DebugAction right)
             {
                 return !left.Equals(right);
@@ -232,7 +239,8 @@ namespace Meta.XR.MRUtilityKit
         private void Start()
         {
             MRUK.Instance?.RegisterSceneLoadedCallback(OnSceneLoaded);
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDebugger).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneDebugger);
+            unifiedEvent.SendMRUKEvent();
             _currentRoom = MRUK.Instance?.GetCurrentRoom();
             _sceneDetails = ShowRoomDetails();
             _debugMaterial = new Material(_debugShader)
@@ -245,6 +253,7 @@ namespace Meta.XR.MRUtilityKit
             };
             SetupCheckerMeshMaterial(_debugShader);
             CreateDebugPrimitives();
+            CreateSurfaceOutlineRenderer();
         }
 
         private void Update()
@@ -448,35 +457,38 @@ namespace Meta.XR.MRUtilityKit
         private DebugAction GetLargestSurfaceDebugger()
         {
             return new DebugAction(
-                () => { _debugCube.SetActive(true); },
+                () => { },
                 () =>
                 {
                     var largestSurface = MRUK.Instance?.GetCurrentRoom()?.FindLargestSurface(_largestSurfaceFilter);
                     if (largestSurface != null)
                     {
-                        if (_debugCube != null)
+                        // Only render outline for surfaces with plane boundaries
+                        if (largestSurface.PlaneRect.HasValue && largestSurface.PlaneBoundary2D != null && largestSurface.PlaneBoundary2D.Count > 0)
                         {
-                            _debugCube.SetActive(true);
-                            var anchorSize = largestSurface.PlaneRect.HasValue ? new Vector3(largestSurface.PlaneRect.Value.width,
-                                largestSurface.PlaneRect.Value.height, 0.01f) : largestSurface.VolumeBounds.Value.size;
-                            _debugCube.transform.localScale = anchorSize + new Vector3(0.01f, 0.01f, 0.01f);// avoid z-fighting
-                            _debugCube.transform.position = largestSurface.PlaneRect.HasValue ?
-                                largestSurface.transform.position : largestSurface.transform.TransformPoint(largestSurface.VolumeBounds.Value.center);
-                            _debugCube.transform.rotation = largestSurface.transform.rotation;
-
+                            RenderSurfaceOutline(largestSurface);
+                            _debugMessage =
+                                $"[{nameof(GetLargestSurface)}] Anchor: {largestSurface.name} Type: {largestSurface.Label}";
                         }
-
-                        _debugMessage =
-                            $"[{nameof(GetLargestSurface)}] Anchor: {largestSurface.name} Type: {largestSurface.Label}";
+                        else
+                        {
+                            // No plane boundary data available, don't render anything
+                            HideSurfaceOutlineRenderer();
+                            _debugMessage =
+                                $"[{nameof(GetLargestSurface)}] Anchor: {largestSurface.name} Type: {largestSurface.Label} - No plane boundary data available";
+                        }
                     }
                     else
                     {
                         _debugMessage =
                             $"[{nameof(GetLargestSurface)}] Cannot get surface area for this label in this scene.";
-                        _debugCube.SetActive(false);
+                        HideSurfaceOutlineRenderer();
                     }
                 },
-                () => { _debugCube.SetActive(false); }
+                () =>
+                {
+                    HideSurfaceOutlineRenderer();
+                }
             );
         }
 
@@ -786,7 +798,7 @@ namespace Meta.XR.MRUtilityKit
             {
 
                 var scene = MRUK.Instance.SaveSceneToJsonString(
-                exportGlobalMeshJSON
+                _exportGlobalMeshJSON
                 );
                 var filename = $"MRUK_Export_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json";
                 path = Path.Combine(Application.persistentDataPath, filename);
@@ -955,7 +967,7 @@ namespace Meta.XR.MRUtilityKit
             newGameObject.transform.localRotation = localRotation;
             newGameObject.transform.localScale = Vector3.one;
             DestroyImmediate(newGameObject.GetComponent<Collider>());
-            const float NORMAL_OFFSET = 0.001f;
+            const float NormalOffset = 0.001f;
             if (_debugCheckerMesh == null)
             {
                 _debugCheckerMesh = new Mesh();
@@ -966,12 +978,12 @@ namespace Meta.XR.MRUtilityKit
                 var totalTiles = gridWidth * gridWidth / 2;
                 var totalVertices = totalTiles * 4;
                 var totalIndices = totalTiles * 6;
-                var MeshVertices = new Vector3[totalVertices];
-                var MeshUVs = new Vector2[totalVertices];
-                var MeshColors = new Color32[totalVertices];
-                var MeshNormals = new Vector3[totalVertices];
-                var MeshTangents = new Vector4[totalVertices];
-                var MeshTriangles = new int[totalIndices];
+                var meshVertices = new Vector3[totalVertices];
+                var meshUVs = new Vector2[totalVertices];
+                var meshColors = new Color32[totalVertices];
+                var meshNormals = new Vector3[totalVertices];
+                var meshTangents = new Vector4[totalVertices];
+                var meshTriangles = new int[totalIndices];
                 var vertCounter = 0;
                 var indexCounter = 0;
                 var quadCounter = 0;
@@ -982,11 +994,11 @@ namespace Meta.XR.MRUtilityKit
                     {
                         if (createQuad)
                         {
-                            for (var V = 0; V < 4; V++)
+                            for (var v = 0; v < 4; v++)
                             {
                                 var localVertPos = new Vector3(xPos + x * cellWidth, yPos + y * cellWidth,
-                                    NORMAL_OFFSET);
-                                switch (V)
+                                    NormalOffset);
+                                switch (v)
                                 {
                                     case 1:
                                         localVertPos += new Vector3(0, cellWidth, 0);
@@ -999,21 +1011,21 @@ namespace Meta.XR.MRUtilityKit
                                         break;
                                 }
 
-                                MeshVertices[vertCounter] = localVertPos;
-                                MeshUVs[vertCounter] = Vector2.zero;
-                                MeshColors[vertCounter] = Color.black;
-                                MeshNormals[vertCounter] = Vector3.forward;
-                                MeshTangents[vertCounter] = Vector3.right;
+                                meshVertices[vertCounter] = localVertPos;
+                                meshUVs[vertCounter] = Vector2.zero;
+                                meshColors[vertCounter] = Color.black;
+                                meshNormals[vertCounter] = Vector3.forward;
+                                meshTangents[vertCounter] = Vector3.right;
                                 vertCounter++;
                             }
 
                             var baseCount = quadCounter * 4;
-                            MeshTriangles[indexCounter++] = baseCount;
-                            MeshTriangles[indexCounter++] = baseCount + 2;
-                            MeshTriangles[indexCounter++] = baseCount + 1;
-                            MeshTriangles[indexCounter++] = baseCount;
-                            MeshTriangles[indexCounter++] = baseCount + 3;
-                            MeshTriangles[indexCounter++] = baseCount + 2;
+                            meshTriangles[indexCounter++] = baseCount;
+                            meshTriangles[indexCounter++] = baseCount + 2;
+                            meshTriangles[indexCounter++] = baseCount + 1;
+                            meshTriangles[indexCounter++] = baseCount;
+                            meshTriangles[indexCounter++] = baseCount + 3;
+                            meshTriangles[indexCounter++] = baseCount + 2;
                             quadCounter++;
                         }
 
@@ -1023,12 +1035,12 @@ namespace Meta.XR.MRUtilityKit
 
                 _debugCheckerMesh.Clear();
                 _debugCheckerMesh.name = "CheckerMesh";
-                _debugCheckerMesh.vertices = MeshVertices;
-                _debugCheckerMesh.uv = MeshUVs;
-                _debugCheckerMesh.colors32 = MeshColors;
-                _debugCheckerMesh.triangles = MeshTriangles;
-                _debugCheckerMesh.normals = MeshNormals;
-                _debugCheckerMesh.tangents = MeshTangents;
+                _debugCheckerMesh.vertices = meshVertices;
+                _debugCheckerMesh.uv = meshUVs;
+                _debugCheckerMesh.colors32 = meshColors;
+                _debugCheckerMesh.triangles = meshTriangles;
+                _debugCheckerMesh.normals = meshNormals;
+                _debugCheckerMesh.tangents = meshTangents;
                 _debugCheckerMesh.RecalculateNormals();
                 _debugCheckerMesh.RecalculateTangents();
             }
@@ -1115,6 +1127,64 @@ namespace Meta.XR.MRUtilityKit
             else
             {
                 _debugNormal.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Creates the surface outline renderer for visualizing surface boundaries.
+        /// </summary>
+        private void CreateSurfaceOutlineRenderer()
+        {
+            if (_surfaceOutlineRenderer == null)
+            {
+                _surfaceOutlineRenderer = new GameObject("SurfaceOutlineRenderer");
+                _surfaceLineRenderer = _surfaceOutlineRenderer.AddComponent<LineRenderer>();
+
+                // Configure LineRenderer settings
+                _surfaceLineRenderer.material = _debugMaterial;
+                _surfaceLineRenderer.startWidth = 0.02f;
+                _surfaceLineRenderer.endWidth = 0.02f;
+                _surfaceLineRenderer.useWorldSpace = true;
+                _surfaceLineRenderer.loop = true;
+                _surfaceLineRenderer.shadowCastingMode = ShadowCastingMode.Off;
+                _surfaceLineRenderer.receiveShadows = false;
+
+                _surfaceOutlineRenderer.SetActive(false);
+            }
+        }
+
+        /// <summary>
+        /// Renders the outline of a surface using its PlaneBoundary2D data.
+        /// </summary>
+        /// <param name="surface">The surface anchor to render the outline for</param>
+        private void RenderSurfaceOutline(MRUKAnchor surface)
+        {
+            if (_surfaceLineRenderer == null || surface.PlaneBoundary2D == null || surface.PlaneBoundary2D.Count == 0)
+                return;
+
+            _surfaceOutlineRenderer.SetActive(true);
+
+            // Convert 2D boundary points to 3D world space
+            var worldPoints = new Vector3[surface.PlaneBoundary2D.Count];
+            for (int i = 0; i < surface.PlaneBoundary2D.Count; i++)
+            {
+                var localPoint = new Vector3(surface.PlaneBoundary2D[i].x, surface.PlaneBoundary2D[i].y, 0.01f); // slight Z offset to avoid z-fighting
+                worldPoints[i] = surface.transform.TransformPoint(localPoint);
+            }
+
+            // Set up the LineRenderer
+            _surfaceLineRenderer.positionCount = worldPoints.Length;
+            _surfaceLineRenderer.SetPositions(worldPoints);
+        }
+
+        /// <summary>
+        /// Hides the surface outline renderer.
+        /// </summary>
+        private void HideSurfaceOutlineRenderer()
+        {
+            if (_surfaceOutlineRenderer != null)
+            {
+                _surfaceOutlineRenderer.SetActive(false);
             }
         }
     }

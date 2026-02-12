@@ -54,6 +54,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
         private GridSliceResizer _resizer;
         private Mesh _testMesh;
+        protected override string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/GridSliceResizerTests.unity";
 
         private void Update()
         {
@@ -83,25 +84,25 @@ namespace Meta.XR.MRUtilityKit.Tests
             var json = JsonConvert.SerializeObject(newMesh, _serializerSettings);
             // Create a StreamWriter
             using var writer = new StreamWriter(Path.Combine(Application.persistentDataPath, jsonFileName + ".json"));
-            {
-                // Write each vertex to the text file
-                writer.WriteLine(json);
-            }
+            // Write each vertex to the text file
+            writer.WriteLine(json);
         }
 
         [UnitySetUp]
-        public IEnumerator SetUp()
+        public override IEnumerator SetUp()
         {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/GridSliceResizerTests.unity", false);
+            yield return LoadScene(SceneToTest);
             _resizer = Object.FindAnyObjectByType<GridSliceResizer>();
             if (_resizer)
             {
                 _testMesh = _resizer.GetComponent<MeshFilter>().mesh;
             }
+
+            yield return null; // this test does not need to call the base SetUp as it does not use MRUK
         }
 
         [UnityTearDown]
-        public IEnumerator TearDown()
+        public override IEnumerator TearDown()
         {
             yield return UnloadScene();
         }

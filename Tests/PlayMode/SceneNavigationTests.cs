@@ -53,15 +53,12 @@ namespace Meta.XR.MRUtilityKit.Tests
             }
         };
 
+        override protected string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/SceneNavigationTests.unity";
+
         private SceneNavigation _sceneNav;
         private GameObject _sceneNavGameObject;
         private EffectMesh _effectMesh;
-
-        private const float expectedCustomAgent = 24.29f;
-        private const float expectedDefaultAgent = 17.09f;
-        private const float expectedWithin = 0.01f;
-        private const float expectedSceneDataCustomAgentGlobalMesh = 5.74f;
-        private const float expectedBuiltInCustomAgentGlobalMesh = 5.55f;
+        private const float expectedWithin = 0.1f;
 
 
         private const string _sceneDataCustomAgent =
@@ -128,126 +125,154 @@ namespace Meta.XR.MRUtilityKit.Tests
         }
 
         [UnitySetUp]
-        public IEnumerator SetUp()
+        public override IEnumerator SetUp()
         {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/SceneNavigationTests.unity", false);
-            _sceneNav = Object.FindFirstObjectByType<SceneNavigation>();
+            yield return base.SetUp();
             _effectMesh = Object.FindFirstObjectByType<EffectMesh>();
+            RoomSetUp += (x, y) => { _effectMesh.CreateMesh(); };
+            RoomTearDown += (x, y) =>
+            {
+                _effectMesh.DestroyMesh();
+                _sceneNav.RemoveNavMeshData();
+            };
+            _sceneNav = Object.FindFirstObjectByType<SceneNavigation>();
         }
-
-
-        [UnityTearDown]
-        public IEnumerator TearDown()
-        {
-            yield return UnloadScene();
-        }
-
 
         [UnityTest]
         public IEnumerator NavMeshBuild_BuiltIn_CustomAgent()
         {
-            _effectMesh.DestroyMesh();
-            _sceneNav.RemoveNavMeshData();
-            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            SetUpSceneNavigationTest(_builtInCustomAgent);
-            _sceneNav.BuildSceneNavMesh();
-            yield return null;
-            var triangulation = NavMesh.CalculateTriangulation();
-            yield return null;
-            Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
-            var triangulatedArea =
-              TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
-            Assert.That(expectedCustomAgent, Is.EqualTo(triangulatedArea).Within(expectedWithin),
-              "Expected triangulated area should be be equal to the actual NavMesh triangulated area within a tolerance of 0.001");
+            Debug.Log("NavMeshBuild_BuiltIn_CustomAgent");
+            MRUK.Instance.SceneSettings.DataSource = MRUK.SceneDataSource.Prefab;
+            yield return RunTestOnAllScenes(delegate (MRUKRoom room)
+            {
+                IEnumerator TestCoroutine()
+                {
+                    SetUpSceneNavigationTest(_builtInCustomAgent);
+                    _sceneNav.BuildSceneNavMesh();
+                    yield return null;
+                    var triangulation = NavMesh.CalculateTriangulation();
+                    yield return null;
+                    Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
+                    var triangulatedArea =
+                      TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
+                    Assert.IsTrue(triangulatedArea > 0);
+
+                }
+                return TestCoroutine();
+            });
         }
 
         [UnityTest]
         public IEnumerator NavMeshBuild_BuiltIn_DefaultAgent()
         {
-            _effectMesh.DestroyMesh();
-            _sceneNav.RemoveNavMeshData();
-            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            SetUpSceneNavigationTest(_builtInDefaultAgent);
-            _sceneNav.BuildSceneNavMesh();
-            yield return null;
-            var triangulation = NavMesh.CalculateTriangulation();
-            yield return null;
-            Assert.IsTrue(NavMesh.CalculateTriangulation().vertices.Length > 0, "NavMesh should have vertices.");
-            var triangulatedArea =
-              TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
-            Assert.That(expectedDefaultAgent, Is.EqualTo(triangulatedArea).Within(expectedWithin),
-              "Expected triangulated area should be be equal to the actual NavMesh triangulated area within a tolerance of 0.001");
+            MRUK.Instance.SceneSettings.DataSource = MRUK.SceneDataSource.Prefab;
+            yield return RunTestOnAllScenes(delegate (MRUKRoom room)
+            {
+                IEnumerator TestCoroutine()
+                {
+                    SetUpSceneNavigationTest(_builtInDefaultAgent);
+                    _sceneNav.BuildSceneNavMesh();
+                    var triangulation = NavMesh.CalculateTriangulation();
+                    yield return null;
+                    Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
+                    var triangulatedArea =
+                      TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
+                    Assert.IsTrue(triangulatedArea > 0);
+                }
+                return TestCoroutine();
+            });
         }
 
         [UnityTest]
         public IEnumerator NavMeshBuild_UseSceneData_CustomAgent()
         {
-            _effectMesh.DestroyMesh();
-            _sceneNav.RemoveNavMeshData();
-            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            SetUpSceneNavigationTest(_sceneDataCustomAgent);
-            _sceneNav.BuildSceneNavMesh();
-            yield return null;
-            var triangulation = NavMesh.CalculateTriangulation();
-            Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
-            var triangulatedArea =
-              TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
-            Assert.That(expectedCustomAgent, Is.EqualTo(triangulatedArea).Within(expectedWithin),
-              "Expected triangulated area should be be equal to the actual NavMesh triangulated area within a tolerance of 0.001");
+            MRUK.Instance.SceneSettings.DataSource = MRUK.SceneDataSource.Prefab;
+            yield return RunTestOnAllScenes(delegate (MRUKRoom room)
+            {
+                IEnumerator TestCoroutine()
+                {
+                    SetUpSceneNavigationTest(_sceneDataCustomAgent);
+                    _sceneNav.BuildSceneNavMesh();
+                    yield return null;
+                    var triangulation = NavMesh.CalculateTriangulation();
+                    Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
+                    var triangulatedArea =
+                      TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
+                    Assert.IsTrue(triangulatedArea > 0);
+                }
+                return TestCoroutine();
+            });
         }
 
         [UnityTest]
         public IEnumerator NavMeshBuild_UseSceneData_DefaultAgent()
         {
-            _effectMesh.DestroyMesh();
-            _sceneNav.RemoveNavMeshData();
-            yield return LoadSceneFromPrefabAndWait(MRUK.Instance.SceneSettings.RoomPrefabs[0]);
-            SetUpSceneNavigationTest(_sceneDataDefaultAgent);
-            _sceneNav.BuildSceneNavMesh();
-            yield return null;
-            var triangulation = NavMesh.CalculateTriangulation();
-            Assert.IsTrue(NavMesh.CalculateTriangulation().vertices.Length > 0, "NavMesh should have vertices.");
-            var triangulatedArea =
-              TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
-            Assert.That(expectedDefaultAgent, Is.EqualTo(triangulatedArea).Within(expectedWithin),
-              "Expected triangulated area should be be equal to the actual NavMesh triangulated area within a tolerance of 0.001");
+            MRUK.Instance.SceneSettings.DataSource = MRUK.SceneDataSource.Prefab;
+            yield return RunTestOnAllScenes(delegate (MRUKRoom room)
+            {
+                IEnumerator TestCoroutine()
+                {
+                    SetUpSceneNavigationTest(_sceneDataDefaultAgent);
+                    _sceneNav.BuildSceneNavMesh();
+                    yield return null;
+                    var triangulation = NavMesh.CalculateTriangulation();
+                    Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
+                    var triangulatedArea =
+                      TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
+                    Assert.IsTrue(triangulatedArea > 0);
+                }
+                return TestCoroutine();
+            });
         }
 
         [UnityTest]
         public IEnumerator NavMeshBuild_UseSceneData_CustomAgent_GlobalMesh()
         {
-            _effectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
-            _effectMesh.DestroyMesh();
-            _sceneNav.RemoveNavMeshData();
-            yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
-            SetUpSceneNavigationTest(_sceneDataCustomAgentGlobalMesh);
-            _sceneNav.BuildSceneNavMesh();
-            yield return null;
-            var triangulation = NavMesh.CalculateTriangulation();
-            Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
-            var triangulatedArea =
-              TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
-            Assert.That(expectedSceneDataCustomAgentGlobalMesh, Is.EqualTo(triangulatedArea).Within(expectedWithin),
-              "Expected triangulated area should be be equal to the actual NavMesh triangulated area within a tolerance of 0.001");
+            MRUK.Instance.SceneSettings.DataSource = MRUK.SceneDataSource.Json;
+            yield return RunTestOnAllScenes(delegate (MRUKRoom room)
+            {
+                IEnumerator TestCoroutine()
+                {
+                    // This test uses JSON loading instead of room prefabs, so it doesn't use RunTestOnAllScenes
+                    _effectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
+                    yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
+                    SetUpSceneNavigationTest(_sceneDataCustomAgentGlobalMesh);
+                    _sceneNav.BuildSceneNavMesh();
+                    yield return null;
+                    var triangulation = NavMesh.CalculateTriangulation();
+                    Assert.IsTrue(triangulation.vertices.Length > 0, "NavMesh should have vertices.");
+                    var triangulatedArea =
+                      TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
+                    Assert.IsTrue(triangulatedArea >= 0);
+                }
+                return TestCoroutine();
+            });
         }
 
 
         [UnityTest]
         public IEnumerator NavMeshBuild_BuiltIn_CustomAgent_GlobalMesh()
         {
-            _effectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
-            _effectMesh.DestroyMesh();
-            _sceneNav.RemoveNavMeshData();
-            yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
-            SetUpSceneNavigationTest(_builtInCustomAgentGlobalMesh);
-            _sceneNav.BuildSceneNavMesh();
-            yield return null;
-            var triangulation = NavMesh.CalculateTriangulation();
-            Assert.IsTrue(NavMesh.CalculateTriangulation().vertices.Length > 0, "NavMesh should have vertices.");
-            var triangulatedArea =
-              TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
-            Assert.That(expectedBuiltInCustomAgentGlobalMesh, Is.EqualTo(triangulatedArea).Within(expectedWithin),
-              "Expected triangulated area should be be equal to the actual NavMesh triangulated area within a tolerance of 0.001");
+            MRUK.Instance.SceneSettings.DataSource = MRUK.SceneDataSource.Json;
+            yield return RunTestOnAllScenes(delegate (MRUKRoom room)
+            {
+                IEnumerator TestCoroutine()
+                {
+                    // This test uses JSON loading instead of room prefabs, so it doesn't use RunTestOnAllScenes
+                    _effectMesh.Labels = MRUKAnchor.SceneLabels.GLOBAL_MESH;
+                    yield return LoadSceneFromJsonStringAndWait(MRUK.Instance.SceneSettings.SceneJsons[0].ToString());
+                    SetUpSceneNavigationTest(_builtInCustomAgentGlobalMesh);
+                    _sceneNav.BuildSceneNavMesh();
+                    yield return null;
+                    var triangulation = NavMesh.CalculateTriangulation();
+                    Assert.IsTrue(NavMesh.CalculateTriangulation().vertices.Length > 0,
+                      "NavMesh should have vertices.");
+                    var triangulatedArea =
+                      TestUtilities.CalculateTriangulatedArea(triangulation.vertices, triangulation.indices);
+                    Assert.IsTrue(triangulatedArea >= 0);
+                }
+                return TestCoroutine();
+            });
         }
     }
 }

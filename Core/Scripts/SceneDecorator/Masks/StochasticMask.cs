@@ -18,9 +18,9 @@
  * limitations under the License.
  */
 
-using UnityEngine;
 using Meta.XR.MRUtilityKit.Extensions;
 using Meta.XR.Util;
+using UnityEngine;
 using Random = UnityEngine.Random;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
@@ -34,6 +34,15 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         [SerializeField]
         public CompositeMaskAdd.MaskLayer probabilitySource;
 
+        /// <summary>
+        /// This method applies the stochastic mask to the given candidate.
+        /// It first generates an affine transformation based on the provided parameters,
+        /// and then applies this transformation to the local position of the candidate.
+        /// The resulting position is used to sample the probability source mask,
+        /// and a random value is compared against it to return either 1 or 0.
+        /// </summary>
+        /// <param name="c">The candidate to apply the mask to.</param>
+        /// <returns>1 if the random value is less than the sampled probability, otherwise 0.</returns>
         public override float SampleMask(Candidate c)
         {
             var affineTransform = GenerateAffineTransform(offsetX, offsetY, rotation, scaleX, scaleY, shearX, shearY);
@@ -44,6 +53,11 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             return Random.value < probabilitySource.SampleMask(c) ? 1f : 0f;
         }
 
+        /// <summary>
+        /// Not used on this mask
+        /// </summary>
+        /// <param name="c">The candidate</param>
+        /// <returns>true</returns>
         public override bool Check(Candidate c)
         {
             return true;

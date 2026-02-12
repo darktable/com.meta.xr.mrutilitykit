@@ -29,6 +29,9 @@ using UnityEngine.Assertions;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using Debug = UnityEngine.Debug;
+#if UNITY_EDITOR
+using Meta.XR.Telemetry;
+#endif
 
 namespace Meta.XR
 {
@@ -41,11 +44,8 @@ namespace Meta.XR
     [DefaultExecutionOrder(-100)]
     public class PassthroughCameraAccess : MonoBehaviour
     {
-        private const string _cameraPermission = OVRPermissionsRequester.PassthroughCameraAccessPermission; // Required to access the Passthrough Camera API in Horizon OS v74 and above.
-        private const string _noPermissionMessage = nameof(PassthroughCameraAccess) + " doesn't have the required camera permission: " + _cameraPermission +
-                                                   ". Waiting for permission before enabling the camera...\n" +
-                                                   "To request camera permission, AndroidManifest.xml should contain this entry:\n" +
-                                                   "<uses-permission android:name=\"horizonos.permission.HEADSET_CAMERA\" />";
+        private const string CameraPermission = OVRPermissionsRequester.PassthroughCameraAccessPermission; // Required to access the Passthrough Camera API in Horizon OS v74 and above.
+        private const string NoPermissionMessage = nameof(PassthroughCameraAccess) + " doesn't have the required camera permission: " + CameraPermission + ". Please verify that the permission is granted before using this API.";
 
         /// <summary>
         /// Possible positions of the camera (Left or Right).
@@ -71,8 +71,9 @@ namespace Meta.XR
         private bool? _isPlaying;
         private int _lastUpdatedImageFrame;
         private bool _wasPlayingBeforePause;
-        private long _timestampNsMonotonic;
+        private long _timestampNsMonotonic; // same time base as XrTime
         private NativeArray<Color32> _colorsBuffer;
+        private bool _hasPermission;
 
         /// <summary>
         /// Maximum framerate for the camera stream (frames per second). The actual framerate may vary based on lighting conditions and the current workload.
@@ -138,7 +139,7 @@ namespace Meta.XR
         /// <returns>Native array that contains all pixels of the captured image.</returns>
         public NativeArray<Color32> GetColors()
         {
-            if (!ValidateIsEnabled())
+            if (!ValidateState())
             {
                 return default;
             }
@@ -155,21 +156,26 @@ namespace Meta.XR
         /// <returns>Texture with the latest camera image.</returns>
         public Texture GetTexture()
         {
-            if (!ValidateIsEnabled())
+            if (!ValidateState())
             {
                 return null;
             }
             return _texture;
         }
 
-        private bool ValidateIsEnabled()
+        private bool ValidateState()
         {
-            if (enabled)
+            if (!enabled)
             {
-                return true;
+                Debug.LogError(nameof(PassthroughCameraAccess) + " is not enabled. Please enable the component before accessing this API.", this);
+                return false;
             }
-            Debug.LogError(nameof(PassthroughCameraAccess) + " is not enabled. Please enable the component before accessing this API.", this);
-            return false;
+            if (!_hasPermission)
+            {
+                Debug.LogError(NoPermissionMessage, this);
+                return false;
+            }
+            return true;
         }
 
         /// <summary>Returns 'true' if the camera texture was updated this frame.</summary>
@@ -180,14 +186,17 @@ namespace Meta.XR
         {
             get
             {
+                var headset = OVRPlugin.GetSystemHeadsetType();
+#if UNITY_EDITOR
+                if (Application.isEditor)
+                {
+                    return headset is OVRPlugin.SystemHeadset.Meta_Link_Quest_3 or OVRPlugin.SystemHeadset.Meta_Link_Quest_3S or OVRPlugin.SystemHeadset.None;
+                }
+#endif
+
                 using var vrosClass = new AndroidJavaClass("vros.os.VrosBuild");
                 var osVersion = vrosClass.CallStatic<int>("getSdkVersion");
-                if (osVersion == 10000)
-                {
-                    return false;
-                }
                 const int minSupportedVersion = 74;
-                var headset = OVRPlugin.GetSystemHeadsetType();
                 return (headset is OVRPlugin.SystemHeadset.Meta_Quest_3 or OVRPlugin.SystemHeadset.Meta_Quest_3S) && osVersion >= minSupportedVersion;
             }
         }
@@ -206,23 +215,20 @@ namespace Meta.XR
                 byte* buffer = MRUKNativeFuncs.CameraAcquireLatestCpuImage != null
                     ? MRUKNativeFuncs.CameraAcquireLatestCpuImage(_currentCameraIndex, ref timestampMicroseconds, ref _timestampNsMonotonic)
                     : null;
+                if (buffer == null)
+                {
+                    return;
+                }
                 try
                 {
-                    if (buffer != null)
-                    {
-                        var tex2d = _texture as Texture2D;
-                        Assert.IsNotNull(tex2d);
-                        tex2d.LoadRawTextureData((IntPtr)buffer, CurrentResolution.x * CurrentResolution.y * sizeof(Color32));
-                        tex2d.Apply();
-                    }
+                    var tex2d = _texture as Texture2D;
+                    Assert.IsNotNull(tex2d);
+                    tex2d.LoadRawTextureData((IntPtr)buffer, CurrentResolution.x * CurrentResolution.y * sizeof(Color32));
+                    tex2d.Apply();
                 }
                 finally
                 {
                     MRUKNativeFuncs.CameraReleaseLatestCpuImage?.Invoke(_currentCameraIndex);
-                }
-                if (buffer == null)
-                {
-                    return;
                 }
             }
 #else
@@ -230,7 +236,7 @@ namespace Meta.XR
             {
                 return;
             }
-            PCADebugLog("GL.IssuePluginEvent");
+            PcaDebugLog("GL.IssuePluginEvent");
             GL.IssuePluginEvent(Marshal.GetFunctionPointerForDelegate(MRUKNativeFuncs.CameraUpdateNativeTexture), _currentCameraIndex);
             GL.InvalidateState(); // Needed because native code modifies render state
 #endif
@@ -263,17 +269,25 @@ namespace Meta.XR
             _texturePropertyID = Shader.PropertyToID(string.IsNullOrEmpty(_texturePropertyName) ? "_MainTex" : _texturePropertyName);
         }
 
-        private void Start() => OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadPassthroughCameraAccess).Send();
+        private void Start()
+        {
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadPassthroughCameraAccess);
+            unifiedEvent.SendMRUKEvent();
+        }
 
         private void OnEnable()
         {
-            if (Permission.HasUserAuthorizedPermission(_cameraPermission))
+            _hasPermission = Permission.HasUserAuthorizedPermission(CameraPermission);
+            if (_hasPermission)
             {
                 TryPlayOrDisable();
             }
             else
             {
-                Debug.LogWarning(_noPermissionMessage);
+                Debug.LogWarning(nameof(PassthroughCameraAccess) + " doesn't have the required camera permission: " + CameraPermission +
+                                 ". Waiting for permission before enabling the camera...\n" +
+                                 "To request camera permission, AndroidManifest.xml should contain this entry:\n" +
+                                 "<uses-permission android:name=\"horizonos.permission.HEADSET_CAMERA\" />");
                 StartCoroutine(WaitForPermissionsAndPlay());
             }
         }
@@ -286,8 +300,13 @@ namespace Meta.XR
 
         private IEnumerator WaitForPermissionsAndPlay()
         {
-            while (!Permission.HasUserAuthorizedPermission(_cameraPermission))
+            while (true)
             {
+                _hasPermission = Permission.HasUserAuthorizedPermission(CameraPermission);
+                if (_hasPermission)
+                {
+                    break;
+                }
                 yield return null;
             }
             TryPlayOrDisable();
@@ -322,7 +341,7 @@ namespace Meta.XR
 
         private void OnApplicationPause(bool isPaused)
         {
-            PCADebugLog($"OnApplicationPause {isPaused} {_currentCameraIndex}, CurrentResolution:{CurrentResolution}");
+            PcaDebugLog($"OnApplicationPause {isPaused} {_currentCameraIndex}, CurrentResolution:{CurrentResolution}");
             if (isPaused)
             {
                 if (_isPlaying.HasValue)
@@ -366,11 +385,18 @@ namespace Meta.XR
                 }
                 else
                 {
+#if UNITY_EDITOR
+                    IssueTracker.TrackError(IssueTracker.SDK.MRUK, "mruk-passthrough-camera-play-failed",
+                        $"{nameof(PassthroughCameraAccess)} failed to play camera at index {_currentCameraIndex}. " +
+                        $"Requires: 'Meta Horizon Link' v85 (or newer) or 'Meta XR Simulator' v85 (or newer), " +
+                        $"and Quest 3 or Quest 3S headset running HzOS v85 (or newer).");
+#else
                     Debug.LogError($"{nameof(PassthroughCameraAccess)} failed to play camera at index {_currentCameraIndex}.", this);
+#endif
                 }
                 return false;
             }
-            PCADebugLog($"Play() {_currentCameraIndex} {w}x{h}");
+            PcaDebugLog($"Play() {_currentCameraIndex} {w}x{h}");
             _instances[_currentCameraIndex] = this;
 
             if (resolution != Vector2Int.zero && resolution != new Vector2Int(w, h))
@@ -415,7 +441,7 @@ namespace Meta.XR
 
         private void Stop()
         {
-            PCADebugLog($"Stop() {_currentCameraIndex}");
+            PcaDebugLog($"Stop() {_currentCameraIndex}");
             _instances[_currentCameraIndex] = null;
             if (MRUKNativeFuncs.CameraStop != null)
             {
@@ -425,7 +451,7 @@ namespace Meta.XR
             _isPlaying = null;
             Timestamp = default;
             Intrinsics = default;
-            PCADebugLog("GL.IssuePluginEvent() after CameraStop()");
+            PcaDebugLog("GL.IssuePluginEvent() after CameraStop()");
         }
 
         private static int GetCameraIndex(CameraPositionType cameraPosition)
@@ -445,9 +471,9 @@ namespace Meta.XR
         /// <returns>An array containing all supported resolutions.</returns>
         public static unsafe Vector2Int[] GetSupportedResolutions(CameraPositionType cameraPosition)
         {
-            if (!Permission.HasUserAuthorizedPermission(_cameraPermission))
+            if (!Permission.HasUserAuthorizedPermission(CameraPermission))
             {
-                Debug.LogError(_noPermissionMessage);
+                Debug.LogError(NoPermissionMessage);
                 return Array.Empty<Vector2Int>();
             }
             int cameraIndex = GetCameraIndex(cameraPosition);
@@ -537,21 +563,14 @@ namespace Meta.XR
             {
                 return default;
             }
-            var headPose = OVRPlugin.GetNodePoseStateAtTime(GetMonotonicTimestamp(), OVRPlugin.Node.Head).Pose.ToOVRPose();
+            if (MRUKNativeFuncs.GetHeadsetPoseAtTime == null)
+            {
+                return default;
+            }
+            var headPose = OVRPlugin.GetNodePoseStateAtTime(_timestampNsMonotonic * 1e-9f, OVRPlugin.Node.Head).Pose.ToOVRPose();
             var lensOffset = Intrinsics.LensOffset;
             return new Pose(headPose.position + headPose.orientation * lensOffset.position,
                 headPose.orientation * lensOffset.rotation);
-        }
-
-        private double GetMonotonicTimestamp()
-        {
-#if UNITY_EDITOR
-            if (!OVRPlugin.initialized)
-            {
-                return OVRPlugin.GetTimeInSeconds();
-            }
-#endif
-            return MRUKNativeFuncs.ConvertToXrTimeInSeconds(_timestampNsMonotonic);
         }
 
         private bool ValidateIsPlaying()
@@ -578,7 +597,7 @@ namespace Meta.XR
         }
 
         [System.Diagnostics.Conditional("DEBUG_PASSTHROUGH_CAMERA_ACCESS")]
-        private void PCADebugLog(object msg)
+        private void PcaDebugLog(object msg)
         {
             Debug.LogWarning($"frame:[{Time.frameCount}] PassthroughCamera {_currentCameraIndex}: {msg}");
         }

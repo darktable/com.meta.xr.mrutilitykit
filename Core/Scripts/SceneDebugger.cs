@@ -85,6 +85,7 @@ namespace Meta.XR.MRUtilityKit
         [Tooltip("Gaze pointer for VR interactions")]
         public OVRGazePointer GazePointer;
 
+        private const float SpawnDistanceFromCamera = 0.75f;
         private readonly Color _foregroundColor = new(0.2039f, 0.2549f, 0.2941f, 1f);
         private readonly Color _backgroundColor = new(0.11176f, 0.1568f, 0.1843f, 1f);
         private readonly int _srcBlend = Shader.PropertyToID("_SrcBlend");
@@ -97,6 +98,22 @@ namespace Meta.XR.MRUtilityKit
         private Material _debugMaterial;
         private OVRCameraRig _cameraRig;
         private MRUKRoom _currentRoom;
+        private GameObject _debugCube;
+        private GameObject _debugSphere;
+        private GameObject _debugNormal;
+        private GameObject _navMeshViz;
+        private GameObject _debugAnchor;
+        private bool _previousShowDebugAnchors;
+        private Mesh _debugCheckerMesh;
+        private MRUKAnchor _previousShownDebugAnchor;
+        private MRUKAnchor _globalMeshAnchor;
+        private NavMeshTriangulation _navMeshTriangulation;
+        private Action _debugAction;
+        private Canvas _canvas;
+        private SpaceMapGPU _spaceMapGPU;
+        private MeshCollider _globalMeshCollider;
+        private Material _navMeshMaterial;
+        private Material _checkerMeshMaterial;
 
         private bool _roomHasChanged
         {
@@ -113,27 +130,6 @@ namespace Meta.XR.MRUtilityKit
             }
         }
 
-
-        // For visual debugging of the room
-        private GameObject _debugCube;
-        private GameObject _debugSphere;
-        private GameObject _debugNormal;
-        private GameObject _navMeshViz;
-        private GameObject _debugAnchor;
-        private bool _previousShowDebugAnchors;
-        private Mesh _debugCheckerMesh;
-        private MRUKAnchor _previousShownDebugAnchor;
-        private MRUKAnchor _globalMeshAnchor;
-        private NavMeshTriangulation _navMeshTriangulation;
-        private Action _debugAction;
-        private Canvas _canvas;
-        private const float _spawnDistanceFromCamera = 0.75f;
-        private SpaceMapGPU _spaceMapGPU;
-        private MeshCollider _globalMeshCollider;
-        private Material _navMeshMaterial;
-        private Material _checkerMeshMaterial;
-
-
         private void Awake()
         {
             _cameraRig = FindAnyObjectByType<OVRCameraRig>();
@@ -147,7 +143,8 @@ namespace Meta.XR.MRUtilityKit
         private void Start()
         {
             MRUK.Instance?.RegisterSceneLoadedCallback(OnSceneLoaded);
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadSceneDebugger).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadSceneDebugger);
+            unifiedEvent.SendMRUKEvent();
             _currentRoom = MRUK.Instance?.GetCurrentRoom();
             _spaceMapGPU = GetSpaceMapGPU();
             if (MoveCanvasInFrontOfCamera)
@@ -160,16 +157,16 @@ namespace Meta.XR.MRUtilityKit
                 var toolSpaceMapGPU = Menus[0].transform.FindChildRecursive("SpaceMapGPU");
                 toolSpaceMapGPU.gameObject.SetActive(false);
             }
-            var _debugShader = Shader.Find("Meta/Lit");
-            _debugMaterial = new Material(_debugShader)
+            var debugShader = Shader.Find("Meta/Lit");
+            _debugMaterial = new Material(debugShader)
             {
                 color = Color.green
             };
-            _navMeshMaterial = new Material(_debugShader)
+            _navMeshMaterial = new Material(debugShader)
             {
                 color = Color.cyan
             };
-            SetupCheckerMeshMaterial(_debugShader);
+            SetupCheckerMeshMaterial(debugShader);
             CreateDebugPrimitives();
         }
 
@@ -1066,65 +1063,65 @@ namespace Meta.XR.MRUtilityKit
             newGameObject.transform.localRotation = localRotation;
             newGameObject.transform.localScale = Vector3.one;
             DestroyImmediate(newGameObject.GetComponent<Collider>());
-            const float NORMAL_OFFSET = 0.001f;
+            const float NormalOffset = 0.001f;
             if (_debugCheckerMesh == null)
             {
                 _debugCheckerMesh = new Mesh();
-                const int gridWidth = 10;
-                var cellWidth = 1.0f / gridWidth;
+                const int GridWidth = 10;
+                var cellWidth = 1.0f / GridWidth;
                 var xPos = -0.5f;
                 var yPos = -0.5f;
-                var totalTiles = gridWidth * gridWidth / 2;
+                var totalTiles = GridWidth * GridWidth / 2;
                 var totalVertices = totalTiles * 4;
                 var totalIndices = totalTiles * 6;
-                var MeshVertices = new Vector3[totalVertices];
-                var MeshUVs = new Vector2[totalVertices];
-                var MeshColors = new Color32[totalVertices];
-                var MeshNormals = new Vector3[totalVertices];
-                var MeshTangents = new Vector4[totalVertices];
-                var MeshTriangles = new int[totalIndices];
+                var meshVertices = new Vector3[totalVertices];
+                var meshUvs = new Vector2[totalVertices];
+                var meshColors = new Color32[totalVertices];
+                var meshNormals = new Vector3[totalVertices];
+                var meshTangents = new Vector4[totalVertices];
+                var meshTriangles = new int[totalIndices];
                 var vertCounter = 0;
                 var indexCounter = 0;
                 var quadCounter = 0;
-                for (var x = 0; x < gridWidth; x++)
+                for (var x = 0; x < GridWidth; x++)
                 {
                     var createQuad = x % 2 == 0;
-                    for (var y = 0; y < gridWidth; y++)
+                    for (var y = 0; y < GridWidth; y++)
                     {
                         if (createQuad)
                         {
-                            for (var V = 0; V < 4; V++)
+                            for (var v = 0; v < 4; v++)
                             {
-                                var localVertPos = new Vector3(xPos + x * cellWidth, yPos + y * cellWidth,
-                                    NORMAL_OFFSET);
-                                switch (V)
+                                var localVertexPosition = new Vector3(xPos + x * cellWidth, yPos + y * cellWidth,
+                                    NormalOffset);
+                                switch (v)
                                 {
                                     case 1:
-                                        localVertPos += new Vector3(0, cellWidth, 0);
+                                        localVertexPosition += new Vector3(0, cellWidth, 0);
                                         break;
                                     case 2:
-                                        localVertPos += new Vector3(cellWidth, cellWidth, 0);
+                                        localVertexPosition += new Vector3(cellWidth, cellWidth, 0);
                                         break;
                                     case 3:
-                                        localVertPos += new Vector3(cellWidth, 0, 0);
+                                        localVertexPosition += new Vector3(cellWidth, 0, 0);
                                         break;
                                 }
 
-                                MeshVertices[vertCounter] = localVertPos;
-                                MeshUVs[vertCounter] = Vector2.zero;
-                                MeshColors[vertCounter] = Color.black;
-                                MeshNormals[vertCounter] = Vector3.forward;
-                                MeshTangents[vertCounter] = Vector3.right;
+                                meshVertices[vertCounter] = localVertexPosition;
+                                meshUvs[vertCounter] = Vector2.zero;
+                                meshColors[vertCounter] = Color.black;
+                                meshNormals[vertCounter] = Vector3.forward;
+                                meshTangents[vertCounter] = Vector3.right;
                                 vertCounter++;
                             }
 
                             var baseCount = quadCounter * 4;
-                            MeshTriangles[indexCounter++] = baseCount;
-                            MeshTriangles[indexCounter++] = baseCount + 2;
-                            MeshTriangles[indexCounter++] = baseCount + 1;
-                            MeshTriangles[indexCounter++] = baseCount;
-                            MeshTriangles[indexCounter++] = baseCount + 3;
-                            MeshTriangles[indexCounter++] = baseCount + 2;
+                            meshTriangles[indexCounter++] = baseCount;
+                            meshTriangles[indexCounter++] = baseCount + 2;
+                            meshTriangles[indexCounter++] = baseCount + 1;
+                            meshTriangles[indexCounter++] = baseCount;
+                            meshTriangles[indexCounter++] = baseCount + 3;
+                            meshTriangles[indexCounter++] = baseCount + 2;
                             quadCounter++;
                         }
 
@@ -1134,12 +1131,12 @@ namespace Meta.XR.MRUtilityKit
 
                 _debugCheckerMesh.Clear();
                 _debugCheckerMesh.name = "CheckerMesh";
-                _debugCheckerMesh.vertices = MeshVertices;
-                _debugCheckerMesh.uv = MeshUVs;
-                _debugCheckerMesh.colors32 = MeshColors;
-                _debugCheckerMesh.triangles = MeshTriangles;
-                _debugCheckerMesh.normals = MeshNormals;
-                _debugCheckerMesh.tangents = MeshTangents;
+                _debugCheckerMesh.vertices = meshVertices;
+                _debugCheckerMesh.uv = meshUvs;
+                _debugCheckerMesh.colors32 = meshColors;
+                _debugCheckerMesh.triangles = meshTriangles;
+                _debugCheckerMesh.normals = meshNormals;
+                _debugCheckerMesh.tangents = meshTangents;
                 _debugCheckerMesh.RecalculateNormals();
                 _debugCheckerMesh.RecalculateTangents();
             }
@@ -1284,7 +1281,7 @@ namespace Meta.XR.MRUtilityKit
             yield return new WaitUntil(
                 () => _cameraRig && _cameraRig.centerEyeAnchor.transform.position != Vector3.zero);
             transform.position = _cameraRig.centerEyeAnchor.transform.position +
-                                 _cameraRig.centerEyeAnchor.transform.forward * _spawnDistanceFromCamera;
+                                 _cameraRig.centerEyeAnchor.transform.forward * SpawnDistanceFromCamera;
         }
     }
 }

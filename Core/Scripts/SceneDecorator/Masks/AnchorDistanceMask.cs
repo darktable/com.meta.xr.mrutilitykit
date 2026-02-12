@@ -32,17 +32,19 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
         /// Returns the distance from the hit to the anchor
         /// </summary>
         /// <param name="candidate">Candidate with the information from the distribution</param>
-        /// <returns>the distance</returns>
+        /// <returns>The distance</returns>
         public override float SampleMask(Candidate candidate)
         {
             return candidate.anchorDist;
         }
 
         /// <summary>
-        /// Not used in this mask
+        /// Validates whether the candidate is acceptable for anchor distance sampling.
+        /// This mask does not perform any filtering and always accepts all candidates
+        /// since it only samples distance values without applying constraints.
         /// </summary>
         /// <param name="candidate">Candidate with the information from the distribution</param>
-        /// <returns>true</returns>
+        /// <returns>Always returns true as this mask accepts all candidates</returns>
         public override bool Check(Candidate candidate)
         {
             return true;

@@ -20,10 +20,10 @@
 
 
 using System.Collections;
-using UnityEngine;
-using NUnit.Framework;
-using UnityEngine.TestTools;
 using System.Collections.Generic;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Meta.XR.MRUtilityKit.Tests
 {
@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TriangulateQuad()
         {
-            var vertices = new List<Vector2> { new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f) };
+            var vertices = new List<Vector2> { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
             Triangulator.TriangulatePoints(vertices, null, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(6, indices.Length);
@@ -50,8 +50,8 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TriangulateQuadWithHole()
         {
-            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(0f, 2f) };
-            var holes = new List<List<Vector2>> { new List<Vector2> { new(0.5f, 0.5f), new(0.5f, 1.5f), new(1.5f, 1.5f), new(1.5f, 0.5f) } };
+            var vertices = new List<Vector2> { new Vector2(0f, 0f), new Vector2(2f, 0f), new Vector2(2f, 2f), new Vector2(0f, 2f) };
+            var holes = new List<List<Vector2>> { new List<Vector2> { new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1.5f), new Vector2(1.5f, 1.5f), new Vector2(1.5f, 0.5f) } };
             Triangulator.TriangulatePoints(vertices, holes, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(24, indices.Length);
@@ -65,12 +65,29 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TriangulateQuadWith2HolesLarge()
         {
-            var vertices = new List<Vector2> {
-                new(101.985214f, 113.8258f), new(-101.985214f, 113.8258f), new(-101.985214f, -113.8258f), new(101.985214f, -113.8258f)
+            var vertices = new List<Vector2>
+            {
+                new Vector2(101.985214f, 113.8258f),
+                new Vector2(-101.985214f, 113.8258f),
+                new Vector2(-101.985214f, -113.8258f),
+                new Vector2(101.985214f, -113.8258f)
             };
-            var holes = new List<List<Vector2>> {
-                new List<Vector2> { new(18.395055731633885f, 9.0596833f), new(-72.518264268366110f, 9.0596833f), new(-72.518264268366110f, 67.2252527f), new(18.395055731633885f, 67.2252527f) },
-                new List<Vector2> { new(18.395055731633885f, -53.4203167f), new(-72.518264268366110f, -53.4203167f), new(-72.518264268366110f, 4.7452569f), new(18.395055731633885f, 4.7452569f) },
+            var holes = new List<List<Vector2>>
+            {
+                new List<Vector2>
+                {
+                    new Vector2(18.395055731633885f, 9.0596833f),
+                    new Vector2(-72.518264268366110f, 9.0596833f),
+                    new Vector2(-72.518264268366110f, 67.2252527f),
+                    new Vector2(18.395055731633885f, 67.2252527f)
+                },
+                new List<Vector2>
+                {
+                    new Vector2(18.395055731633885f, -53.4203167f),
+                    new Vector2(-72.518264268366110f, -53.4203167f),
+                    new Vector2(-72.518264268366110f, 4.7452569f),
+                    new Vector2(18.395055731633885f, 4.7452569f)
+                }
             };
             Triangulator.TriangulatePoints(vertices, holes, out var outVertices, out var indices);
             yield return null;
@@ -85,7 +102,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TriangulateQuadWith4Holes()
         {
-            var vertices = new List<Vector2> { new(0f, 0f), new(4f, 0f), new(4f, 4f), new(0f, 4f) };
+            var vertices = new List<Vector2> { new Vector2(0f, 0f), new Vector2(4f, 0f), new Vector2(4f, 4f), new Vector2(0f, 4f) };
             var holes = new List<List<Vector2>>();
             for (int i = 0; i < 4; i++)
             {
@@ -108,7 +125,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TriangulateLShape()
         {
-            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 2f), new(1f, 2f), new(1f, 1f), new(0f, 1f) };
+            var vertices = new List<Vector2> { new Vector2(0f, 0f), new Vector2(2f, 0f), new Vector2(2f, 2f), new Vector2(1f, 2f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
             Triangulator.TriangulatePoints(vertices, null, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(12, indices.Length);
@@ -122,7 +139,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         [Timeout(DefaultTimeoutMs)]
         public IEnumerator TriangulateCShape()
         {
-            var vertices = new List<Vector2> { new(0f, 0f), new(2f, 0f), new(2f, 1f), new(1f, 1f), new(1f, 2f), new(2f, 2f), new(2f, 3f), new(0f, 3f) };
+            var vertices = new List<Vector2> { new Vector2(0f, 0f), new Vector2(2f, 0f), new Vector2(2f, 1f), new Vector2(1f, 1f), new Vector2(1f, 2f), new Vector2(2f, 2f), new Vector2(2f, 3f), new Vector2(0f, 3f) };
             Triangulator.TriangulatePoints(vertices, null, out var outVertices, out var indices);
             yield return null;
             Assert.AreEqual(18, indices.Length);

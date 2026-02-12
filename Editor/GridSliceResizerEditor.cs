@@ -41,7 +41,7 @@ public class GridSliceResizerEditor : Editor
     private SerializedProperty _scalingY;
     private SerializedProperty _scalingZ;
 
-    private GUIStyle _underText;
+    private GUIStyle _underTextStyle;
     private SerializedProperty _updateInPlayMode;
 
     private void OnEnable()
@@ -59,7 +59,7 @@ public class GridSliceResizerEditor : Editor
         _borderYPositive = serializedObject.FindProperty(nameof(GridSliceResizer.BorderYPositive));
         _borderZPositive = serializedObject.FindProperty(nameof(GridSliceResizer.BorderZPositive));
         _updateInPlayMode = serializedObject.FindProperty(nameof(GridSliceResizer.UpdateInPlayMode));
-        _underText = new GUIStyle
+        _underTextStyle = new GUIStyle
         {
             fontStyle = FontStyle.Italic,
             normal =
@@ -71,8 +71,8 @@ public class GridSliceResizerEditor : Editor
 
     public override void OnInspectorGUI()
     {
-        var resizable = target as GridSliceResizer;
-        if (!resizable)
+        var gridSliceResizer = target as GridSliceResizer;
+        if (!gridSliceResizer)
         {
             return;
         }
@@ -92,7 +92,7 @@ public class GridSliceResizerEditor : Editor
         EditorGUILayout.PropertyField(_scalingX,
             new GUIContent("Scaling X", "The scaling method applied on the X axis"));
         EditorGUI.indentLevel++;
-        switch (resizable.ScalingX)
+        switch (gridSliceResizer.ScalingX)
         {
             case GridSliceResizer.Method.SLICE:
                 EditorGUILayout.PropertyField(_borderXNegative,
@@ -109,7 +109,7 @@ public class GridSliceResizerEditor : Editor
                 break;
             case GridSliceResizer.Method.SCALE:
             default:
-                CreateUnderText("Unity's default scaling method", _underText);
+                CreateUnderText("Unity's default scaling method", _underTextStyle);
                 break;
         }
 
@@ -118,7 +118,7 @@ public class GridSliceResizerEditor : Editor
         EditorGUILayout.PropertyField(_scalingY,
             new GUIContent("Scaling Y", "The scaling method applied on the Y axis"));
         EditorGUI.indentLevel++;
-        switch (resizable.ScalingY)
+        switch (gridSliceResizer.ScalingY)
         {
             case GridSliceResizer.Method.SLICE:
                 EditorGUILayout.PropertyField(_borderYNegative,
@@ -135,7 +135,7 @@ public class GridSliceResizerEditor : Editor
                 break;
             case GridSliceResizer.Method.SCALE:
             default:
-                CreateUnderText("Unity's default scaling method", _underText);
+                CreateUnderText("Unity's default scaling method", _underTextStyle);
                 break;
         }
 
@@ -144,7 +144,7 @@ public class GridSliceResizerEditor : Editor
         EditorGUILayout.PropertyField(_scalingZ,
             new GUIContent("Scaling Z", "The scaling method applied on the Z axis"));
         EditorGUI.indentLevel++;
-        switch (resizable.ScalingZ)
+        switch (gridSliceResizer.ScalingZ)
         {
             case GridSliceResizer.Method.SLICE:
                 EditorGUILayout.PropertyField(_borderZNegative,
@@ -161,7 +161,7 @@ public class GridSliceResizerEditor : Editor
                 break;
             case GridSliceResizer.Method.SCALE:
             default:
-                CreateUnderText("Unity's default scaling method", _underText);
+                CreateUnderText("Unity's default scaling method", _underTextStyle);
                 break;
         }
 

@@ -366,6 +366,8 @@ namespace Meta.XR.MRUtilityKit
             public string appDataPath;
             [MarshalAs(UnmanagedType.U1)] public bool flipPcaTextureVertically;
             [MarshalAs(UnmanagedType.U1)] public bool isLinearColorSpace;
+            [MarshalAs(UnmanagedType.U1)] public bool useScenelessWorldLocking;
+            [MarshalAs(UnmanagedType.U1)] public bool disablePcaMockFallback;
         }
 
 
@@ -589,6 +591,7 @@ namespace Meta.XR.MRUtilityKit
         internal delegate MrukResult RaycastEnvironmentDelegate(ref MrukEnvironmentRaycastHitPointGetInfo info, ref MrukEnvironmentRaycastHitPoint hitPoint);
         internal delegate void SetTrackingSpacePoseGetterDelegate(TrackingSpacePoseGetter getter);
         internal delegate void SetTrackingSpacePoseSetterDelegate(TrackingSpacePoseSetter setter);
+        internal delegate void SetUsePersistentWorldLockingDelegate([MarshalAs(UnmanagedType.U1)] bool usePersistentWorldLocking);
 
         /// Configures the tracker services. This should only be called after the global context
         /// has been created. The trackers that should be enabled can be passed in trackableMask.
@@ -699,26 +702,20 @@ namespace Meta.XR.MRUtilityKit
         /// @param[out] timestampMicrosecondsRealtime Timestamp of the image in microseconds since
         /// the Unix epoch.
         /// @param[out] timestampNsMonotonic Timestamp of the image in monotonic nanoseconds. Used for
-        /// getting the precise headset pose at the image's timestamp.
+        /// getting the precise headset pose at the image's timestamp. Same time base as XrTime
         /// @return A pointer to a buffer containing the RGBA (32 bits, 8 bits per channel) image data. If
         /// null, this means no new image is available.
         internal delegate byte* CameraAcquireLatestCpuImageDelegate(int eyeIndex, ref long timestampMicrosecondsRealtime, ref long timestampNsMonotonic);
 
         /// Releases the image buffer acquired by CameraAcquireLatestImage().
-        /// Must be called even if CameraAcquireLatestImage() returns null.
+        /// Must only be called if CameraAcquireLatestImage() does not return null.
         internal delegate void CameraReleaseLatestCpuImageDelegate(int eyeIndex);
 
-        /// Converts a timestamp in nanoseconds to seconds in XR time domain.
-        ///
-        /// @param[in] timeNsMonotonic The timestamp in nanoseconds (monotonic clock).
-        /// @return The corresponding time in seconds as a double.
-        internal delegate double ConvertToXrTimeInSecondsDelegate(long timeNsMonotonic);
-
         /// Get the headset's pose at the given timestamp
-        /// @param[in] time The timestamp in nanoseconds
+        /// @param[in] time The timestamp in nanoseconds. Same time base as XrTime
         /// @param[out] outPosition The headset position
         /// @param[out] outOrientation The headset orientation
-        internal delegate void GetHeadsetPoseAtTimeDelegate(long time, Vector3* outPosition, Quaternion* outOrientation);
+        internal delegate void GetHeadsetPoseAtTimeDelegate(long time, ref Vector3 outPosition, ref Quaternion outOrientation);
 
         internal static SetLogPrinterDelegate SetLogPrinter;
         internal static CreateGlobalContextDelegate CreateGlobalContext;
@@ -762,6 +759,7 @@ namespace Meta.XR.MRUtilityKit
         internal static RaycastEnvironmentDelegate RaycastEnvironment;
         internal static SetTrackingSpacePoseGetterDelegate SetTrackingSpacePoseGetter;
         internal static SetTrackingSpacePoseSetterDelegate SetTrackingSpacePoseSetter;
+        internal static SetUsePersistentWorldLockingDelegate SetUsePersistentWorldLocking;
         internal static ConfigureTrackersDelegate ConfigureTrackers;
         internal static SetTrackersUpdateIntervalDelegate SetTrackersUpdateInterval;
         internal static CheckQrCodeTrackingSupportedDelegate CheckQrCodeTrackingSupported;
@@ -778,7 +776,6 @@ namespace Meta.XR.MRUtilityKit
         internal static CameraStopDelegate CameraStop;
         internal static CameraAcquireLatestCpuImageDelegate CameraAcquireLatestCpuImage;
         internal static CameraReleaseLatestCpuImageDelegate CameraReleaseLatestCpuImage;
-        internal static ConvertToXrTimeInSecondsDelegate ConvertToXrTimeInSeconds;
         internal static GetHeadsetPoseAtTimeDelegate GetHeadsetPoseAtTime;
 
         internal static void LoadNativeFunctions()
@@ -825,6 +822,7 @@ namespace Meta.XR.MRUtilityKit
             RaycastEnvironment = MRUKNative.LoadFunction<RaycastEnvironmentDelegate>("RaycastEnvironment");
             SetTrackingSpacePoseGetter = MRUKNative.LoadFunction<SetTrackingSpacePoseGetterDelegate>("SetTrackingSpacePoseGetter");
             SetTrackingSpacePoseSetter = MRUKNative.LoadFunction<SetTrackingSpacePoseSetterDelegate>("SetTrackingSpacePoseSetter");
+            SetUsePersistentWorldLocking = MRUKNative.LoadFunction<SetUsePersistentWorldLockingDelegate>("SetUsePersistentWorldLocking");
             ConfigureTrackers = MRUKNative.LoadFunction<ConfigureTrackersDelegate>("ConfigureTrackers");
             SetTrackersUpdateInterval = MRUKNative.LoadFunction<SetTrackersUpdateIntervalDelegate>("SetTrackersUpdateInterval");
             CheckQrCodeTrackingSupported = MRUKNative.LoadFunction<CheckQrCodeTrackingSupportedDelegate>("CheckQrCodeTrackingSupported");
@@ -841,7 +839,6 @@ namespace Meta.XR.MRUtilityKit
             CameraStop = MRUKNative.LoadFunction<CameraStopDelegate>("CameraStop");
             CameraAcquireLatestCpuImage = MRUKNative.LoadFunction<CameraAcquireLatestCpuImageDelegate>("CameraAcquireLatestCpuImage");
             CameraReleaseLatestCpuImage = MRUKNative.LoadFunction<CameraReleaseLatestCpuImageDelegate>("CameraReleaseLatestCpuImage");
-            ConvertToXrTimeInSeconds = MRUKNative.LoadFunction<ConvertToXrTimeInSecondsDelegate>("ConvertToXrTimeInSeconds");
             GetHeadsetPoseAtTime = MRUKNative.LoadFunction<GetHeadsetPoseAtTimeDelegate>("GetHeadsetPoseAtTime");
         }
 
@@ -889,6 +886,7 @@ namespace Meta.XR.MRUtilityKit
             RaycastEnvironment = null;
             SetTrackingSpacePoseGetter = null;
             SetTrackingSpacePoseSetter = null;
+            SetUsePersistentWorldLocking = null;
             ConfigureTrackers = null;
             SetTrackersUpdateInterval = null;
             CheckQrCodeTrackingSupported = null;
@@ -905,7 +903,6 @@ namespace Meta.XR.MRUtilityKit
             CameraStop = null;
             CameraAcquireLatestCpuImage = null;
             CameraReleaseLatestCpuImage = null;
-            ConvertToXrTimeInSeconds = null;
             GetHeadsetPoseAtTime = null;
         }
 

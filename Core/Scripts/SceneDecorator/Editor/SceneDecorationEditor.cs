@@ -29,11 +29,14 @@ using Object = UnityEngine.Object;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// Custom editor for SceneDecoration components that provides UI for managing masks and modifiers.
+    /// </summary>
     [CustomEditor(typeof(SceneDecoration))]
     [Feature(Feature.Scene)]
     public class SceneDecorationEditor : UnityEditor.Editor
     {
-        private static readonly Type[] maskTypes = new Type[]
+        private static readonly Type[] MaskTypes = new Type[]
         {
             typeof(AnchorComponentDistanceMask),
             typeof(AnchorDistanceMask),
@@ -57,7 +60,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             typeof(StochasticMask)
         };
 
-        private static readonly Type[] modifierTypes = new Type[]
+        private static readonly Type[] ModifierTypes = new Type[]
         {
             typeof(DontDestroyOnLoadModifier),
             typeof(KeepUprightWithAnchorModifier),
@@ -68,27 +71,27 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             typeof(ScaleUniformModifier)
         };
 
-        private static readonly string[] excludedProperties = new string[] { "masks", "modifiers" };
+        private static readonly string[] ExcludedProperties = new string[] { "masks", "modifiers" };
 
         private bool _masksVisible;
         private bool _modifiersVisible;
 
-        GenericMenu _maskAddMenu;
-        GenericMenu _modifierAddMenu;
+        private GenericMenu _maskAddMenu;
+        private GenericMenu _modifierAddMenu;
 
-        ReorderableList _maskList;
-        ReorderableList _modifierList;
+        private ReorderableList _maskList;
+        private ReorderableList _modifierList;
 
         private void OnEnable()
         {
             _maskAddMenu = new GenericMenu();
-            foreach (Type maskType in maskTypes)
+            foreach (Type maskType in MaskTypes)
             {
                 _maskAddMenu.AddItem(new GUIContent(maskType.Name), false, CreateMask, maskType);
             }
 
             _modifierAddMenu = new GenericMenu();
-            foreach (Type modifierType in modifierTypes)
+            foreach (Type modifierType in ModifierTypes)
             {
                 _modifierAddMenu.AddItem(new GUIContent(modifierType.Name), false, CreateModifier, modifierType);
             }
@@ -156,10 +159,13 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             };
         }
 
+        /// <summary>
+        /// Renders the custom inspector GUI for SceneDecoration components.
+        /// </summary>
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
-            DrawPropertiesExcluding(serializedObject, excludedProperties);
+            DrawPropertiesExcluding(serializedObject, ExcludedProperties);
 
             _masksVisible = EditorGUILayout.Foldout(_masksVisible, "Masks", true);
             if (_masksVisible)

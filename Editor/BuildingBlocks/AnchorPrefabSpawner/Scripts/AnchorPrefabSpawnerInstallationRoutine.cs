@@ -25,7 +25,6 @@ using UnityEngine;
 
 namespace Meta.XR.MRUtilityKit.BuildingBlocks
 {
-
     public class AnchorPrefabSpawnerInstallationRoutine : InstallationRoutine
     {
         internal enum PrefabSpawnerVariant
@@ -43,10 +42,12 @@ namespace Meta.XR.MRUtilityKit.BuildingBlocks
         {
             var defaultPrefab = Prefab.transform.GetChild(0).gameObject;
             var roomModelPrefab = Prefab.transform.GetChild(1).gameObject;
-            var spawnedPrefab = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView ? Instantiate(defaultPrefab) : Instantiate(roomModelPrefab);
+            var spawnedPrefab = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView
+                ? Instantiate(defaultPrefab)
+                : Instantiate(roomModelPrefab);
             var prefabName = AnchorPrefabSpawnerTheme == PrefabSpawnerVariant.DefaultView ? defaultPrefab.name : roomModelPrefab.name;
             spawnedPrefab.name = $"{Utils.BlockPublicTag} {prefabName}";
-            Undo.RegisterCreatedObjectUndo(spawnedPrefab, $"install {prefabName}");
+            Undo.RegisterCreatedObjectUndo(spawnedPrefab, $"Install {prefabName}");
             return new List<GameObject> { spawnedPrefab };
         }
     }

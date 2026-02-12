@@ -24,15 +24,21 @@ using UnityEditor;
 
 namespace Meta.XR.MRUtilityKit.SceneDecorator
 {
+    /// <summary>
+    /// Custom editor for the Modifier class that provides a specialized inspector interface.
+    /// </summary>
     [CustomEditor(typeof(Modifier), true)]
     [Feature(Feature.Scene)]
     public class ModifierEditor : UnityEditor.Editor
     {
+        /// <summary>
+        /// Renders the custom inspector GUI for the Modifier component.
+        /// </summary>
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
 
-            using (EditorGUI.ChangeCheckScope check = new EditorGUI.ChangeCheckScope())
+            using (var check = new EditorGUI.ChangeCheckScope())
             {
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("m_Name"));
 

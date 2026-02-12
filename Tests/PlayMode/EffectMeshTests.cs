@@ -33,66 +33,69 @@ namespace Meta.XR.MRUtilityKit.Tests
 {
     public class EffectMeshTests : MRUKTestBase
     {
-        private MRUKRoom _currentRoom;
-        private JSONTestHelper _jsonTestHelper;
-
         private static readonly int Room1VertCountWall = 4;
         private static readonly int Room1VertCountFloor = 8;
         private static readonly int Room1VertCountCeiling = 8;
         private static readonly int Room1VertCountTable = 24;
         private static readonly int Room1VertCountOther = 24;
 
+        private MRUKRoom _currentRoom;
+        private JSONTestHelper _jsonTestHelper;
+
+        protected override string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/EffectMeshTests.unity";
+
         [UnitySetUp]
-        public IEnumerator SetUp()
+        public override IEnumerator SetUp()
         {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/EffectMeshTests.unity");
+            yield return base.SetUp();
 
             _jsonTestHelper = Object.FindAnyObjectByType<JSONTestHelper>();
         }
 
         [UnityTearDown]
-        public IEnumerator TearDown()
+        public override IEnumerator TearDown()
         {
             DestroyAll();
-            yield return UnloadScene();
+            yield return base.TearDown();
         }
 
         private int GetRoom1Vertices()
         {
             return 7 * Room1VertCountWall
-                   + Room1VertCountFloor
-                   + Room1VertCountCeiling
-                   + Room1VertCountTable
-                   + 2 * Room1VertCountOther;
+                + Room1VertCountFloor
+                + Room1VertCountCeiling
+                + Room1VertCountTable
+                + 2 * Room1VertCountOther;
         }
+
         private int GetRoom1VerticesMoreAnchors()
         {
             return 7 * Room1VertCountWall
-                   + Room1VertCountFloor
-                   + Room1VertCountCeiling
-                   + Room1VertCountTable
-                   + 4 * Room1VertCountOther;
+                + Room1VertCountFloor
+                + Room1VertCountCeiling
+                + Room1VertCountTable
+                + 4 * Room1VertCountOther;
         }
 
         private int GetRoom1Room3Vertices()
         {
             return 7 * Room1VertCountWall // room1
-                   + Room1VertCountFloor
-                   + Room1VertCountCeiling
-                   + Room1VertCountTable
-                   + 2 * Room1VertCountOther
-                   + 7 * Room1VertCountWall // room3
-                   + Room1VertCountFloor
-                   + Room1VertCountCeiling
-                   + Room1VertCountTable
-                   + 2 * Room1VertCountOther;
+                + Room1VertCountFloor
+                + Room1VertCountCeiling
+                + Room1VertCountTable
+                + 2 * Room1VertCountOther
+                + 7 * Room1VertCountWall // room3
+                + Room1VertCountFloor
+                + Room1VertCountCeiling
+                + Room1VertCountTable
+                + 2 * Room1VertCountOther;
         }
 
         private int GetDefaultRoomVertices()
         {
             return 7 * Room1VertCountWall
-                   + Room1VertCountFloor
-                   + Room1VertCountCeiling;
+                + Room1VertCountFloor
+                + Room1VertCountCeiling;
         }
 
         /// <summary>
@@ -199,7 +202,7 @@ namespace Meta.XR.MRUtilityKit.Tests
 
             Assert.AreEqual(expectedVerts, vertCount);
 
-            //track room updates, we want just vertices of Room one for this test
+            // Track room updates, we want just vertices of Room one for this test
             effectMesh.TrackUpdates = true;
 
             yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
@@ -220,7 +223,7 @@ namespace Meta.XR.MRUtilityKit.Tests
         {
             var effectMesh = SetupEffectMesh();
 
-            //we just track one room, and we simulate an added room by the user
+            // We just track one room, and we simulate an added room by the user
             effectMesh.SpawnOnStart = MRUK.RoomFilter.CurrentRoomOnly;
 
             yield return LoadSceneFromJsonStringAndWait(_jsonTestHelper.SceneWithRoom1.text);
@@ -401,6 +404,7 @@ namespace Meta.XR.MRUtilityKit.Tests
             DestroyAll<MRUKAnchor>();
             DestroyAll<MRUKRoom>();
         }
+
         private void DestroyAll<T>() where T : Component
         {
             var allObjects = Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);

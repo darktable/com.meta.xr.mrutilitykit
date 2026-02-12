@@ -21,9 +21,7 @@
 
 using System.Collections;
 using NUnit.Framework;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.TestTools.Utils;
 
@@ -32,18 +30,13 @@ namespace Meta.XR.MRUtilityKit.Tests
     public class RayCastTests : MRUKTestBase
     {
         private MRUKRoom _currentRoom;
+        protected override string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/RayCastTests.unity";
 
         [UnitySetUp]
-        public IEnumerator SetUp()
+        public override IEnumerator SetUp()
         {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/RayCastTests.unity");
+            yield return base.SetUp();
             _currentRoom = MRUK.Instance.GetCurrentRoom();
-        }
-
-        [UnityTearDown]
-        public IEnumerator TearDown()
-        {
-            yield return UnloadScene();
         }
 
         /// <summary>
@@ -204,8 +197,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_Polygon_DoesHit()
         {
             Ray mockRay = new Ray(new Vector3(0f, 1f, 1f), Vector3.down);
-            _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
+            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
             yield return null;
+            Assert.IsTrue(didHit);
             Assert.IsTrue(hit.point != Vector3.zero);
             Assert.IsNotNull(anchorInfo);
             Assert.IsTrue(anchorInfo.Label.HasFlag(MRUKAnchor.SceneLabels.FLOOR));
@@ -224,8 +218,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_OutOfRoom_HitFloor()
         {
             Ray mockRay = new Ray(new Vector3(0f, 5f, 0f), Vector3.down);
-            _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
+            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
             yield return null;
+            Assert.IsTrue(didHit);
             Assert.IsTrue(hit.point == Vector3.zero);
             Assert.IsTrue(anchorInfo.Label.HasFlag(MRUKAnchor.SceneLabels.FLOOR));
             Assert.IsNotNull(anchorInfo);
@@ -239,9 +234,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_OutOfRoom_DoesNotHit()
         {
             Ray mockRay = new Ray(new Vector3(0f, 5f, 0f), Vector3.up);
-            _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
+            bool didHit = _currentRoom.Raycast(mockRay, Mathf.Infinity, out RaycastHit hit, out MRUKAnchor anchorInfo);
             yield return null;
-            // Test that the ray cast does not hit any scene anchors
+            Assert.IsFalse(didHit);
             Assert.IsTrue(hit.point == Vector3.zero);
             Assert.IsNull(anchorInfo);
         }
@@ -254,9 +249,9 @@ namespace Meta.XR.MRUtilityKit.Tests
         public IEnumerator Raycast_BeyondMaxDistance_DoesNotHit()
         {
             Ray mockRay = new Ray(new Vector3(0f, 1f, 1f), Vector3.down);
-            _currentRoom.Raycast(mockRay, 0.01f, out RaycastHit hit, out MRUKAnchor anchorInfo);
+            bool didHit = _currentRoom.Raycast(mockRay, 0.01f, out RaycastHit hit, out MRUKAnchor anchorInfo);
             yield return null;
-            // Test that the ray cast does not hit any scene anchors
+            Assert.IsFalse(didHit);
             Assert.IsTrue(hit.point == Vector3.zero);
             Assert.IsNull(anchorInfo);
         }

@@ -61,7 +61,7 @@ namespace Meta.XR.MRUtilityKit
     ///     will occur. Typically, you'll want the pivot in the middle of the mesh and the borders set to around 0.8.
     ///     You can visualize the borders and pivot either in the editor, in the prefab mode and during play.
     ///     This component is only compatible with meshes that have read/write access enabled.
-    ///     It is usually used in conjunction with the <see cref="AnchorPrefabSpawner" /> component to dinamically instantiate
+    ///     It is usually used in conjunction with the <see cref="AnchorPrefabSpawner" /> component to dynamically instantiate
     ///     and resize prefabs based on anchors without losing the proportions of specific sections of the mesh.
     /// </summary>
     [HelpURL(
@@ -185,7 +185,7 @@ namespace Meta.XR.MRUtilityKit
         /// This can be useful for dynamic scaling effects but may impact performance if used excessively.
         /// When instantiating prefab through the <see cref="AnchorPrefabSpawner" /> component, this property
         /// should be set to true.
-        /// /// </summary>
+        /// </summary>
         [Tooltip(
             "Indicates whether the resizer should update the mesh in play mode." +
             "When set to true, the mesh will continue to be updated based on the scaling settings during runtime." +
@@ -247,7 +247,8 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadGridSliceResizer).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadGridSliceResizer);
+            unifiedEvent.SendMRUKEvent();
         }
 
         public void Update()

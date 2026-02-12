@@ -20,8 +20,8 @@
 
 
 using System.Collections;
-using UnityEngine;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.TestTools.Utils;
 
@@ -30,18 +30,13 @@ namespace Meta.XR.MRUtilityKit.Tests
     public class ClosestSurfacePositionTests : MRUKTestBase
     {
         private MRUKRoom _currentRoom;
+        protected override string SceneToTest => "Packages/com.meta.xr.mrutilitykit/Tests/RayCastTests.unity";
 
         [UnitySetUp]
-        public IEnumerator SetUp()
+        public override IEnumerator SetUp()
         {
-            yield return LoadScene("Packages/com.meta.xr.mrutilitykit/Tests/RayCastTests.unity");
+            yield return base.SetUp();
             _currentRoom = MRUK.Instance.GetCurrentRoom();
-        }
-
-        [UnityTearDown]
-        public IEnumerator TearDown()
-        {
-            yield return UnloadScene();
         }
 
         /// <summary>

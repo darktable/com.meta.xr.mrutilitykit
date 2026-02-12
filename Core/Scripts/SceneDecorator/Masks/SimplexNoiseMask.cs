@@ -36,7 +36,7 @@ namespace Meta.XR.MRUtilityKit.SceneDecorator
             var tuv = Float3X3.Multiply(affineTransform, Vector3Extensions.FromVector2AndZ(c.localPos, 1f));
             tuv /= tuv.z;
 
-            var value = Mathf.Abs(SimplexNoise.srdnoise(new(tuv.x, tuv.y), 0).x);
+            var value = Mathf.Abs(SimplexNoise.Srdnoise(new(tuv.x, tuv.y), 0).x);
             return value;
         }
 

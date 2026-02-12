@@ -77,7 +77,8 @@ namespace Meta.XR.MRUtilityKit
             {
                 appDataPath = Application.persistentDataPath,
                 flipPcaTextureVertically = true,
-                isLinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear
+                isLinearColorSpace = QualitySettings.activeColorSpace == ColorSpace.Linear,
+                useScenelessWorldLocking = true
             };
             if (MRUKNativeFuncs.CreateGlobalContext(ref config) != MRUKNativeFuncs.MrukResult.Success)
             {
@@ -105,7 +106,6 @@ namespace Meta.XR.MRUtilityKit
                     {
                         Debug.LogError("Failed to register OpenXR event handler");
                     }
-
 
                     if (OVRPlugin.RegisterShutdownEventHandler(OnShutdownEvent) != OVRPlugin.Result.Success)
                     {
@@ -156,13 +156,12 @@ namespace Meta.XR.MRUtilityKit
             {
                 MRUKNativeFuncs.DestroyGlobalContext();
             }
-
             MRUKNative.FreeMRUKSharedLibrary();
             _openXrInitialised = false;
             _currentAppSpace = 0;
         }
 
-        private static void UpdateGlobalContext()
+        internal static void UpdateGlobalContext()
         {
             if (IsOpenXRAvailable)
             {
@@ -709,7 +708,7 @@ namespace Meta.XR.MRUtilityKit
             return new Quaternion(-rotation.z, rotation.w, -rotation.x, rotation.y);
         }
 
-        private static Pose FlipZ(Pose pose)
+        internal static Pose FlipZ(Pose pose)
         {
             // Transform from OpenXR Right-handed coordinate system
             // to Unity Left-handed coordinate system
@@ -810,7 +809,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static void SetLabels(MRUKAnchor anchor, MRUKNativeFuncs.MrukLabel semanticLabel)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetLabels));
+            using var profilerScope = new OVRProfilerScope(nameof(SetLabels));
 
             var labels = ConvertLabel(semanticLabel);
             var name = labels != 0 ? labels.ToString() : "UNDEFINED_ANCHOR";
@@ -823,7 +822,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static void SetLocalTransform(MRUKAnchor anchor, Pose pose)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetLocalTransform));
+            using var profilerScope = new OVRProfilerScope(nameof(SetLocalTransform));
 
             var convertedPos = FlipZRotateY180(pose);
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -834,7 +833,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static void SetTransform(MRUKAnchor anchor, Pose pose)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetTransform));
+            using var profilerScope = new OVRProfilerScope(nameof(SetTransform));
 
             var convertedPos = FlipZRotateY180(pose);
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -845,7 +844,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static unsafe void SetPlane(MRUKAnchor anchor, bool hasPlane, MRUKNativeFuncs.MrukPlane mrukPlane, Vector2* planeBoundary, uint planeBoundaryCount)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetPlane));
+            using var profilerScope = new OVRProfilerScope(nameof(SetPlane));
 
             if (hasPlane)
             {
@@ -871,7 +870,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static void SetVolume(MRUKAnchor anchor, bool hasVolume, MRUKNativeFuncs.MrukVolume volume)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetVolume));
+            using var profilerScope = new OVRProfilerScope(nameof(SetVolume));
 
             if (hasVolume)
             {
@@ -886,7 +885,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static unsafe void SetGlobalMesh(MRUKAnchor anchor, Vector3* globalMeshPositions, uint globalMeshPositionsCount, uint* globalMeshIndices, uint globalMeshIndicesCount)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetGlobalMesh));
+            using var profilerScope = new OVRProfilerScope(nameof(SetGlobalMesh));
 
             if (globalMeshPositionsCount > 0 && globalMeshIndicesCount > 0)
             {
@@ -923,7 +922,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static void SetParent(MRUKAnchor anchor, Guid parentUuid)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetParent));
+            using var profilerScope = new OVRProfilerScope(nameof(SetParent));
 
             // Check if this anchor has a parent UUID and set the ParentAnchor property
             if (parentUuid != Guid.Empty)
@@ -942,7 +941,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static unsafe void UpdateAnchorProperties(MRUKAnchor anchor, ref MRUKNativeFuncs.MrukSceneAnchor sceneAnchor)
         {
-            using var _1 = new OVRProfilerScope(nameof(UpdateAnchorProperties));
+            using var profilerScope = new OVRProfilerScope(nameof(UpdateAnchorProperties));
 
             SetLabels(anchor, sceneAnchor.semanticLabel);
             SetTransform(anchor, sceneAnchor.pose);
@@ -966,7 +965,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static unsafe void SetMarkerPayload(MRUKTrackable anchor, MRUKNativeFuncs.MrukMarkerPayloadType payloadType, byte* payload, uint payloadCount)
         {
-            using var _1 = new OVRProfilerScope(nameof(SetMarkerPayload));
+            using var profilerScope = new OVRProfilerScope(nameof(SetMarkerPayload));
 
             if (payloadType != MRUKNativeFuncs.MrukMarkerPayloadType.None)
             {
@@ -992,7 +991,7 @@ namespace Meta.XR.MRUtilityKit
 
         private static unsafe void UpdateTrackableProperties(MRUKTrackable anchor, ref MRUKNativeFuncs.MrukTrackable trackable)
         {
-            using var _1 = new OVRProfilerScope(nameof(UpdateTrackableProperties));
+            using var profilerScope = new OVRProfilerScope(nameof(UpdateTrackableProperties));
 
             anchor.IsTracked = trackable.isTracked;
             SetLocalTransform(anchor, trackable.pose);
@@ -1053,7 +1052,7 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKRoom room = Instance.FindRoomByUuid(roomAnchor.uuid);
-                Debug.Assert(room != null, "Room should have been added in OnPreRoomAnchorAdded");
+                Debug.Assert(room is not null, $"OnRoomAnchorAdded Room {roomAnchor.uuid} should have been added in OnPreRoomAnchorAdded");
                 room.ComputeRoomInfo();
                 Instance.RoomCreatedEvent.Invoke(room);
             }
@@ -1069,7 +1068,7 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKRoom room = Instance.FindRoomByUuid(oldRoomAnchorUuid);
-                Debug.Assert(room != null, "Room should exist if it is being updated");
+                Debug.Assert(room is not null, $"OnRoomAnchorUpdated Room {oldRoomAnchorUuid} should exist");
                 room.Anchor = new OVRAnchor(roomAnchor.space, roomAnchor.uuid);
                 if (significantChange)
                 {
@@ -1090,7 +1089,7 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKRoom room = Instance.FindRoomByUuid(roomAnchor.uuid);
-                Debug.Assert(room is not null, "Room should exist if it is being removed");
+                Debug.Assert(room is not null, $"OnRoomAnchorRemoved Room {roomAnchor.uuid} should exist");
                 Instance.RoomRemovedEvent.Invoke(room);
                 Instance.Rooms.Remove(room);
                 Utilities.DestroyGameObjectAndChildren(room);
@@ -1107,7 +1106,7 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKRoom room = Instance.FindRoomByUuid(sceneAnchor.roomUuid);
-                Debug.Assert(room != null, "Room should exist");
+                Debug.Assert(room is not null, $"OnSceneAnchorAdded Room {sceneAnchor.roomUuid} should exist");
 
                 var anchorGo = new GameObject();
                 var anchor = anchorGo.AddComponent<MRUKAnchor>();
@@ -1148,9 +1147,9 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKRoom room = Instance.FindRoomByUuid(sceneAnchor.roomUuid);
-                Debug.Assert(room != null, "Room should exist");
+                Debug.Assert(room is not null, $"OnSceneAnchorUpdated Room {sceneAnchor.roomUuid} should exist");
                 MRUKAnchor anchor = room.FindAnchorByUuid(sceneAnchor.uuid);
-                Debug.Assert(anchor != null, "Anchor should exist");
+                Debug.Assert(anchor is not null, $"OnSceneAnchorUpdated Anchor {sceneAnchor.uuid} should exist");
 
                 UpdateAnchorProperties(anchor, ref sceneAnchor);
 
@@ -1171,9 +1170,9 @@ namespace Meta.XR.MRUtilityKit
             try
             {
                 MRUKRoom room = Instance.FindRoomByUuid(sceneAnchor.roomUuid);
-                Debug.Assert(room is not null, "Room should exist");
+                Debug.Assert(room is not null, $"OnSceneAnchorRemoved Room {sceneAnchor.roomUuid} should exist");
                 MRUKAnchor anchor = room.FindAnchorByUuid(sceneAnchor.uuid);
-                Debug.Assert(anchor is not null, "Anchor should exist");
+                Debug.Assert(anchor is not null, $"OnSceneAnchorRemoved Anchor {sceneAnchor.uuid} should exist");
 
                 room.AnchorRemovedEvent.Invoke(anchor);
                 room.RemoveAndDestroyAnchor(anchor);

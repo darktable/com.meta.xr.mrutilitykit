@@ -125,7 +125,8 @@ namespace Meta.XR.MRUtilityKit
 
         private void Start()
         {
-            OVRTelemetry.Start(TelemetryConstants.MarkerId.LoadFindSpawnPositions).Send();
+            var unifiedEvent = new OVRPlugin.UnifiedEventData(TelemetryConstants.EventName.LoadFindSpawnPositions);
+            unifiedEvent.SendMRUKEvent();
             if (MRUK.Instance && SpawnOnStart != MRUK.RoomFilter.None)
             {
                 MRUK.Instance.RegisterSceneLoadedCallback(() =>
